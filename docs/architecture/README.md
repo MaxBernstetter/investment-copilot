@@ -37,3 +37,4 @@ Overview: `ARCHITECTURE.md` at the repository root.
 | [[0014-taskfile-and-local-first-ci]] | Taskfile as single task entry point; thin CI that only calls tasks |
 | [[0015-pre-commit-hooks]] | pre-commit framework for git hooks |
 | [[0016-ecb-aaa-curve-as-first-source]] | ECB euro area AAA spot curve as the first source |
+| [[0017-ingestion-spool-on-garage]] | Spool fetched windows in Garage while persistence is unavailable |
