@@ -57,6 +57,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | Workflow | Trigger | Runs | Local equivalent |
 |---|---|---|---|
 | `static-analysis.yml` | Push to `main`, pull requests, manual | `task toolchain:lint`: all pre-commit hooks on all files | `devbox run -- task toolchain:lint` |
+| `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
 
 ### Current tasks
 
@@ -67,6 +68,16 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:setup` | Install the git hooks and their environments |
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
+
+Each service has its own Taskfile, included as `<service>:<task>` and run from the service directory (Python services use `uv run --locked`):
+
+| Task | Does |
+|---|---|
+| `ingestion:setup` | Create the virtual environment from `uv.lock` |
+| `ingestion:fmt` | Format with ruff and apply safe lint fixes |
+| `ingestion:lint` | ruff lint and format check |
+| `ingestion:typecheck` | mypy strict on sources and tests |
+| `ingestion:test:unit` | Unit tests (no I/O, no live sources) |
 
 ## Pre-commit hooks
 

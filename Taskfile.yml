@@ -6,6 +6,9 @@ includes:
   toolchain:
     taskfile: ./src/toolchain
     dir: .
+  ingestion:
+    taskfile: ./src/services/ingestion
+    dir: ./src/services/ingestion
 
 tasks:
   default:
