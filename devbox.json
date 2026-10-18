@@ -4,7 +4,8 @@
     "nodejs@26.12.0",
     "obsidian@latest",
     "pre-commit@latest",
-    "go-task@latest"
+    "go-task@latest",
+    "uv@0.13.0"
   ],
   "shell": {
     "init_hook": [

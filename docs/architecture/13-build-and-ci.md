@@ -77,9 +77,10 @@ Commit-time hooks are fast and file-scoped. Slow or cross-cutting checks (type c
 | pre-commit-hooks | Whitespace, final newline, LF line endings, YAML/JSON/TOML syntax, merge conflicts, case conflicts, shebang/executable consistency, large files, private keys |
 | gitleaks | Secret scanning |
 | ShellCheck, shfmt | Shell lint and format |
+| ruff | Python lint (`ruff-check`) and format (`ruff-format`); configuration per uv project in its `pyproject.toml` |
 | actionlint | GitHub Actions workflow lint |
 | zizmor | GitHub Actions security analysis (unpinned actions, credential persistence, template injection, permissions) |
 
-Hooks are added per language as components appear: ruff (Python), ESLint/Prettier (frontend), SQL linting for Liquibase/PL/SQL. Vendored agent skills and generated lockfiles are excluded.
+Hooks are added per language as components appear: ESLint/Prettier (frontend), SQL linting for Liquibase/PL/SQL. Vendored agent skills and generated lockfiles are excluded.
 
 Setup: `task toolchain:setup` once per clone; `task toolchain:lint` runs every hook.
