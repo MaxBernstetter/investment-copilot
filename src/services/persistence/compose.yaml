@@ -1,0 +1,56 @@
+# Local development database for the persistence service: Oracle Free plus the
+# Liquibase migrations. Used by `task persistence:db:*`; tests use Testcontainers.
+# Passwords come from the environment (the Taskfile sets local-only defaults).
+name: yieldlens-persistence
+
+x-liquibase: &liquibase
+  image: liquibase/liquibase:4.33.0
+  profiles: [migrate]
+  volumes:
+    - ./db:/liquibase/changelog:ro
+  command: [--search-path=/liquibase/changelog, update]
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    ports:
+      - 127.0.0.1:${PERSISTENCE_DB_PORT:-1521}:1521
+    environment:
+      ORACLE_PASSWORD: ${PERSISTENCE_DB_ADMIN_PASSWORD:?set PERSISTENCE_DB_ADMIN_PASSWORD}
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: [CMD, healthcheck.sh]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  migrate-admin:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: system
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_ADMIN_PASSWORD:?set PERSISTENCE_DB_ADMIN_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: admin/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+      CORE_PASSWORD: ${PERSISTENCE_DB_OWNER_PASSWORD:?set PERSISTENCE_DB_OWNER_PASSWORD}
+      CORE_APP_PASSWORD: ${PERSISTENCE_DB_PASSWORD:?set PERSISTENCE_DB_PASSWORD}
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  migrate:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: core
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_OWNER_PASSWORD:?set PERSISTENCE_DB_OWNER_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: core/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+    depends_on:
+      migrate-admin:
+        condition: service_completed_successfully
+
+volumes:
+  oracle-data:

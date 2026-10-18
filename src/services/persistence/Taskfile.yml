@@ -1,0 +1,59 @@
+# Persistence service tasks (uv project in this directory, CORE schema in db/).
+# Glue only: every command is a single binary call (see docs/architecture/13-build-and-ci.md).
+version: "3"
+
+# Local-only defaults for the development database started by db:start.
+# Override any of them through the environment; never reuse them outside your machine.
+env:
+  PERSISTENCE_DB_ADMIN_PASSWORD: '{{.PERSISTENCE_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
+  PERSISTENCE_DB_OWNER_PASSWORD: '{{.PERSISTENCE_DB_OWNER_PASSWORD | default "LocalOwner_1"}}'
+  PERSISTENCE_DB_PASSWORD: '{{.PERSISTENCE_DB_PASSWORD | default "LocalApp_1"}}'
+  PERSISTENCE_DB_DSN: '{{.PERSISTENCE_DB_DSN | default "localhost:1521/FREEPDB1"}}'
+
+tasks:
+  setup:
+    desc: Create the virtual environment from the lockfile
+    cmds:
+      - uv sync --locked
+
+  fmt:
+    desc: Format and auto-fix the Python code
+    cmds:
+      - uv run --locked ruff format
+      - uv run --locked ruff check --fix
+
+  lint:
+    desc: Lint the Python code and check its formatting
+    cmds:
+      - uv run --locked ruff check
+      - uv run --locked ruff format --check
+
+  typecheck:
+    desc: Type-check with mypy (strict)
+    cmds:
+      - uv run --locked mypy
+
+  test:integration:
+    desc: Run the integration tests against Oracle Free (Testcontainers)
+    cmds:
+      - uv run --locked pytest tests/integration
+
+  db:start:
+    desc: Start the local Oracle Free database and wait until it is healthy
+    cmds:
+      - docker compose up --detach --wait oracle
+
+  db:migrate:
+    desc: Apply the Liquibase changelogs (admin as SYSTEM, then CORE as its owner)
+    cmds:
+      - docker compose run --rm migrate
+
+  db:stop:
+    desc: Stop the local database (keeps its data)
+    cmds:
+      - docker compose stop oracle
+
+  db:reset:
+    desc: Remove the local database and its data
+    cmds:
+      - docker compose --profile migrate down --volumes
