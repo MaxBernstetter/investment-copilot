@@ -1,8 +1,12 @@
 """Write interface of the persistence service: record observation versions.
 
 Consumers (ingestion, processing) send a batch of observations; persistence
-stores each one as a new version with valid time (``valid_date``) and
-knowledge time (``known_from``, set by the database clock).
+stores each new or changed one as a new version with valid time
+(``valid_date``) and knowledge time (``known_from``, set by the database
+clock). Versions are never overwritten: a changed value or source for the
+same observation closes its open version and opens a new one. Sending an
+unchanged observation again (same value and source) is an idempotent no-op,
+so reloads and lookback windows can be sent as they are.
 """
 
 from datetime import date
@@ -79,9 +83,22 @@ class RecordVersionsRequest(BaseModel):
 
 
 class RecordVersionsResponse(BaseModel):
-    """Result of recording a batch: every version shares one knowledge time."""
+    """Result of recording a batch: every new version shares one knowledge time.
+
+    ``recorded_count + unchanged_count`` is the size of the batch.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    recorded_count: int = Field(ge=0, description="Number of versions stored")
-    known_from: AwareDatetime = Field(description="Knowledge time (UTC) of the recorded versions")
+    recorded_count: int = Field(
+        ge=0, description="Number of new versions stored (new or changed observations)"
+    )
+    unchanged_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of observations whose open version already had the same value "
+        "and source; nothing was stored for them",
+    )
+    known_from: AwareDatetime = Field(
+        description="Knowledge time (UTC) of the call; the new versions start at it"
+    )

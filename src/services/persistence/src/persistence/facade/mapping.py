@@ -21,5 +21,7 @@ def to_observation(version: v1.ObservationVersion) -> Observation:
 
 def to_response(recorded: RecordedVersions) -> v1.RecordVersionsResponse:
     return v1.RecordVersionsResponse(
-        recorded_count=recorded.recorded_count, known_from=recorded.known_from
+        recorded_count=recorded.recorded_count,
+        unchanged_count=recorded.unchanged_count,
+        known_from=recorded.known_from,
     )

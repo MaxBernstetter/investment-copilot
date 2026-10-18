@@ -4,6 +4,9 @@ An observation is a yield for a curve, maturity and valid date (valid time).
 Each recorded version also carries a knowledge time: the instant from which
 the platform knew it. The database sets the knowledge time, so the domain
 only describes what is to be recorded.
+
+Versions are never overwritten: recording a changed value (or source) closes
+the open version and opens a new one; recording an unchanged one is a no-op.
 """
 
 from collections import Counter
@@ -32,7 +35,10 @@ class InvalidObservationsError(ValueError):
 
 
 class OpenVersionExistsError(Exception):
-    """An observation of the batch already has an open version; nothing was recorded."""
+    """A concurrent write opened a version of an observation of the batch first.
+
+    Nothing was recorded; recording the batch again resolves it.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,10 +79,15 @@ class Observation:
 
 @dataclass(frozen=True, slots=True)
 class RecordedVersions:
-    """Outcome of recording a batch: all its versions share one knowledge time."""
+    """Outcome of recording a batch: all its new versions share one knowledge time.
+
+    ``recorded_count`` counts the new versions; ``unchanged_count`` the
+    observations whose open version already had the same value and source.
+    """
 
     known_from: datetime
     recorded_count: int
+    unchanged_count: int
 
 
 def ensure_unique_keys(observations: Iterable[Observation]) -> None:

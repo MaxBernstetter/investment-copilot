@@ -96,3 +96,19 @@ def test_response_requires_a_timezone_aware_knowledge_time() -> None:
         RecordVersionsResponse.model_validate(
             {"recorded_count": 1, "known_from": "2026-03-12T18:00:00"}
         )
+
+
+def test_response_reports_unchanged_observations() -> None:
+    response = RecordVersionsResponse.model_validate(
+        {"recorded_count": 1, "unchanged_count": 9, "known_from": "2026-03-12T18:00:00Z"}
+    )
+
+    assert (response.recorded_count, response.unchanged_count) == (1, 9)
+
+
+def test_response_without_unchanged_count_reports_none() -> None:
+    response = RecordVersionsResponse.model_validate(
+        {"recorded_count": 1, "known_from": "2026-03-12T18:00:00Z"}
+    )
+
+    assert response.unchanged_count == 0
