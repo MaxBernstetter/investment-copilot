@@ -1,0 +1,74 @@
+[project]
+name = "persistence"
+version = "0.1.0"
+description = "YieldLens persistence service: the bitemporal core (CORE schema)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "oracledb>=3.0",
+    "pydantic-settings>=2.8",
+    "uvicorn>=0.34",
+    "yieldlens-contracts",
+]
+
+[dependency-groups]
+dev = [
+    "docker>=7.1",
+    "httpx2>=2.13",
+    "import-linter>=2.3",
+    "mypy>=1.15",
+    "pytest>=8.3",
+    "ruff==0.17.1",
+    "testcontainers>=4.10",
+    "types-docker>=7.1",
+]
+
+[tool.uv.sources]
+yieldlens-contracts = { path = "../../contracts", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "N"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["persistence"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers point inward"
+type = "layers"
+layers = [
+    "persistence.api",
+    "persistence.facade | persistence.infrastructure",
+    "persistence.application",
+    "persistence.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "The domain has no I/O, frameworks or contracts"
+type = "forbidden"
+source_modules = ["persistence.domain", "persistence.application"]
+forbidden_modules = ["contracts", "fastapi", "oracledb", "pydantic", "pydantic_settings"]
