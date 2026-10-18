@@ -2,8 +2,8 @@
 
 ## Database
 
-- **Oracle Database Free 23ai**, one instance (see [[0001-oracle-plsql]]).
-- **One schema per service:** `ING`, `CORE`, `PROC`. Each schema has its own least-privilege user, with no cross-schema grants (see [[0002-service-per-bounded-context]]).
+- **Oracle Database Free 23ai**, one instance (see [[0001-oracle-plsql]]). The `gvenzl/oracle-free:23-*` images now report release 23.26 as "Oracle AI Database 26ai Free", Oracle's new name for the same release line.
+- **One schema per service:** `ING`, `CORE`, `PROC`. Each schema has its own least-privilege users, with no cross-schema grants (see [[0002-service-per-bounded-context]]): the schema owner (e.g. `CORE`), used only by migrations, and a runtime user (e.g. `CORE_APP`) with `EXECUTE` on the schema's packages and nothing else.
 - Each schema also holds the service's own transparency data: runs, lineage and business alerts (see [[10-observability]]).
 - `access` and `frontend` own no schema.
 - Airflow uses a separate Postgres instance for its own metadata only.
@@ -16,11 +16,12 @@ Every version of an observation is a row; rows are never updated in place except
 |---|---|
 | `curve_id`, `maturity`, `valid_date` | What the value describes (valid time) |
 | `value` | The yield |
-| `known_from`, `known_to` | Knowledge interval; `known_to` is open for the current version |
+| `known_from`, `known_to` | Knowledge interval (UTC, set by the database clock); `known_to` is `9999-12-31` (open) for the current version |
 | `origin` | `published` or `derived` (+ `method_version`) |
 | `source_id`, `run_id` | Provenance |
 | `change_reason` | Initial, revision, correction, recalculation, simulated |
 
+- Details of the implemented model: [[01-bitemporal-model]].
 - **As-of rule:** a version is visible at knowledge time *t* if `known_from <= t < known_to`.
 - **Integrity:** at most one open version per (`curve_id`, `maturity`, `valid_date`, `origin`, `method_version`).
 - **Simulated data** (scenario mechanism) is flagged and can be excluded or removed without touching real data.
@@ -54,5 +55,6 @@ Every version of an observation is a row; rows are never updated in place except
 - **Tests:** utPLSQL unit tests per package, run in CI against an Oracle Free container.
 - **Migrations:**
   - Liquibase SQL changelogs per schema, versioned with the service, applied on deploy. Never edit applied changesets.
+  - Liquibase runs from the `liquibase/liquibase` Docker image, which bundles the Oracle JDBC driver. Users and grants live in a separate admin changelog run as `SYSTEM`.
   - Changes follow **expand/contract**: old and new code (e.g. a running job on the previous image) must both work during a deploy.
 - **Naming:** `snake_case`; tables singular (`observation`), packages named `<schema>_<aggregate>`.
