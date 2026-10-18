@@ -15,8 +15,10 @@ src/
       native/              # C++ kernel (pybind11)
     access/
   frontend/                # React + TypeScript SPA
-  orchestration/
-    dags/
+  orchestration/           # Airflow (own uv project): DAGs plus small scheduling helpers
+    dags/                  # DAG files (the Airflow DAG folder)
+    src/orchestration/     # helpers the DAGs import, e.g. the TARGET calendar; no business logic
+    tests/unit/
   observability/           # platform: OTel Collector, Prometheus, Loki, Tempo, Grafana provisioning
   deploy/                  # docker-compose, Caddyfile, env templates
   toolchain/               # repository-wide tasks: static analysis, git hooks
