@@ -1,0 +1,31 @@
+# Contracts tasks: the shared interface models (uv project in this directory).
+# Glue only: every command is a single binary call (see docs/architecture/13-build-and-ci.md).
+version: "3"
+
+tasks:
+  setup:
+    desc: Create the virtual environment from the lockfile
+    cmds:
+      - uv sync --locked
+
+  fmt:
+    desc: Format and auto-fix the Python code
+    cmds:
+      - uv run --locked ruff format
+      - uv run --locked ruff check --fix
+
+  lint:
+    desc: Lint the Python code and check its formatting
+    cmds:
+      - uv run --locked ruff check
+      - uv run --locked ruff format --check
+
+  typecheck:
+    desc: Type-check with mypy (strict)
+    cmds:
+      - uv run --locked mypy
+
+  test:unit:
+    desc: Run the unit tests of the interface models
+    cmds:
+      - uv run --locked pytest
