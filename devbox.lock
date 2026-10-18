@@ -169,6 +169,44 @@
           "store_path": "/nix/store/i6jzjlpz4pzk6jz3b0v2h33qxz8wqy7i-pre-commit-4.6.2"
         }
       }
+    },
+    "uv@0.13.0": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#uv",
+      "source": "devbox-search",
+      "version": "0.13.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0vj0nxgh6v1s54cixa2mz1wzvdniyqj5-uv-0.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0vj0nxgh6v1s54cixa2mz1wzvdniyqj5-uv-0.13.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8i2qhx5qp8nycpwimlhqppbj2rvl76n9-uv-0.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8i2qhx5qp8nycpwimlhqppbj2rvl76n9-uv-0.13.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/373m9zapp9af30wim3d9i553fxyap7qz-uv-0.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/373m9zapp9af30wim3d9i553fxyap7qz-uv-0.13.0"
+        }
+      }
     }
   }
 }
