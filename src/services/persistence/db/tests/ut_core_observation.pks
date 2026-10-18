@@ -17,11 +17,28 @@ create or replace package ut_core_observation as
   --%test(Keeps the provenance of every version)
   procedure keeps_provenance;
 
-  --%test(Rejects a second open version and records nothing of the batch)
-  procedure rejects_second_open_version;
+  --%test(A changed value closes the open version and opens a new one)
+  procedure versions_a_changed_value;
 
-  --%test(Rejects an observation that appears twice in one batch)
-  --%throws(core_observation.open_version_exists)
+  --%test(A changed source closes the open version and opens a new one)
+  procedure versions_a_changed_source;
+
+  --%test(Keeps every previous version with contiguous knowledge intervals)
+  procedure keeps_previous_versions;
+
+  --%test(Each version is visible as of its own knowledge interval)
+  procedure versions_are_visible_as_of_their_knowledge_time;
+
+  --%test(An unchanged reload records nothing and keeps the open version as it was)
+  procedure unchanged_reload_is_a_no_op;
+
+  --%test(Records new, versions changed and skips unchanged observations in one batch)
+  procedure records_a_mixed_batch;
+
+  --%test(Versions observations of different origins and method versions independently)
+  procedure versions_origins_and_method_versions_independently;
+
+  --%test(Rejects an observation that appears twice in one batch and stores nothing of it)
   procedure rejects_duplicates_in_batch;
 
   --%test(Records nothing for an empty batch)
