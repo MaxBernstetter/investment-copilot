@@ -222,3 +222,22 @@ __marimo__/
 
 # Custom
 job-posting.md
+
+# Editor / IDE
+.idea
+.vscode
+
+# Local Claude Code settings and session state
+.claude/
+
+# Local shell and tool config (never project files)
+.bashrc
+.bash_profile
+.profile
+.zshrc
+.zprofile
+.gitconfig
+.ripgreprc
+
+# Devbox local state
+.devbox/
