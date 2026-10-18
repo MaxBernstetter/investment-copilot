@@ -14,7 +14,7 @@ Overview: `ARCHITECTURE.md` at the repository root.
 9. [[09-deployment]]: free live deployment and local environment
 10. [[10-observability]]: per-service transparency, monitoring and logging strategy
 11. [[11-service-design]]: facade vs. domain (DDD), `api`/`job` process types, service qualities
-12. [[12-data-pipeline]]: stages, source contracts, revisions, validation gates, replay, reference data, concurrency, retention, backup
+12. [[12-data-pipeline]]: stages, source contracts, revisions, source access policy, validation gates, replay, reference data, concurrency, retention, backup
 13. [[13-build-and-ci]]: devbox toolchain, Taskfile rules, tested scripts, thin local-first CI, pre-commit hooks
 
 ## Decisions
@@ -36,3 +36,4 @@ Overview: `ARCHITECTURE.md` at the repository root.
 | [[0013-openlineage]] | OpenLineage for run and dataset lineage; value lineage stays per service |
 | [[0014-taskfile-and-local-first-ci]] | Taskfile as single task entry point; thin CI that only calls tasks |
 | [[0015-pre-commit-hooks]] | pre-commit framework for git hooks |
+| [[0016-ecb-aaa-curve-as-first-source]] | ECB euro area AAA spot curve as the first source |
