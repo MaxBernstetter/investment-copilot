@@ -2,11 +2,13 @@
 
     ingestion-load-ecb daily --valid-date 2026-10-15 [--run-id ID]
     ingestion-load-ecb history --start 2004-09-06 --end 2026-10-16 [--run-id ID]
+    ingestion-load-ecb drain
 
 ``daily`` loads the valid date and the lookback window before it
 (``INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS``). ``history`` loads a range with
 one request per calendar year. The run id defaults to a deterministic value derived
-from the command and its dates, so a rerun of the same load reuses it.
+from the command and its dates, so a rerun of the same load reuses it. Every command
+first records what the spool holds; ``drain`` does only that and fetches nothing.
 """
 
 import argparse
@@ -15,7 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
-from ingestion.application.load_published_curve import LoadResult
+from ingestion.application.load_published_curve import LoadResult, WindowResult
 from ingestion.domain.windows import DateWindow, lookback_window, yearly_windows
 
 
@@ -29,6 +31,8 @@ def parse_command(argv: Sequence[str] | None, *, lookback_business_days: int) ->
     """Parse the arguments; exits with status 2 on a usage error (argparse)."""
     parser = _parser()
     arguments = parser.parse_args(argv)
+    if arguments.command == "drain":
+        return LoadCommand((), "ecb-drain")
     if arguments.command == "daily":
         valid_date: date = arguments.valid_date
         window = lookback_window(valid_date, lookback_business_days)
@@ -42,31 +46,42 @@ def parse_command(argv: Sequence[str] | None, *, lookback_business_days: int) ->
 
 
 def summary(result: LoadResult) -> str:
-    """One JSON line describing the finished run."""
+    """One JSON line describing the finished run: ``load_deferred`` while data waits
+    in the spool, ``load_finished`` otherwise."""
     return json.dumps(
         {
-            "event": "load_finished",
+            "event": "load_deferred" if result.is_deferred else "load_finished",
             "source": "ecb",
             "run_id": result.run_id,
             "delivered_count": result.delivered_count,
             "recorded_count": result.recorded_count,
             "unchanged_count": result.unchanged_count,
-            "windows": [
-                {
-                    "start": window.window.start.isoformat(),
-                    "end": window.window.end.isoformat(),
-                    "delivered_count": window.delivered_count,
-                    "recorded_count": sum(batch.recorded_count for batch in window.batches),
-                    "unchanged_count": sum(batch.unchanged_count for batch in window.batches),
-                    "known_from": [batch.known_from.isoformat() for batch in window.batches],
-                    "last_modified": (
-                        window.last_modified.isoformat() if window.last_modified else None
-                    ),
-                }
-                for window in result.windows
+            "windows": [_window(window) for window in result.windows],
+            "spooled_windows": [
+                {"start": window.start.isoformat(), "end": window.end.isoformat()}
+                for window in result.spooled
             ],
+            "drained": {
+                "windows": [_window(window) for window in result.drain.recorded],
+                "rejected": [
+                    {"key": item.key, "reason": item.reason} for item in result.drain.rejected
+                ],
+                "is_blocked": result.drain.is_blocked,
+            },
         }
     )
+
+
+def _window(result: WindowResult) -> dict[str, object]:
+    return {
+        "start": result.window.start.isoformat(),
+        "end": result.window.end.isoformat(),
+        "delivered_count": result.delivered_count,
+        "recorded_count": result.recorded_count,
+        "unchanged_count": result.unchanged_count,
+        "known_from": [batch.known_from.isoformat() for batch in result.batches],
+        "last_modified": result.last_modified.isoformat() if result.last_modified else None,
+    }
 
 
 def failure(run_id: str | None, error: Exception) -> str:
@@ -93,6 +108,7 @@ def _parser() -> argparse.ArgumentParser:
     history = commands.add_parser("history", help="a date range, one request per year")
     history.add_argument("--start", type=date.fromisoformat, required=True)
     history.add_argument("--end", type=date.fromisoformat, required=True)
+    commands.add_parser("drain", help="only record what the spool holds; fetch nothing")
     for command in (daily, history):
         command.add_argument("--run-id", help="defaults to a value derived from the dates")
     return parser

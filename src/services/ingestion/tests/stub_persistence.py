@@ -28,6 +28,8 @@ class StubPersistence:
     """Observations of each batch reported as unchanged (already stored)."""
     include_unchanged_count: bool = True
     """``False`` answers like persistence before versioning (no ``unchanged_count``)."""
+    is_reachable: bool = True
+    """``False`` refuses every connection, like a persistence api that is down."""
     batches: list[v1.RecordVersionsRequest] = field(default_factory=list)
     attempts: int = 0
     _next_status: Iterator[int] = field(init=False)
@@ -36,6 +38,8 @@ class StubPersistence:
         self._next_status = chain(self.statuses, repeat(200))
 
     def handle(self, request: httpx.Request) -> httpx.Response:
+        if not self.is_reachable:
+            raise httpx.ConnectError("connection refused", request=request)
         assert request.method == "POST"
         assert request.url.path == v1.RECORD_VERSIONS_PATH
         batch = v1.RecordVersionsRequest.model_validate_json(request.content)

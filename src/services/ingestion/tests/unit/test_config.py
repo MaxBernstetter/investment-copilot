@@ -7,8 +7,12 @@ PERSISTENCE_URL = "http://persistence.test:8001"
 
 
 @pytest.fixture(autouse=True)
-def persistence_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def required_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_PERSISTENCE__URL", PERSISTENCE_URL)
+    monkeypatch.setenv("INGESTION_SPOOL__URL", "s3://ingestion-spool")
+    monkeypatch.setenv("INGESTION_SPOOL__ENDPOINT", "http://spool.test:3900")
+    monkeypatch.setenv("INGESTION_SPOOL__ACCESS_KEY_ID", "GK" + "0" * 24)
+    monkeypatch.setenv("INGESTION_SPOOL__SECRET_ACCESS_KEY", "0" * 64)
 
 
 def test_defaults_are_the_conservative_ecb_values() -> None:
@@ -77,4 +81,21 @@ def test_invalid_or_unknown_settings_fail_at_startup(
     monkeypatch.setenv(name, value)
 
     with pytest.raises(ValidationError):
+        IngestionSettings()
+
+
+def test_the_spool_comes_from_environment_variables() -> None:
+    spool = IngestionSettings().spool
+
+    assert spool.url == "s3://ingestion-spool"
+    assert str(spool.endpoint) == "http://spool.test:3900/"
+    assert spool.region == "garage"
+    assert spool.secret_access_key.get_secret_value() == "0" * 64
+    assert "0" * 64 not in repr(spool)
+
+
+def test_the_spool_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("INGESTION_SPOOL__URL")
+
+    with pytest.raises(ValidationError, match="spool"):
         IngestionSettings()

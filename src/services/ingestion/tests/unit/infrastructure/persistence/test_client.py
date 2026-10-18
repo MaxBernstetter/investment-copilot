@@ -10,7 +10,11 @@ from contracts.persistence import v1
 from ingestion.application.load_published_curve import RecordedBatch
 from ingestion.config import PersistenceSettings
 from ingestion.domain.observation import PublishedObservation
-from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
+from ingestion.infrastructure.persistence import (
+    PersistenceClient,
+    PersistenceUnavailableError,
+    PersistenceWriteError,
+)
 from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
 
 pytestmark = pytest.mark.anyio
@@ -99,17 +103,36 @@ async def test_a_concurrent_write_conflict_is_retried_with_backoff() -> None:
     assert sleep.waits == [0.5, 1.0]
 
 
-async def test_conflicts_are_retried_at_most_three_times_in_all() -> None:
+async def test_a_conflict_lasting_three_attempts_means_unavailable_for_now() -> None:
+    # Not a refusal: the batch was not stored and can be sent again later.
     stub = StubPersistence(statuses=[409, 409, 409, 200])
 
-    with pytest.raises(PersistenceWriteError) as raised:
+    with pytest.raises(PersistenceUnavailableError) as raised:
         await record(stub, observations(1))
 
     assert raised.value.status_code == 409
     assert stub.attempts == 3
 
 
-@pytest.mark.parametrize("status_code", [422, 500, 503])
+@pytest.mark.parametrize("status_code", [500, 502, 503, 504])
+async def test_a_server_error_means_unavailable_without_retry(status_code: int) -> None:
+    stub = StubPersistence(statuses=[status_code])
+
+    with pytest.raises(PersistenceUnavailableError) as raised:
+        await record(stub, observations(1))
+
+    assert raised.value.status_code == status_code
+    assert stub.attempts == 1
+
+
+async def test_no_answer_means_unavailable() -> None:
+    with pytest.raises(PersistenceUnavailableError) as raised:
+        await record(StubPersistence(is_reachable=False), observations(1))
+
+    assert raised.value.status_code is None
+
+
+@pytest.mark.parametrize("status_code", [400, 422])
 async def test_other_rejections_fail_the_write_without_retry(status_code: int) -> None:
     stub = StubPersistence(statuses=[status_code])
 

@@ -1,5 +1,9 @@
 """Client of the persistence service (its write interface)."""
 
-from ingestion.infrastructure.persistence.client import PersistenceClient, PersistenceWriteError
+from ingestion.infrastructure.persistence.client import (
+    PersistenceClient,
+    PersistenceUnavailableError,
+    PersistenceWriteError,
+)
 
-__all__ = ["PersistenceClient", "PersistenceWriteError"]
+__all__ = ["PersistenceClient", "PersistenceUnavailableError", "PersistenceWriteError"]

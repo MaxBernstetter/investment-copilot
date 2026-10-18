@@ -16,6 +16,7 @@ from decimal import Decimal
 import obstore
 import polars as pl
 from obstore.store import ObjectStore, from_url
+from opentelemetry import metrics
 
 from ingestion.application.spool import SpooledDelivery
 from ingestion.config import SpoolSettings
@@ -24,6 +25,7 @@ from ingestion.domain.windows import DateWindow
 
 SPOOL_FORMAT = "1"
 """Version of the object layout below; bumped on any incompatible change."""
+EVENTS_METRIC = "yl_ingestion_spool_events_total"
 SCHEMA = {"curve_id": pl.String, "maturity": pl.String, "valid_date": pl.Date, "value": pl.String}
 
 
@@ -36,11 +38,18 @@ class ObjectStoreSpool:
         source_id: str,
         *,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        meter: metrics.Meter | None = None,
     ) -> None:
         self._store = store
+        self._source_id = source_id
         self._pending = f"{source_id}/pending/"
         self._rejected = f"{source_id}/rejected/"
         self._now = now
+        self._events = (meter or metrics.get_meter("ingestion")).create_counter(
+            EVENTS_METRIC,
+            unit="1",
+            description="Deliveries spooled, drained (recorded) and rejected, by source",
+        )
 
     async def put(self, delivery: Delivery, run_id: str) -> SpooledDelivery:
         fetched_at = self._now()
@@ -48,6 +57,7 @@ class ObjectStoreSpool:
         name = f"{fetched_at:%Y%m%dT%H%M%S%fZ}_{window.start}_{window.end}.parquet"
         item = SpooledDelivery(self._pending + name, delivery, run_id, fetched_at)
         await obstore.put_async(self._store, item.key, _encode(item))
+        self._count("spooled")
         return item
 
     async def pending(self) -> list[SpooledDelivery]:
@@ -56,10 +66,15 @@ class ObjectStoreSpool:
 
     async def remove(self, item: SpooledDelivery) -> None:
         await obstore.delete_async(self._store, item.key)
+        self._count("drained")
 
     async def reject(self, item: SpooledDelivery) -> None:
         target = self._rejected + item.key.removeprefix(self._pending)
         await obstore.rename_async(self._store, item.key, target)
+        self._count("rejected")
+
+    def _count(self, event: str) -> None:
+        self._events.add(1, {"source": self._source_id, "event": event})
 
     async def _read(self, path: str) -> SpooledDelivery:
         response = await obstore.get_async(self._store, path)
