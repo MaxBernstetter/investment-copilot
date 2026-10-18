@@ -9,7 +9,6 @@ from persistence.domain.observation import (
     ChangeReason,
     Observation,
     ObservationKey,
-    OpenVersionExistsError,
     Origin,
     RecordedVersions,
 )
@@ -33,14 +32,27 @@ def published(maturity: str = "10Y", value: str = "2.61", **changes: object) -> 
 
 
 class InMemoryObservationRepository:
-    """Records versions in memory with a fixed knowledge time."""
+    """Records versions in memory like core_observation, at a settable knowledge time."""
 
     def __init__(self) -> None:
+        self.known_from = KNOWN_FROM
         self.versions: list[tuple[Observation, datetime]] = []
+        self.open_versions: dict[ObservationKey, Observation] = {}
 
     async def record_versions(self, observations: Sequence[Observation]) -> RecordedVersions:
-        open_keys: set[ObservationKey] = {stored.key for stored, _ in self.versions}
-        if any(observation.key in open_keys for observation in observations):
-            raise OpenVersionExistsError("open version exists")
-        self.versions.extend((observation, KNOWN_FROM) for observation in observations)
-        return RecordedVersions(known_from=KNOWN_FROM, recorded_count=len(observations))
+        changed = [o for o in observations if not self._is_unchanged(o)]
+        for observation in changed:
+            self.open_versions[observation.key] = observation
+            self.versions.append((observation, self.known_from))
+        return RecordedVersions(
+            known_from=self.known_from,
+            recorded_count=len(changed),
+            unchanged_count=len(observations) - len(changed),
+        )
+
+    def _is_unchanged(self, observation: Observation) -> bool:
+        current = self.open_versions.get(observation.key)
+        return current is not None and (current.value, current.source_id) == (
+            observation.value,
+            observation.source_id,
+        )

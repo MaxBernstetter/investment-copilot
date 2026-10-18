@@ -1,14 +1,16 @@
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import oracledb
 import pytest
 
 from persistence.domain.observation import (
     ChangeReason,
+    InvalidObservationsError,
     Observation,
-    OpenVersionExistsError,
     Origin,
 )
 from persistence.infrastructure.oracle import OracleObservationRepository, create_pool
@@ -101,17 +103,102 @@ async def test_stores_provenance_and_origin(
     ) == ("derived", "nss-1", None, "ingestion-ecb-2026-03-12", "recalculation")
 
 
-async def test_rejects_a_second_open_version_and_stores_nothing_of_the_batch(
+async def test_a_changed_value_closes_the_open_version_and_opens_a_new_one(
+    oracle: OracleDatabase, repository: OracleObservationRepository, curve_id: str
+) -> None:
+    first = await repository.record_versions([observation(curve_id, "10Y", "2.61")])
+
+    second = await repository.record_versions([observation(curve_id, "10Y", "2.70")])
+
+    assert (second.recorded_count, second.unchanged_count) == (1, 0)
+    assert first.known_from < second.known_from
+    assert [
+        (v["value"], v["known_from"].replace(tzinfo=UTC), v["known_to"])
+        for v in stored_versions(oracle, curve_id)
+    ] == [
+        (2.61, first.known_from, second.known_from.replace(tzinfo=None)),
+        (2.7, second.known_from, OPEN),
+    ]
+
+
+async def test_an_unchanged_reload_is_an_idempotent_no_op(
+    oracle: OracleDatabase, repository: OracleObservationRepository, curve_id: str
+) -> None:
+    batch = [observation(curve_id, "2Y", "2.10"), observation(curve_id, "10Y", "2.61")]
+    await repository.record_versions(batch)
+    before = stored_versions(oracle, curve_id)
+    reload = [replace(o, run_id="ingestion-ecb-2026-03-13") for o in batch]
+
+    recorded = await repository.record_versions(reload)
+
+    assert (recorded.recorded_count, recorded.unchanged_count) == (0, 2)
+    assert stored_versions(oracle, curve_id) == before
+
+
+async def test_rejects_a_batch_with_duplicates_and_stores_nothing_of_it(
     oracle: OracleDatabase, repository: OracleObservationRepository, curve_id: str
 ) -> None:
     await repository.record_versions([observation(curve_id, "10Y")])
 
-    with pytest.raises(OpenVersionExistsError):
+    with pytest.raises(InvalidObservationsError):
         await repository.record_versions(
-            [observation(curve_id, "2Y"), observation(curve_id, "10Y", "2.70")]
+            [
+                observation(curve_id, "2Y"),
+                observation(curve_id, "10Y", "2.70"),
+                observation(curve_id, "10Y", "2.80"),
+            ]
         )
 
-    assert [v["maturity"] for v in stored_versions(oracle, curve_id)] == ["10Y"]
+    assert [(v["maturity"], v["known_to"]) for v in stored_versions(oracle, curve_id)] == [
+        ("10Y", OPEN)
+    ]
+
+
+async def test_concurrent_writers_of_one_observation_are_serialized(
+    oracle: OracleDatabase, repository: OracleObservationRepository, curve_id: str
+) -> None:
+    await repository.record_versions([observation(curve_id, "10Y", "2.61")])
+
+    with oracle.connect_as_app() as first:
+        record_without_commit(first, observation(curve_id, "10Y", "2.70"))
+        second = asyncio.create_task(
+            repository.record_versions([observation(curve_id, "10Y", "2.80")])
+        )
+        await asyncio.sleep(1)
+        assert not second.done(), "the second writer must wait for the first one's lock"
+        first.commit()
+    await second
+
+    versions = stored_versions(oracle, curve_id)
+    assert [v["value"] for v in versions] == [2.61, 2.7, 2.8]
+    assert [v["known_to"] for v in versions] == [
+        versions[1]["known_from"],
+        versions[2]["known_from"],
+        OPEN,
+    ]
+
+
+def record_without_commit(connection: oracledb.Connection, version: Observation) -> None:
+    """Record one version through the package and keep the transaction (and its locks) open."""
+    list_type = connection.gettype("CORE.OBSERVATION_VERSION_LIST_T")
+    element = list_type.element_type.newobject()
+    element.CURVE_ID = version.curve_id
+    element.MATURITY = version.maturity
+    element.VALID_DATE = version.valid_date
+    element.VALUE = version.value
+    element.ORIGIN = version.origin.value
+    element.SOURCE_ID = version.source_id
+    element.RUN_ID = version.run_id
+    element.CHANGE_REASON = version.change_reason.value
+    with connection.cursor() as cursor:
+        cursor.callproc(
+            "core.core_observation.record_versions",
+            [
+                list_type.newobject([element]),
+                cursor.var(oracledb.DB_TYPE_TIMESTAMP),
+                cursor.var(oracledb.DB_TYPE_NUMBER),
+            ],
+        )
 
 
 async def test_the_database_is_reachable(repository: OracleObservationRepository) -> None:

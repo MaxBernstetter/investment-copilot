@@ -13,7 +13,7 @@ async def test_records_every_observation_with_one_knowledge_time() -> None:
 
     recorded = await RecordVersions(repository)(batch)
 
-    assert recorded == RecordedVersions(known_from=KNOWN_FROM, recorded_count=2)
+    assert recorded == RecordedVersions(known_from=KNOWN_FROM, recorded_count=2, unchanged_count=0)
     assert repository.versions == [(batch[0], KNOWN_FROM), (batch[1], KNOWN_FROM)]
 
 
