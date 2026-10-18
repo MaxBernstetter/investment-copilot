@@ -1,18 +1,22 @@
 """The ECB load job end to end inside ingestion: recorded ECB payloads in, contract
 requests to a persistence stub out. No live source and no network are used."""
 
+import asyncio
 import json
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import httpx
 import pytest
 from contracts.persistence import v1
+from obstore.store import MemoryStore
 
 from ingestion.infrastructure.http import USER_AGENT
+from ingestion.infrastructure.spool import ObjectStoreSpool
 from ingestion.job import main
 from tests.recorded import (
     DAILY,
@@ -64,6 +68,11 @@ class Run:
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_PERSISTENCE__URL", URL)
+    # The tests inject an in-memory spool; the settings must still be complete.
+    monkeypatch.setenv("INGESTION_SPOOL__URL", "s3://ingestion-spool")
+    monkeypatch.setenv("INGESTION_SPOOL__ENDPOINT", "http://spool.test:3900")
+    monkeypatch.setenv("INGESTION_SPOOL__ACCESS_KEY_ID", "GK" + "0" * 24)
+    monkeypatch.setenv("INGESTION_SPOOL__SECRET_ACCESS_KEY", "0" * 64)
     # Pacing is the source client's concern (tested there); here it would only slow tests.
     monkeypatch.setenv("INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS", "0")
 
@@ -73,9 +82,13 @@ def run(
     argv: list[str],
     ecb: StubEcb,
     persistence: StubPersistence,
+    spool: ObjectStoreSpool | None = None,
 ) -> Run:
     exit_code = main(
-        argv, source_transport=ecb.transport, persistence_transport=persistence.transport
+        argv,
+        source_transport=ecb.transport,
+        persistence_transport=persistence.transport,
+        spool=spool or ObjectStoreSpool(MemoryStore(), "ecb"),
     )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
@@ -286,3 +299,151 @@ def test_invalid_arguments_are_usage_errors(argv: list[str]) -> None:
         main(argv)
 
     assert raised.value.code == 2
+
+
+# Persistence unavailable: the spool (#80).
+
+DAILY_ARGS = ["daily", "--valid-date", "2026-10-15"]
+HISTORY_ARGS = ["history", "--start", "2025-12-22", "--end", "2026-01-09"]
+HISTORY_PAYLOADS = {
+    ("2025-12-22", "2025-12-31"): HISTORY_2025,
+    ("2026-01-01", "2026-01-09"): HISTORY_2026,
+}
+
+
+class TickingClock:
+    """Fetch times one second apart, so spool order never depends on the real clock."""
+
+    def __init__(self) -> None:
+        self._seconds: Iterator[int] = iter(range(1_000))
+
+    def __call__(self) -> datetime:
+        return datetime(2026, 10, 18, 13, 15, tzinfo=UTC) + timedelta(seconds=next(self._seconds))
+
+
+def spool_in_memory() -> ObjectStoreSpool:
+    return ObjectStoreSpool(MemoryStore(), "ecb", now=TickingClock())
+
+
+def waiting(spool: ObjectStoreSpool) -> list[tuple[str, str, int]]:
+    """Window start, run id and size of each spooled delivery, oldest first."""
+    return [
+        (item.delivery.window.start.isoformat(), item.run_id, len(item.delivery.observations))
+        for item in asyncio.run(spool.pending())
+    ]
+
+
+@pytest.mark.parametrize(
+    "persistence",
+    [StubPersistence(statuses=[503]), StubPersistence(is_reachable=False)],
+    ids=["503", "unreachable"],
+)
+def test_unavailable_persistence_defers_the_load_and_keeps_what_was_fetched(
+    capsys: pytest.CaptureFixture[str], persistence: StubPersistence
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    spool = spool_in_memory()
+
+    result = run(capsys, DAILY_ARGS, ecb, persistence, spool)
+
+    assert result.exit_code == 3
+    assert result.summary["event"] == "load_deferred"
+    assert result.summary["spooled_windows"] == [{"start": "2026-10-01", "end": "2026-10-15"}]
+    assert persistence.batches == []
+    assert waiting(spool) == [("2026-10-01", "ecb-daily-2026-10-15", 121)]
+
+
+def test_losing_persistence_midway_spools_the_remaining_windows_after_fetching_them(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb(HISTORY_PAYLOADS)
+    persistence = StubPersistence(statuses=[200, 503])
+    spool = spool_in_memory()
+
+    result = run(capsys, HISTORY_ARGS, ecb, persistence, spool)
+
+    assert result.exit_code == 3
+    assert len(ecb.requests) == 2
+    assert [len(batch.observations) for batch in persistence.batches] == [66]
+    assert waiting(spool) == [("2026-01-01", "ecb-history-2025-12-22-2026-01-09", 66)]
+
+
+def test_the_next_run_records_the_spool_oldest_first_and_then_its_own_windows(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    spool = spool_in_memory()
+    run(capsys, HISTORY_ARGS, StubEcb(HISTORY_PAYLOADS), StubPersistence(statuses=[503]), spool)
+    persistence = StubPersistence()
+
+    result = run(
+        capsys, DAILY_ARGS, StubEcb({("2026-10-01", "2026-10-15"): DAILY}), persistence, spool
+    )
+
+    assert result.exit_code == 0
+    assert result.summary["event"] == "load_finished"
+    assert [(b.observations[0].run_id, len(b.observations)) for b in persistence.batches] == [
+        ("ecb-history-2025-12-22-2026-01-09", 66),
+        ("ecb-history-2025-12-22-2026-01-09", 66),
+        ("ecb-daily-2026-10-15", 121),
+    ]
+    assert [w["start"] for w in result.summary["drained"]["windows"]] == [
+        "2025-12-22",
+        "2026-01-01",
+    ]
+    assert waiting(spool) == []
+
+
+def test_while_the_spool_cannot_be_drained_new_windows_queue_behind_it(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    spool = spool_in_memory()
+    run(capsys, HISTORY_ARGS, StubEcb(HISTORY_PAYLOADS), StubPersistence(statuses=[503]), spool)
+    persistence = StubPersistence(statuses=[200, 503])
+
+    result = run(
+        capsys, DAILY_ARGS, StubEcb({("2026-10-01", "2026-10-15"): DAILY}), persistence, spool
+    )
+
+    assert result.exit_code == 3
+    assert result.summary["drained"]["is_blocked"] is True
+    assert persistence.attempts == 2  # the oldest item, then the next one; never the new window
+    assert [len(batch.observations) for batch in persistence.batches] == [66]
+    assert waiting(spool) == [
+        ("2026-01-01", "ecb-history-2025-12-22-2026-01-09", 66),
+        ("2026-10-01", "ecb-daily-2026-10-15", 121),
+    ]
+
+
+def test_drain_records_the_spool_without_asking_the_source(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    spool = spool_in_memory()
+    daily = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    run(capsys, DAILY_ARGS, daily, StubPersistence(is_reachable=False), spool)
+    ecb = StubEcb({})
+    persistence = StubPersistence()
+
+    result = run(capsys, ["drain"], ecb, persistence, spool)
+
+    assert result.exit_code == 0
+    assert ecb.requests == []
+    assert len(persistence.observations) == 121
+    assert {o.run_id for o in persistence.observations} == {"ecb-daily-2026-10-15"}
+    assert result.summary["drained"]["windows"][0]["recorded_count"] == 121
+    assert waiting(spool) == []
+
+
+def test_a_spooled_window_that_persistence_refuses_is_set_aside_and_fails_the_run(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    spool = spool_in_memory()
+    daily = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    run(capsys, DAILY_ARGS, daily, StubPersistence(is_reachable=False), spool)
+
+    result = run(capsys, ["drain"], StubEcb({}), StubPersistence(statuses=[422]), spool)
+
+    assert result.exit_code == 1
+    [rejected] = result.summary["drained"]["rejected"]
+    assert rejected["key"].startswith("ecb/pending/")
+    assert "status 422" in rejected["reason"]
+    assert waiting(spool) == []

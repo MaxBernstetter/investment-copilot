@@ -10,6 +10,8 @@ import obstore
 import polars as pl
 import pytest
 from obstore.store import LocalStore, MemoryStore, ObjectStore
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from pydantic import ValidationError
 
 from ingestion.config import SpoolSettings
@@ -124,6 +126,34 @@ async def test_a_rejected_item_is_set_aside_for_inspection(
     assert paths(store, "ecb/") == [
         "ecb/rejected/20261018T131500000000Z_2026-10-12_2026-10-16.parquet"
     ]
+
+
+async def test_spooled_drained_and_rejected_items_are_counted_per_source() -> None:
+    reader = InMemoryMetricReader()
+    meter = MeterProvider(metric_readers=[reader]).get_meter("test")
+    spool = ObjectStoreSpool(MemoryStore(), "ecb", now=Clock(), meter=meter)
+    first = await spool.put(delivery(date(2026, 10, 5), "1"), "run-1")
+    second = await spool.put(delivery(date(2026, 10, 12), "2"), "run-1")
+
+    await spool.remove(first)
+    await spool.reject(second)
+
+    data = reader.get_metrics_data()
+    assert data is not None
+    [metric] = [
+        metric
+        for resource in data.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+        if metric.name == "yl_ingestion_spool_events_total"
+    ]
+    counts = {
+        (str((point.attributes or {})["source"]), str((point.attributes or {})["event"])): int(
+            point.value  # type: ignore[union-attr]
+        )
+        for point in metric.data.data_points
+    }
+    assert counts == {("ecb", "spooled"): 2, ("ecb", "drained"): 1, ("ecb", "rejected"): 1}
 
 
 async def test_each_source_has_its_own_spool(store: ObjectStore) -> None:

@@ -3,8 +3,9 @@
 Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source settings are
 ``INGESTION_SOURCES__<SOURCE>__<SETTING>``, for example
 ``INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS=2``; the persistence service is
-``INGESTION_PERSISTENCE__<SETTING>``. Unknown sources or settings are
-rejected, so a typo fails at startup instead of being ignored.
+``INGESTION_PERSISTENCE__<SETTING>`` and the spool ``INGESTION_SPOOL__<SETTING>``.
+Unknown sources or settings are rejected, so a typo fails at startup instead of being
+ignored.
 """
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr
@@ -82,3 +83,4 @@ class IngestionSettings(BaseSettings):
 
     sources: SourcesSettings = SourcesSettings()
     persistence: PersistenceSettings
+    spool: SpoolSettings
