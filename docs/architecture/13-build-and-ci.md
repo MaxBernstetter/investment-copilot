@@ -58,6 +58,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 |---|---|---|---|
 | `static-analysis.yml` | Push to `main`, pull requests, manual | `task toolchain:lint`: all pre-commit hooks on all files | `devbox run -- task toolchain:lint` |
 | `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
+| `contracts.yml` | Changes in `src/contracts/`, the root Taskfile or devbox; manual | `contracts:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task contracts:<task>` |
 
 ### Current tasks
 
@@ -78,6 +79,8 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:lint` | ruff lint and format check |
 | `ingestion:typecheck` | mypy strict on sources and tests |
 | `ingestion:test:unit` | Unit tests (no I/O, no live sources) |
+
+The `contracts` project implements the same tasks as `contracts:<task>`.
 
 ## Pre-commit hooks
 
