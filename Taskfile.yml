@@ -12,6 +12,9 @@ includes:
   persistence:
     taskfile: ./src/services/persistence
     dir: ./src/services/persistence
+  ingestion:
+    taskfile: ./src/services/ingestion
+    dir: ./src/services/ingestion
 
 tasks:
   default:
