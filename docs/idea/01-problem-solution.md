@@ -50,7 +50,7 @@ Public sources rarely revise values. A clearly labelled **scenario mechanism** i
 
 ## Phasing
 
-1. **Foundation:** one country, published curve, bitemporal storage, ingestion, basic explorer, as-of query
+1. **Foundation:** one published curve, bitemporal storage, ingestion, basic explorer, as-of query
 2. **Trust:** quality rules, provenance view, scenario mechanism, corrections demo, API
 3. **Depth:** more countries, derived curves, methodology versions, historical recalculation, impact view, data marts
 4. **Insight:** anomaly detection, grounded natural-language explanations

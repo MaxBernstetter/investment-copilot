@@ -11,7 +11,7 @@ Tracked in [#10](https://github.com/MaxBernstetter/investment-copilot/issues/10)
 | Source | ECB Data Portal, dataset `YC` (euro area yield curves) |
 | Curve | Euro area AAA government bond curve, Svensson model, spot (zero-coupon) rates |
 | Grid | 11 tenors: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y |
-| History | 2004-09-06 to today, about 5,700 business days, about 63,000 observations |
+| History | 2004-09-06 to 2026-10-16 (as of 2026-10-18), about 5,700 business days, about 63,000 observations |
 | Raw volume | About 260 KB per year of CSV, about 6 MB for the full history |
 | Daily cost | One HTTP request |
 | Licence | Free reuse including commercial, with attribution "Source: ECB statistics" |
@@ -92,7 +92,7 @@ GET https://data-api.ecb.europa.eu/service/data/YC/
 | `404` "No results found" | Nothing in the window, or nothing updated since `updatedAfter` | Empty delivery, a successful run with zero rows. **Not an error, not retried.** |
 | `200` without the expected date | Not yet published (normal before ~12:00, or a delayed publication) | Late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), not a failure of the request |
 | `304` | Unchanged since `If-Modified-Since` | No-op run |
-| `429`, `5xx`, timeout | Throttled or unavailable | Retry with backoff per the access policy |
+| `429`, `502`, `503`, `504`, timeout | Throttled or unavailable | Retry with backoff per the access policy |
 
 ### Access policy for this source
 
@@ -106,7 +106,7 @@ The generic rules are in [[12-data-pipeline#Source access policy]]. The ECB publ
 | Attempts per request | 3, exponential backoff with jitter, `Retry-After` honoured |
 | Identification | `User-Agent: YieldLens/<version> (+https://github.com/MaxBernstetter/investment-copilot)` |
 | Conditional requests | `If-Modified-Since` (the API answers `304`) |
-| Daily budget | ≤ 10 requests in normal operation; a backfill of the full history adds about 23 |
+| Daily budget | Counted in HTTP attempts, retries included. ≤ 10 in normal operation (one daily request, at most 9 for a failing load); a backfill of the full history adds about 23 when no request is retried, at most 9 per year on retries |
 
 ### Revisions and knowledge time
 

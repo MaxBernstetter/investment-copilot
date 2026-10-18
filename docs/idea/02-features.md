@@ -33,7 +33,7 @@ Bring source data into the platform.
 
 | Feature | Phase |
 |---|---|
-| Daily load from public sources for one country | 1 |
+| Daily load of one published curve from a public source | 1 |
 | Normalization to a common maturity grid, units and conventions | 1 |
 | Scheduled pipelines with retries | 1 |
 | Idempotent reruns and date-range backfill | 1 |
