@@ -4,8 +4,8 @@
 
 ```
 src/
-  contracts/               # only shared code: interface models + OpenAPI, versioned
-    <service>/v1/
+  contracts/               # only shared code: interface models + OpenAPI, versioned (own uv project)
+    src/contracts/<service>/v1/
   services/
     ingestion/
     persistence/

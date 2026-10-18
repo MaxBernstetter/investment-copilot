@@ -1,0 +1,98 @@
+from datetime import date
+from decimal import Decimal
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from contracts.persistence.v1 import (
+    MAX_BATCH_SIZE,
+    ChangeReason,
+    ObservationVersion,
+    Origin,
+    RecordVersionsRequest,
+    RecordVersionsResponse,
+)
+
+
+def published(**overrides: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+        "curve_id": "ecb-aaa-spot",
+        "maturity": "10Y",
+        "valid_date": "2026-03-12",
+        "value": 2.61,
+        "origin": "published",
+        "source_id": "ecb",
+        "run_id": "ingestion-ecb-2026-03-12",
+        "change_reason": "initial",
+    }
+    return fields | overrides
+
+
+def test_parses_a_published_observation_from_json_types() -> None:
+    observation = ObservationVersion.model_validate(published(value="2.61"))
+
+    assert observation.valid_date == date(2026, 3, 12)
+    assert observation.value == Decimal("2.61")
+    assert observation.origin is Origin.PUBLISHED
+    assert observation.change_reason is ChangeReason.INITIAL
+    assert observation.method_version is None
+
+
+def test_derived_observation_requires_a_method_version() -> None:
+    with pytest.raises(ValidationError, match="method_version"):
+        ObservationVersion.model_validate(published(origin="derived"))
+
+
+def test_published_observation_rejects_a_method_version() -> None:
+    with pytest.raises(ValidationError, match="method_version"):
+        ObservationVersion.model_validate(published(method_version="nss-1"))
+
+
+def test_derived_observation_with_method_version_is_valid() -> None:
+    observation = ObservationVersion.model_validate(
+        published(origin="derived", method_version="nss-1", source_id=None)
+    )
+
+    assert observation.method_version == "nss-1"
+
+
+@pytest.mark.parametrize("maturity", ["3M", "10Y", "1Y6M", "1W"])
+def test_accepts_tenor_codes(maturity: str) -> None:
+    assert ObservationVersion.model_validate(published(maturity=maturity)).maturity == maturity
+
+
+@pytest.mark.parametrize("maturity", ["", "10", "Y", "0Y", "10y", "10 Y"])
+def test_rejects_malformed_maturities(maturity: str) -> None:
+    with pytest.raises(ValidationError, match="maturity"):
+        ObservationVersion.model_validate(published(maturity=maturity))
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity"])
+def test_rejects_non_finite_values(value: str) -> None:
+    with pytest.raises(ValidationError, match="value"):
+        ObservationVersion.model_validate(published(value=value))
+
+
+def test_rejects_unknown_fields() -> None:
+    with pytest.raises(ValidationError, match="known_from"):
+        ObservationVersion.model_validate(published(known_from="2026-03-12T18:00:00Z"))
+
+
+def test_request_needs_at_least_one_observation() -> None:
+    with pytest.raises(ValidationError, match="observations"):
+        RecordVersionsRequest.model_validate({"observations": []})
+
+
+def test_request_is_bounded() -> None:
+    too_many = [published()] * (MAX_BATCH_SIZE + 1)
+
+    with pytest.raises(ValidationError, match="observations"):
+        RecordVersionsRequest.model_validate({"observations": too_many})
+
+
+def test_response_requires_a_timezone_aware_knowledge_time() -> None:
+    with pytest.raises(ValidationError, match="known_from"):
+        RecordVersionsResponse.model_validate(
+            {"recorded_count": 1, "known_from": "2026-03-12T18:00:00"}
+        )

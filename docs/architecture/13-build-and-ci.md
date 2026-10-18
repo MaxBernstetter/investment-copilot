@@ -57,6 +57,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | Workflow | Trigger | Runs | Local equivalent |
 |---|---|---|---|
 | `static-analysis.yml` | Push to `main`, pull requests, manual | `task toolchain:lint`: all pre-commit hooks on all files | `devbox run -- task toolchain:lint` |
+| `contracts.yml` | Changes in `src/contracts/`, the root Taskfile or devbox; manual | `contracts:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task contracts:<task>` |
 
 ### Current tasks
 
@@ -67,6 +68,8 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:setup` | Install the git hooks and their environments |
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
+
+Python components (`contracts`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`.
 
 ## Pre-commit hooks
 

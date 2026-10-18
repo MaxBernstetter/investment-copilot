@@ -6,6 +6,9 @@ includes:
   toolchain:
     taskfile: ./src/toolchain
     dir: .
+  contracts:
+    taskfile: ./src/contracts
+    dir: ./src/contracts
 
 tasks:
   default:
