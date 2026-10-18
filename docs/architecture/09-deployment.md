@@ -12,6 +12,7 @@ Browser ──▶ GitHub Pages (React SPA)
                internal network: ingestion, persistence, processing (api),
                                  job containers (started on demand by Airflow),
                                  Airflow (+ Postgres), Oracle Free 23ai,
+                                 Garage (ingestion spool),
                                  OTel Collector, Prometheus, Loki, Tempo, Grafana
 ```
 
@@ -20,6 +21,7 @@ Browser ──▶ GitHub Pages (React SPA)
 | Frontend | GitHub Pages | Yes |
 | `access` | VM behind Caddy (HTTPS, free domain e.g. DuckDNS, Let's Encrypt) | Yes, read-only |
 | Other services, Oracle, Airflow | VM, internal Docker network | No; SSH tunnel for admin |
+| Garage (spool of ingestion, [[0017-ingestion-spool-on-garage]]) | VM, internal Docker network, own volume | No |
 | Grafana | VM, internal Docker network | No by default; optional read-only public dashboard |
 
 ## Environments
@@ -30,6 +32,16 @@ Browser ──▶ GitHub Pages (React SPA)
 ## Delivery
 
 GitHub Actions builds multi-arch images to GHCR, deploys the frontend to Pages, and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].
+
+## Spool store
+
+Garage holds fetched windows while persistence is unavailable ([[0017-ingestion-spool-on-garage]]). It runs as one node with its own volume.
+- `GARAGE_RPC_SECRET` and `GARAGE_ADMIN_TOKEN` are deployment secrets.
+- The ingestion jobs get a key that may only read and write the spool bucket (`INGESTION_SPOOL__ACCESS_KEY_ID`, `INGESTION_SPOOL__SECRET_ACCESS_KEY`).
+- After the first start, `src/services/ingestion/spool/setup.sh` assigns the layout and creates the bucket and the key. It is idempotent, so a deploy may run it every time.
+- Locally: `task ingestion:spool:start ingestion:spool:setup`.
+
+The spool is transient and empty when persistence is healthy, so it is not part of the backup.
 
 ## Backup
 

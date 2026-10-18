@@ -1,0 +1,24 @@
+# Local object store of the ingestion spool: Garage, one node (ADR 0017).
+# Used by `task ingestion:spool:*`; the integration tests start their own container.
+# Secrets come from the environment (the Taskfile sets local-only defaults).
+name: yieldlens-ingestion
+
+services:
+  spool-store:
+    image: dxflrs/garage:v2.4.1
+    ports:
+      - 127.0.0.1:${INGESTION_SPOOL_PORT:-3900}:3900
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
+    volumes:
+      - ./spool/garage.toml:/etc/garage.toml:ro
+      - spool-data:/var/lib/garage
+    healthcheck:
+      test: [CMD, /garage, status]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  spool-data:
