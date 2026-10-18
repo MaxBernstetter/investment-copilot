@@ -9,6 +9,9 @@ includes:
   ingestion:
     taskfile: ./src/services/ingestion
     dir: ./src/services/ingestion
+  contracts:
+    taskfile: ./src/contracts
+    dir: ./src/contracts
 
 tasks:
   default:
