@@ -34,7 +34,7 @@ tasks:
       - uv run --locked mypy
 
   test:integration:
-    desc: Run the integration tests against Oracle Free (Testcontainers)
+    desc: Run the integration tests against Oracle Free (Testcontainers; includes the utPLSQL suites)
     cmds:
       - uv run --locked pytest tests/integration
 

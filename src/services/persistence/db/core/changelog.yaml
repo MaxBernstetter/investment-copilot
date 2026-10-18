@@ -1,7 +1,16 @@
-# CORE changelog: the bitemporal observation store.
+# CORE changelog: the bitemporal observation store and its PL/SQL interface.
 # Runs as the schema owner CORE. Never edit an applied changeset; add a new one
 # (expand/contract). Packages are re-applied when they change (runOnChange).
 databaseChangeLog:
   - include:
       file: observation.sql
+      relativeToChangelogFile: true
+  - include:
+      file: observation_version_types.sql
+      relativeToChangelogFile: true
+  - include:
+      file: core_observation.sql
+      relativeToChangelogFile: true
+  - include:
+      file: grants.sql
       relativeToChangelogFile: true
