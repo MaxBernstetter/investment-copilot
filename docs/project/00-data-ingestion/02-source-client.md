@@ -54,7 +54,7 @@ match response.outcome:
 | `SourceDisabledError` | The kill switch is on; nothing was sent |
 | `SourceRequestError(source, url, attempts, status_code)` | Non-retryable answer or retries exhausted; `status_code` is `None` after a network error or timeout |
 
-The ECB adapter ([#14](https://github.com/MaxBernstetter/investment-copilot/issues/14)) maps its `404` "No results found" with a predicate such as `response.status_code == 404 and "No results found" in response.text`.
+The ECB adapter ([#14](https://github.com/MaxBernstetter/investment-copilot/issues/14), [[03-ecb-load]]) passes `ingestion.infrastructure.ecb.is_no_data`: a `404` whose body says "No Series was returned" or "No results found".
 
 ## Configuration
 
