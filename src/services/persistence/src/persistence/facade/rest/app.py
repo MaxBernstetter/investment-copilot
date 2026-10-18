@@ -57,14 +57,16 @@ def _add_routes(app: FastAPI) -> None:
         response_model=v1.RecordVersionsResponse,
         status_code=status.HTTP_200_OK,
         responses={
-            status.HTTP_409_CONFLICT: {"description": "An observation already has an open version"},
+            status.HTTP_409_CONFLICT: {
+                "description": "A concurrent write recorded the same observation first; retry"
+            },
             status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The batch is invalid"},
         },
     )
     async def record_versions(
         request: v1.RecordVersionsRequest, services: ServicesDependency
     ) -> v1.RecordVersionsResponse:
-        """Record every observation of the batch as a new version (all or nothing)."""
+        """Record the batch as versions (all or nothing); unchanged observations are no-ops."""
         recorded = await services.record_versions(
             [to_observation(version) for version in request.observations]
         )
@@ -108,8 +110,9 @@ def _add_problem_handlers(app: FastAPI) -> None:
     async def open_version_exists(_: Request, error: OpenVersionExistsError) -> JSONResponse:
         return _problem(
             status.HTTP_409_CONFLICT,
-            "Open version exists",
-            "An observation of the batch already has an open version; nothing was recorded.",
+            "Concurrent write",
+            "A concurrent write recorded an observation of the batch first; nothing was "
+            "recorded. Send the batch again.",
         )
 
 

@@ -1,6 +1,6 @@
 # Bitemporal Model
 
-How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issue: [#12](https://github.com/MaxBernstetter/investment-copilot/issues/12).
+How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issues: [#12](https://github.com/MaxBernstetter/investment-copilot/issues/12) (bitemporal storage), [#15](https://github.com/MaxBernstetter/investment-copilot/issues/15) (versioning).
 
 ## Two time axes
 
@@ -15,7 +15,7 @@ How the `persistence` service stores yield observations in the `CORE` schema so 
 
 ## Table `observation`
 
-One row per version. Rows are insert-only; the only update that will ever happen is closing `known_to` when a newer version replaces a row (versioning, [#15](https://github.com/MaxBernstetter/investment-copilot/issues/15)).
+One row per version. Rows are insert-only; the only update is closing `known_to` when a newer version replaces a row (see [[#Versioning]]).
 
 | Column | Type | Null | Meaning |
 |---|---|---|---|
@@ -46,17 +46,34 @@ The service only calls the package; it never touches the table (see [[#Users and
 
 | Member | Purpose |
 |---|---|
-| `record_versions(p_versions, o_known_from, o_recorded_count, p_known_from default null)` | Inserts every element of `p_versions` (`observation_version_list_t`) as a new open version in one set-based `INSERT … SELECT`. `known_from` is `p_known_from` if given (deterministic tests, replays), otherwise the database clock. Returns the knowledge time and the number of versions. |
+| `record_versions(p_versions, o_known_from, o_recorded_count, p_known_from default null)` | Records the elements of `p_versions` (`observation_version_list_t`) as versions, set-based (see [[#Versioning]]). `known_from` is `p_known_from` if given (deterministic tests, replays), otherwise the database clock. Returns the knowledge time and the number of **new** versions. |
 | `get_versions(p_curve_id, p_valid_date_from, p_valid_date_to)` | All stored versions of one curve in a valid-date range, as a cursor ordered by `valid_date`, `maturity`, `origin`, `method_version`, `known_from`. Used by tests; as-of retrieval comes with [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22). |
-| `open_version_exists` (`-20001`) | Raised when an observation of the batch already has an open version or appears twice in it. Nothing of the batch is stored. |
+| `open_version_exists` (`-20001`) | Raised when a concurrent call opened the first version of an observation of the batch before this one. Nothing of the batch is stored; the caller retries. |
+| `duplicate_observation` (`-20002`) | Raised when an observation appears more than once in the batch. Nothing of the batch is stored. |
 | `open_known_to` | The `known_to` sentinel of open versions. |
 
 `observation_version_t` holds the input row: every column of `observation` except `version_id`, `known_from` and `known_to`.
 
-### Scope of this first slice
+A failed call stores nothing of its batch: `record_versions` rolls back to its own savepoint before it raises.
 
-- Recording a value whose key already has an open version is **rejected**, not versioned. Closing the open version on a changed value and treating an unchanged value as a no-op belong to versioning ([#15](https://github.com/MaxBernstetter/investment-copilot/issues/15)): it replaces the `open_version_exists` path inside `record_versions` and keeps the table, the types and the call signature.
-- The per-curve lock of [[12-data-pipeline#Concurrency control]] is not needed yet: concurrent inserts of the same key already serialize on the unique index. It comes with versioning, when a write reads before it closes a version.
+## Versioning
+
+Values are never overwritten. For each observation of a batch, identified by its key (`curve_id`, `maturity`, `valid_date`, `origin`, `method_version`), `record_versions` compares it with the key's open version:
+
+| Open version | Outcome | Counted as |
+|---|---|---|
+| none | A new open version | recorded |
+| different `value` or `source_id` | The open version is closed (`known_to` = the call's `known_from`) and a new open version is inserted | recorded |
+| same `value` and `source_id` | **No-op**: nothing is written; the open version keeps its `run_id`, `change_reason` and `known_from` | unchanged |
+
+- **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id` and `change_reason` describe the write, so a reload by another run with the same value and source is unchanged.
+- Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`; as-of retrieval follows in [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22).
+- Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
+- Set-based: one locking `SELECT … FOR UPDATE`, one `UPDATE` (close changed versions) and one `INSERT … SELECT` (open versions for keys without one), each restricted to the batch's valid-date range, so partitions are pruned.
+
+### Concurrency
+
+`record_versions` first locks the open versions of the batch's keys (row locks, no extra privileges) and only then reads the clock. Concurrent writers of the same observations therefore serialize and get increasing knowledge times, and the later writer compares against the earlier one's committed version. Two calls that both record the **first** version of a key can't lock a row; the unique index serializes them and the later one fails with `open_version_exists` (REST `409`); sending the batch again resolves it. The DAG mutex of [[12-data-pipeline#Concurrency control]] keeps such races rare.
 
 ## Users and privileges
 
@@ -83,7 +100,7 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 
 | Level | What | Where |
 |---|---|---|
-| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, conflicts, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
+| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads, mixed batches, origins and method versions, duplicates, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
 | Integration | Migrations (partitioning, package valid, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
 | Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 
