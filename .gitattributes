@@ -1,0 +1,2 @@
+# Recorded source payloads are kept byte for byte (the ECB answers with CRLF).
+src/services/*/tests/fixtures/** -text
