@@ -1,12 +1,13 @@
 """Ingestion settings, read from environment variables and validated at startup.
 
-Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source access settings
-are ``INGESTION_SOURCES__<SOURCE>__<SETTING>``, for example
-``INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS=2``. Unknown sources or settings are
+Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source settings are
+``INGESTION_SOURCES__<SOURCE>__<SETTING>``, for example
+``INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS=2``; the persistence service is
+``INGESTION_PERSISTENCE__<SETTING>``. Unknown sources or settings are
 rejected, so a typo fails at startup instead of being ignored.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MAX_ATTEMPTS_PER_REQUEST = 3
@@ -14,7 +15,7 @@ MAX_ATTEMPTS_PER_REQUEST = 3
 
 
 class SourceSettings(BaseModel):
-    """Access settings for one source (see the source access policy).
+    """Settings for one source: its access policy and its revision lookback.
 
     The defaults are the conservative values used for the ECB, which publishes no limit.
     """
@@ -32,6 +33,8 @@ class SourceSettings(BaseModel):
     """Backoff before retry n is ``base * 2**(n-1)``, with jitter."""
     max_retry_after_seconds: float = Field(default=120.0, ge=0)
     """A ``Retry-After`` longer than this is not waited for: the request fails instead."""
+    lookback_business_days: int = Field(default=10, ge=0)
+    """A daily load re-fetches this many business days before the valid date."""
 
 
 class SourcesSettings(BaseModel):
@@ -40,6 +43,16 @@ class SourcesSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     ecb: SourceSettings = SourceSettings()
+
+
+class PersistenceSettings(BaseModel):
+    """Where ingestion writes observations: the persistence service's REST interface."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    url: AnyHttpUrl
+    """Base URL, e.g. ``http://localhost:8001``."""
+    timeout_seconds: float = Field(default=30.0, gt=0)
 
 
 class IngestionSettings(BaseSettings):
@@ -53,3 +66,4 @@ class IngestionSettings(BaseSettings):
     )
 
     sources: SourcesSettings = SourcesSettings()
+    persistence: PersistenceSettings

@@ -1,16 +1,23 @@
 [project]
 name = "ingestion"
 version = "0.1.0"
-description = "YieldLens ingestion service: loads source payloads into the raw layer"
+description = "YieldLens ingestion service: loads published source data into the bitemporal core"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "httpx>=0.28",
     "opentelemetry-api>=1.30",
+    "pandera[polars]>=0.34",
+    "polars>=2.0",
     "pydantic-settings>=2.8",
+    "yieldlens-contracts",
 ]
+
+[project.scripts]
+ingestion-load-ecb = "ingestion.job:main"
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.3",
     "mypy>=1.15",
     "opentelemetry-sdk>=1.30",
     "pytest>=8.3",
@@ -39,3 +46,26 @@ testpaths = ["tests"]
 addopts = ["--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
+
+[tool.uv.sources]
+yieldlens-contracts = { path = "../../contracts", editable = true }
+
+[tool.importlinter]
+root_packages = ["ingestion"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers point inward"
+type = "layers"
+layers = [
+    "ingestion.job",
+    "ingestion.facade | ingestion.infrastructure",
+    "ingestion.application",
+    "ingestion.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "The domain and use cases have no I/O, frameworks or contracts"
+type = "forbidden"
+source_modules = ["ingestion.domain", "ingestion.application"]
+forbidden_modules = ["contracts", "httpx", "pandera", "polars", "pydantic", "pydantic_settings"]
