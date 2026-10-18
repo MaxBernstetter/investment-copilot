@@ -6,7 +6,9 @@ stores each new or changed one as a new version with valid time
 clock). Versions are never overwritten: a changed value or source for the
 same observation closes its open version and opens a new one. Sending an
 unchanged observation again (same value and source) is an idempotent no-op,
-so reloads and lookback windows can be sent as they are.
+so reloads and lookback windows can be sent as they are. Provenance
+(``run_id``, ``delivery_id``, ``change_reason``) describes the write, not the
+value, so it never makes a version on its own.
 """
 
 from datetime import date
@@ -65,6 +67,14 @@ class ObservationVersion(BaseModel):
     )
     source_id: str | None = Field(default=None, min_length=1, max_length=64, examples=["ecb"])
     run_id: str = Field(min_length=1, max_length=128, description="Run that produced the value")
+    delivery_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Raw source delivery the value came from (an ingestion reference); "
+        "provenance like run_id, so a new delivery of an unchanged value is no change",
+        examples=["4711"],
+    )
     change_reason: ChangeReason
 
     @model_validator(mode="after")

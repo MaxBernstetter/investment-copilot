@@ -79,6 +79,20 @@ def test_rejects_unknown_fields() -> None:
         ObservationVersion.model_validate(published(known_from="2026-03-12T18:00:00Z"))
 
 
+def test_delivery_id_is_optional_provenance() -> None:
+    without = ObservationVersion.model_validate(published())
+    linked = ObservationVersion.model_validate(published(delivery_id="4711"))
+
+    assert without.delivery_id is None
+    assert linked.delivery_id == "4711"
+
+
+@pytest.mark.parametrize("delivery_id", ["", "x" * 65])
+def test_rejects_an_empty_or_too_long_delivery_id(delivery_id: str) -> None:
+    with pytest.raises(ValidationError, match="delivery_id"):
+        ObservationVersion.model_validate(published(delivery_id=delivery_id))
+
+
 def test_request_needs_at_least_one_observation() -> None:
     with pytest.raises(ValidationError, match="observations"):
         RecordVersionsRequest.model_validate({"observations": []})
