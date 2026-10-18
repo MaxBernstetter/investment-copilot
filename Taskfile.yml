@@ -6,6 +6,12 @@ includes:
   toolchain:
     taskfile: ./src/toolchain
     dir: .
+  contracts:
+    taskfile: ./src/contracts
+    dir: ./src/contracts
+  persistence:
+    taskfile: ./src/services/persistence
+    dir: ./src/services/persistence
 
 tasks:
   default:
