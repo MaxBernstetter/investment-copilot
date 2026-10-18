@@ -7,7 +7,7 @@ Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source settings ar
 rejected, so a typo fails at startup instead of being ignored.
 """
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MAX_ATTEMPTS_PER_REQUEST = 3
@@ -53,6 +53,21 @@ class PersistenceSettings(BaseModel):
     url: AnyHttpUrl
     """Base URL, e.g. ``http://localhost:8001``."""
     timeout_seconds: float = Field(default=30.0, gt=0)
+
+
+class SpoolSettings(BaseModel):
+    """Where fetched windows wait while persistence is unavailable: an S3 bucket (Garage)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    url: str = Field(pattern=r"^s3://[^/]+/?$")
+    """The bucket, e.g. ``s3://ingestion-spool``."""
+    endpoint: AnyHttpUrl
+    """The S3 API of the object store, e.g. ``http://localhost:3900``."""
+    region: str = "garage"
+    """Garage's ``s3_region``."""
+    access_key_id: str
+    secret_access_key: SecretStr
 
 
 class IngestionSettings(BaseSettings):
