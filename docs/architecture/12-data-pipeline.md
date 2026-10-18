@@ -24,7 +24,29 @@ The pipeline follows the layered (bronze/silver/gold) pattern, mapped onto servi
 
 - **Incremental by default:** fetch by date window. Use conditional requests (ETag / Last-Modified) where the source supports them.
 - **Revision lookback:** sources revise past values silently. Each daily load re-fetches a configurable **lookback window** (e.g. the last N business days) per source. Unchanged values are no-ops. Changed values become new versions with reason `revision`.
-- **Politeness:** respect source rate limits; back off on `429`/`503`; follow the source's terms of use.
+- **Politeness:** every source call follows the [[#Source access policy]].
+
+## Source access policy
+
+Public sources are shared infrastructure, and most publish no rate limit. A blocked or banned client stops the platform, so ingestion limits itself. The rules apply to every source; the values per source are in its source note (e.g. [[01-data-sources]]).
+
+- **One client per source:** all calls to a source go through the source adapter's HTTP client. Nothing else (DAGs, scripts, tests) calls a source directly.
+- **Rate limit:** per source, a maximum number of concurrent requests (default 1) and a minimum interval between requests. Both come from configuration.
+- **Sequential chunks:** backfill chunks for one source run one after another. Airflow enforces this with a pool of size 1 per source, so task mapping never fans out against a source.
+- **Bounded retries:**
+  - Retry only on network errors, timeouts, `429` and `502`/`503`/`504`.
+  - Exponential backoff with jitter; `Retry-After` is honoured.
+  - At most 3 attempts per request inside the client and at most 2 Airflow task retries. One failing load therefore costs at most 9 requests.
+  - Any other `4xx` fails fast. Source-specific "no data" answers (e.g. the ECB's `404` for an empty window) are mapped to an empty delivery and never retried.
+- **Small requests:** request only the series, fields and date window that are needed, and batch series into one request where the source supports it.
+- **Conditional requests:** send `If-Modified-Since` / `If-None-Match` where supported, and use incremental parameters (e.g. `updatedAfter`).
+- **Fetch once:** raw payloads are stored, so replay and reprocessing read from raw and never download again.
+- **Identification:** a `User-Agent` naming YieldLens, its version and the repository URL. No personal contact data.
+- **Off-peak timing:** loads are scheduled after the source's publication time with an offset, not on the exact minute of publication.
+- **No live calls in CI:** tests use recorded payloads. A live check against a source is a manual task only.
+- **Kill switch:** each source can be disabled by configuration, without a deploy.
+- **Terms of use:** each source note records its licence and attribution duty. The API and the UI carry the attribution.
+- **Observable:** requests are counted per source and status (`yl_ingestion_source_requests_total{source,status}`), so throttling shows up on the dashboard before it becomes a ban.
 
 ## Validation gates
 

@@ -86,7 +86,7 @@ Open: Oracle/PL-SQL availability for a personal project and German-language cont
 
 ## Open questions
 
-- Which countries and sources offer the best reliability, history and genuine revisions?
+- ~~Which countries and sources offer the best reliability, history and genuine revisions?~~ Answered for phase 1 in [[01-data-sources]] and [[0016-ecb-aaa-curve-as-first-source]].
 - Which derived-curve methods are worth including before scope grows?
 - How prominent should the insight layer be?
 - Keep the name YieldLens, or rename (the repo is `investment-copilot`)?
