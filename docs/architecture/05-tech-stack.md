@@ -6,7 +6,7 @@
 |---|---|
 | Database | Oracle Database Free 23ai, PL/SQL, Liquibase, utPLSQL |
 | DB access | python-oracledb (thin mode) |
-| Services | Python 3.12+, FastAPI, Pydantic v2, uv |
+| Services | Python 3.13, FastAPI, Pydantic v2 (pydantic-settings for config), httpx (outbound HTTP), uv |
 | Bulk data | Apache Arrow (pyarrow), Polars |
 | Data validation | Pandera (schema and type checks at ingestion); custom domain rules in processing |
 | Lineage | OpenLineage (Airflow provider, Python client); Marquez optional |

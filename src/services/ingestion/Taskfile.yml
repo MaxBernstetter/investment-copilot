@@ -1,0 +1,32 @@
+# Ingestion service tasks. Glue only: every command is a single binary call
+# (see docs/architecture/13-build-and-ci.md). Included by the root Taskfile with
+# this directory as working directory.
+version: "3"
+
+tasks:
+  setup:
+    desc: Create the virtual environment from the lockfile
+    cmds:
+      - uv sync --locked
+
+  fmt:
+    desc: Format the code and apply safe lint fixes
+    cmds:
+      - uv run --locked ruff format .
+      - uv run --locked ruff check --fix .
+
+  lint:
+    desc: Lint and check formatting
+    cmds:
+      - uv run --locked ruff check .
+      - uv run --locked ruff format --check .
+
+  typecheck:
+    desc: Type-check sources and tests (mypy strict)
+    cmds:
+      - uv run --locked mypy
+
+  test:unit:
+    desc: Run the unit tests (no I/O, no live sources)
+    cmds:
+      - uv run --locked pytest tests/unit
