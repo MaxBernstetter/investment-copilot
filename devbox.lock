@@ -1,0 +1,86 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8?lastModified=1791637130&narHash=sha256-TuvwvSjJrpqyIYdjhQ7Wu%2BADVfeOpO2Um21%2FV7TOubw%3D"
+    },
+    "nodejs@26.12.0": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "plugin_version": "0.0.5",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#nodejs_26",
+      "source": "devbox-search",
+      "version": "26.12.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k496l04f5p2qrb734h809cpsrm3szg1d-nodejs-26.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k496l04f5p2qrb734h809cpsrm3szg1d-nodejs-26.12.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/lnm1rzf25nikpdk28rqdpp9j4xfmbjl5-nodejs-26.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/lnm1rzf25nikpdk28rqdpp9j4xfmbjl5-nodejs-26.12.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/wyj9fd2kk96d4yiscy7n242x0k8bj6x1-nodejs-26.12.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/wyj9fd2kk96d4yiscy7n242x0k8bj6x1-nodejs-26.12.0"
+        }
+      }
+    },
+    "obsidian@latest": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#obsidian",
+      "source": "devbox-search",
+      "version": "1.14.4",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/h7jcbd1zbkb950j070ig0hqj4max9ph9-obsidian-1.14.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/h7jcbd1zbkb950j070ig0hqj4max9ph9-obsidian-1.14.4"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/fm9p16wq68xh3yl2pb0vds7zh0yyd5zr-obsidian-1.14.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/fm9p16wq68xh3yl2pb0vds7zh0yyd5zr-obsidian-1.14.4"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/djy1m6wbw950wmavrnwq97l241qyvcrc-obsidian-1.14.4",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/djy1m6wbw950wmavrnwq97l241qyvcrc-obsidian-1.14.4"
+        }
+      }
+    }
+  }
+}
