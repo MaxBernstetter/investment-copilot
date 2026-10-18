@@ -3,6 +3,8 @@ create or replace package body ut_core_observation as
   c_curve      constant varchar2(64) := 'ut-curve';
   c_other      constant varchar2(64) := 'ut-other-curve';
   c_known_from constant timestamp := timestamp '2026-03-12 18:00:00';
+  c_revised_at constant timestamp := timestamp '2026-03-13 18:00:00';
+  c_later      constant timestamp := timestamp '2026-03-14 18:00:00';
 
   type observation_rows is table of observation%rowtype;
 
@@ -12,12 +14,15 @@ create or replace package body ut_core_observation as
     p_value          in number   default 2.61,
     p_curve_id       in varchar2 default c_curve,
     p_origin         in varchar2 default 'published',
-    p_method_version in varchar2 default null
+    p_method_version in varchar2 default null,
+    p_source_id      in varchar2 default 'ecb',
+    p_run_id         in varchar2 default 'run-1',
+    p_change_reason  in varchar2 default 'initial'
   ) return observation_version_t is
   begin
     return observation_version_t(
       p_curve_id, p_maturity, p_valid_date, p_value, p_origin, p_method_version,
-      case when p_origin = 'published' then 'ecb' end, 'run-1', 'initial'
+      case when p_origin = 'published' then p_source_id end, p_run_id, p_change_reason
     );
   end version;
 
@@ -30,6 +35,32 @@ create or replace package body ut_core_observation as
   begin
     core_observation.record_versions(p_versions, l_known_from, l_count, p_known_from);
   end record;
+
+  -- Records the batch and returns the number of new versions.
+  function recorded_count(
+    p_versions   in observation_version_list_t,
+    p_known_from in timestamp
+  ) return pls_integer is
+    l_known_from timestamp;
+    l_count      pls_integer;
+  begin
+    core_observation.record_versions(p_versions, l_known_from, l_count, p_known_from);
+    return l_count;
+  end recorded_count;
+
+  -- Values of the curve's versions visible at knowledge time p_as_of.
+  function values_as_of(p_as_of in timestamp) return varchar2 is
+    l_values varchar2(4000);
+  begin
+    select listagg(maturity || '=' || to_char(value, 'TM9'), ',')
+             within group (order by maturity)
+      into l_values
+      from observation
+     where curve_id = c_curve
+       and known_from <= p_as_of
+       and p_as_of < known_to;
+    return l_values;
+  end values_as_of;
 
   function stored(p_curve_id in varchar2 default c_curve) return observation_rows is
     l_cursor sys_refcursor := core_observation.get_versions(
@@ -100,27 +131,184 @@ create or replace package body ut_core_observation as
     ut.expect(l_row.change_reason).to_equal('initial');
   end keeps_provenance;
 
-  procedure rejects_second_open_version is
+  procedure versions_a_changed_value is
+    l_rows observation_rows;
   begin
-    record(observation_version_list_t(version('10Y')));
+    record(observation_version_list_t(version(p_value => 2.61)));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(version(p_value => 2.70, p_change_reason => 'revision')),
+        c_revised_at
+      )
+    ).to_equal(1);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(2);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+    ut.expect(l_rows(1).known_from).to_equal(c_known_from);
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).value).to_equal(2.70);
+    ut.expect(l_rows(2).known_from).to_equal(c_revised_at);
+    ut.expect(l_rows(2).known_to).to_equal(core_observation.open_known_to);
+    ut.expect(l_rows(2).change_reason).to_equal('revision');
+  end versions_a_changed_value;
+
+  procedure versions_a_changed_source is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version()));
+
+    ut.expect(
+      recorded_count(observation_version_list_t(version(p_source_id => 'bundesbank')), c_revised_at)
+    ).to_equal(1);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(2);
+    ut.expect(l_rows(1).source_id).to_equal('ecb');
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).source_id).to_equal('bundesbank');
+    ut.expect(l_rows(2).known_to).to_equal(core_observation.open_known_to);
+  end versions_a_changed_source;
+
+  procedure keeps_previous_versions is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+    record(observation_version_list_t(version(p_value => 2.70)), c_revised_at);
+    record(observation_version_list_t(version(p_value => 2.65)), c_later);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(3);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+    ut.expect(l_rows(2).value).to_equal(2.70);
+    ut.expect(l_rows(3).value).to_equal(2.65);
+    ut.expect(l_rows(1).known_to).to_equal(l_rows(2).known_from);
+    ut.expect(l_rows(2).known_to).to_equal(l_rows(3).known_from);
+    ut.expect(l_rows(3).known_to).to_equal(core_observation.open_known_to);
+  end keeps_previous_versions;
+
+  procedure versions_are_visible_as_of_their_knowledge_time is
+  begin
+    record(observation_version_list_t(version('2Y', p_value => 2.10), version('10Y', p_value => 2.61)));
+    record(
+      observation_version_list_t(version('2Y', p_value => 2.10), version('10Y', p_value => 2.70)),
+      c_revised_at
+    );
+
+    ut.expect(values_as_of(c_known_from - interval '1' second)).to_be_null();
+    ut.expect(values_as_of(c_known_from)).to_equal('10Y=2.61,2Y=2.1');
+    ut.expect(values_as_of(c_revised_at - interval '1' second)).to_equal('10Y=2.61,2Y=2.1');
+    ut.expect(values_as_of(c_revised_at)).to_equal('10Y=2.7,2Y=2.1');
+    ut.expect(values_as_of(c_later)).to_equal('10Y=2.7,2Y=2.1');
+  end versions_are_visible_as_of_their_knowledge_time;
+
+  procedure unchanged_reload_is_a_no_op is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(
+          version(p_value => 2.610, p_run_id => 'run-2', p_change_reason => 'revision')
+        ),
+        c_revised_at
+      )
+    ).to_equal(0);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).known_from).to_equal(c_known_from);
+    ut.expect(l_rows(1).known_to).to_equal(core_observation.open_known_to);
+    ut.expect(l_rows(1).run_id).to_equal('run-1');
+    ut.expect(l_rows(1).change_reason).to_equal('initial');
+  end unchanged_reload_is_a_no_op;
+
+  procedure records_a_mixed_batch is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version('2Y', p_value => 2.10), version('10Y', p_value => 2.61)));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(
+          version('2Y', p_value => 2.10),
+          version('10Y', p_value => 2.70),
+          version('30Y', p_value => 2.95)
+        ),
+        c_revised_at
+      )
+    ).to_equal(2);
+
+    -- ordered by maturity, then known_from: 10Y (old, new), 2Y, 30Y
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(4);
+    ut.expect(l_rows(1).maturity || ' ' || l_rows(1).value).to_equal('10Y 2.61');
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).maturity || ' ' || l_rows(2).value).to_equal('10Y 2.7');
+    ut.expect(l_rows(2).known_from).to_equal(c_revised_at);
+    ut.expect(l_rows(3).maturity).to_equal('2Y');
+    ut.expect(l_rows(3).known_from).to_equal(c_known_from);
+    ut.expect(l_rows(3).known_to).to_equal(core_observation.open_known_to);
+    ut.expect(l_rows(4).maturity).to_equal('30Y');
+    ut.expect(l_rows(4).known_from).to_equal(c_revised_at);
+  end records_a_mixed_batch;
+
+  procedure versions_origins_and_method_versions_independently is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(
+      version(p_value => 2.61),
+      version(p_value => 2.58, p_origin => 'derived', p_method_version => 'nss-1'),
+      version(p_value => 2.59, p_origin => 'derived', p_method_version => 'nss-2')
+    ));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(
+          version(p_value => 2.61),
+          version(p_value => 2.60, p_origin => 'derived', p_method_version => 'nss-1'),
+          version(p_value => 2.59, p_origin => 'derived', p_method_version => 'nss-2')
+        ),
+        c_revised_at
+      )
+    ).to_equal(1);
+
+    -- ordered by origin, method_version, known_from: nss-1 (old, new), nss-2, published
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(4);
+    ut.expect(l_rows(1).method_version || ' ' || l_rows(1).value).to_equal('nss-1 2.58');
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).method_version || ' ' || l_rows(2).value).to_equal('nss-1 2.6');
+    ut.expect(l_rows(3).method_version).to_equal('nss-2');
+    ut.expect(l_rows(3).known_to).to_equal(core_observation.open_known_to);
+    ut.expect(l_rows(4).origin).to_equal('published');
+    ut.expect(l_rows(4).known_to).to_equal(core_observation.open_known_to);
+  end versions_origins_and_method_versions_independently;
+
+  procedure rejects_duplicates_in_batch is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version('10Y', p_value => 2.61)));
 
     begin
       record(
-        observation_version_list_t(version('2Y'), version('10Y', p_value => 2.70)),
-        c_known_from + interval '1' day
+        observation_version_list_t(
+          version('2Y'), version('10Y', p_value => 2.70), version('10Y', p_value => 2.80)
+        ),
+        c_revised_at
       );
-      ut.fail('expected ORA-20001');
+      ut.fail('expected ORA-20002');
     exception
       when others then
-        ut.expect(sqlcode).to_equal(core_observation.open_version_exists);
+        ut.expect(sqlcode).to_equal(core_observation.duplicate_observation);
     end;
 
-    ut.expect(stored().count).to_equal(1);
-  end rejects_second_open_version;
-
-  procedure rejects_duplicates_in_batch is
-  begin
-    record(observation_version_list_t(version(), version(p_value => 2.70)));
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+    ut.expect(l_rows(1).known_to).to_equal(core_observation.open_known_to);
   end rejects_duplicates_in_batch;
 
   procedure records_nothing_for_empty_batch is
