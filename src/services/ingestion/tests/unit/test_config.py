@@ -3,6 +3,13 @@ from pydantic import ValidationError
 
 from ingestion.config import IngestionSettings, SourceSettings
 
+PERSISTENCE_URL = "http://persistence.test:8001"
+
+
+@pytest.fixture(autouse=True)
+def persistence_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INGESTION_PERSISTENCE__URL", PERSISTENCE_URL)
+
 
 def test_defaults_are_the_conservative_ecb_values() -> None:
     ecb = IngestionSettings().sources.ecb
@@ -13,6 +20,7 @@ def test_defaults_are_the_conservative_ecb_values() -> None:
         min_interval_seconds=2.0,
         timeout_seconds=60.0,
         max_attempts=3,
+        lookback_business_days=10,
     )
 
 
@@ -32,6 +40,26 @@ def test_source_settings_come_from_environment_variables(monkeypatch: pytest.Mon
     assert ecb.max_attempts == 2
 
 
+def test_lookback_and_persistence_come_from_environment_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS", "5")
+    monkeypatch.setenv("INGESTION_PERSISTENCE__TIMEOUT_SECONDS", "10")
+
+    settings = IngestionSettings()
+
+    assert settings.sources.ecb.lookback_business_days == 5
+    assert str(settings.persistence.url) == PERSISTENCE_URL + "/"
+    assert settings.persistence.timeout_seconds == 10.0
+
+
+def test_the_persistence_url_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("INGESTION_PERSISTENCE__URL")
+
+    with pytest.raises(ValidationError, match="persistence"):
+        IngestionSettings()
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [
@@ -39,6 +67,8 @@ def test_source_settings_come_from_environment_variables(monkeypatch: pytest.Mon
         ("INGESTION_SOURCES__ECB__MAX_CONCURRENT_REQUESTS", "0"),
         ("INGESTION_SOURCES__ECB__MIN_INTERVAL", "2"),
         ("INGESTION_SOURCES__UNKNOWN__ENABLED", "true"),
+        ("INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS", "-1"),
+        ("INGESTION_PERSISTENCE__URL", "not a url"),
     ],
 )
 def test_invalid_or_unknown_settings_fail_at_startup(
