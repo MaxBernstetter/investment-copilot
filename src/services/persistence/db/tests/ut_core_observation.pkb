@@ -8,6 +8,15 @@ create or replace package body ut_core_observation as
 
   type observation_rows is table of observation%rowtype;
 
+  -- The test curves live on grid version 1; utPLSQL rolls them back after the suite.
+  procedure define_test_curves is
+  begin
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit)
+    values (c_curve, 1, 'spot', 'continuous', 'percent');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit)
+    values (c_other, 1, 'spot', 'continuous', 'percent');
+  end define_test_curves;
+
   function version(
     p_maturity       in varchar2 default '10Y',
     p_valid_date     in date     default date '2026-03-12',
@@ -310,6 +319,34 @@ create or replace package body ut_core_observation as
     ut.expect(l_rows(1).value).to_equal(2.61);
     ut.expect(l_rows(1).known_to).to_equal(core_observation.open_known_to);
   end rejects_duplicates_in_batch;
+
+  procedure rejects_an_undefined_curve is
+  begin
+    begin
+      record(observation_version_list_t(
+        version('10Y'), version('10Y', p_curve_id => 'ut-undefined-curve')
+      ));
+      ut.fail('expected ORA-20003');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.off_grid_observation);
+    end;
+
+    ut.expect(stored().count).to_equal(0);
+  end rejects_an_undefined_curve;
+
+  procedure rejects_a_maturity_off_the_grid is
+  begin
+    begin
+      record(observation_version_list_t(version('10Y'), version('4Y')));
+      ut.fail('expected ORA-20003');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.off_grid_observation);
+    end;
+
+    ut.expect(stored().count).to_equal(0);
+  end rejects_a_maturity_off_the_grid;
 
   procedure records_nothing_for_empty_batch is
     l_known_from timestamp;

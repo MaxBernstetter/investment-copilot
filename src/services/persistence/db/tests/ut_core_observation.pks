@@ -5,6 +5,9 @@ create or replace package ut_core_observation as
   --%suite(core_observation)
   --%suitepath(core)
 
+  --%beforeall
+  procedure define_test_curves;
+
   --%test(Records every observation with its valid time and the given knowledge time)
   procedure records_valid_and_knowledge_time;
 
@@ -40,6 +43,12 @@ create or replace package ut_core_observation as
 
   --%test(Rejects an observation that appears twice in one batch and stores nothing of it)
   procedure rejects_duplicates_in_batch;
+
+  --%test(Rejects an observation of an undefined curve and stores nothing of the batch)
+  procedure rejects_an_undefined_curve;
+
+  --%test(Rejects a maturity off the curve's grid and stores nothing of the batch)
+  procedure rejects_a_maturity_off_the_grid;
 
   --%test(Records nothing for an empty batch)
   procedure records_nothing_for_empty_batch;
