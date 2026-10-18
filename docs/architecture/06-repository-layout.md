@@ -1,33 +1,49 @@
 # Repository Layout
 
+**All code lives under `src/`.** The repository root holds only entry points, tool configuration that tools expect at the root, and documentation.
+
 ```
-contracts/                 # only shared code: interface models + OpenAPI, versioned
-  <service>/v1/
-services/
-  ingestion/
-  persistence/
-    db/                    # Liquibase changelogs, PL/SQL packages, utPLSQL tests
-  processing/
-    native/                # C++ kernel (pybind11)
-  access/
-frontend/                  # React + TypeScript SPA
-orchestration/
-  dags/
-observability/             # platform: OTel Collector, Prometheus, Loki, Tempo, Grafana provisioning
-deploy/                    # docker-compose, Caddyfile, env templates
+src/
+  contracts/               # only shared code: interface models + OpenAPI, versioned
+    <service>/v1/
+  services/
+    ingestion/
+    persistence/
+      db/                  # Liquibase changelogs, PL/SQL packages, utPLSQL tests
+    processing/
+      native/              # C++ kernel (pybind11)
+    access/
+  frontend/                # React + TypeScript SPA
+  orchestration/
+    dags/
+  observability/           # platform: OTel Collector, Prometheus, Loki, Tempo, Grafana provisioning
+  deploy/                  # docker-compose, Caddyfile, env templates
+  toolchain/               # repository-wide tasks: static analysis, git hooks
+  scripts/                 # Bash scripts called by tasks
+    tests/                 # bats tests for the scripts
 docs/                      # Obsidian vault
+.github/                   # thin CI workflows (provision devbox, call tasks); Dependabot
+Taskfile.yml               # root task entry point; only includes component Taskfiles
+devbox.json                # pinned toolchain
+.pre-commit-config.yaml    # git hooks
+.editorconfig
 ARCHITECTURE.md
+README.md
+AGENTS.md
 ```
+
+Every component directory has its own `Taskfile.yml` with the standard task names (see [[13-build-and-ci]]). This covers `src/services/<name>/`, `src/frontend/`, `src/orchestration/`, `src/contracts/` and `src/toolchain/`.
 
 ## Per-service structure (Python)
 
-Every service is its own uv project with its own `pyproject.toml`, lockfile, Dockerfile and tests. Its only monorepo dependency is `contracts`.
+Every service is its own uv project with its own `pyproject.toml`, lockfile, Dockerfile and tests. Its only monorepo dependency is `src/contracts`.
 
 ```
-services/<name>/
+src/services/<name>/
   pyproject.toml
+  Taskfile.yml       # standard tasks: setup, fmt, lint, typecheck, test:*, build, image, run
   Dockerfile
-  src/<name>/
+  src/<name>/        # Python package (src layout inside the uv project)
     facade/          # published language: the only part other services see
       rest/          # FastAPI app (`api` process type)
       jobs/          # batch entrypoint (`job` process type)
