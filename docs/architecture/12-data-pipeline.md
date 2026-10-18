@@ -25,6 +25,7 @@ The pipeline follows the layered (bronze/silver/gold) pattern, mapped onto servi
 - **Incremental by default:** fetch by date window. Use conditional requests (ETag / Last-Modified) where the source supports them.
 - **Revision lookback:** sources revise past values silently. Each daily load re-fetches a configurable **lookback window** (e.g. the last N business days) per source. Unchanged values are no-ops. Changed values become new versions with reason `revision`.
 - **Politeness:** every source call follows the [[#Source access policy]].
+- **Persistence unavailable:** fetched windows wait in the ingestion spool (Garage) instead of being dropped. Every run records them oldest first before it writes anything new, and new windows queue behind a spool that cannot be drained. See [[0017-ingestion-spool-on-garage]].
 
 ## Source access policy
 

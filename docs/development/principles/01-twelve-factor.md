@@ -9,7 +9,7 @@ Every YieldLens service follows the [Twelve-Factor App](https://12factor.net/) m
 | III | Config | Everything that differs between environments comes from environment variables, validated at startup (pydantic-settings). No config files per environment in the repo; no secrets in code. |
 | IV | Backing services | Oracle, other services, the OTel Collector are attached resources addressed by URL/credentials from config. Swapping one needs no code change. |
 | V | Build, release, run | CI builds an immutable image per commit; release = image + config; run = `docker compose up`. No changes to running containers. |
-| VI | Processes | Services are stateless. All state lives in Oracle; nothing persists in memory or on local disk between requests. |
+| VI | Processes | Services are stateless. All state lives in Oracle; nothing persists in memory or on local disk between requests. The one exception is the ingestion spool, a Garage bucket that holds fetched data while persistence is unavailable ([[0017-ingestion-spool-on-garage]]). |
 | VII | Port binding | Each service is self-contained and exports HTTP on a configured port; Caddy only routes. |
 | VIII | Concurrency | Scale by running more processes or containers, not bigger ones. Work is split into chunks (date ranges) to run in parallel. |
 | IX | Disposability | Fast startup, graceful shutdown on `SIGTERM`, idempotent operations so that a killed task can simply rerun. |
@@ -20,6 +20,6 @@ Every YieldLens service follows the [Twelve-Factor App](https://12factor.net/) m
 ## Checks when planning a piece
 
 - Which configuration does it need, and is it all from environment variables?
-- Does it keep any state outside Oracle? If yes, redesign.
+- Does it keep any state outside Oracle? If yes, redesign (the ingestion spool is the documented exception).
 - Can it be killed at any moment and rerun safely?
 - Does it behave the same locally and live?
