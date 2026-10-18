@@ -1,0 +1,20 @@
+# Toolchain tasks: repository-wide static analysis and git hooks.
+# Glue only: every command is a single binary call (see docs/architecture/13-build-and-ci.md).
+# Included by the root Taskfile with the repository root as working directory.
+version: "3"
+
+tasks:
+  setup:
+    desc: Install the git hooks and their environments
+    cmds:
+      - pre-commit install --install-hooks
+
+  lint:
+    desc: Run all static analysis (every pre-commit hook on all files); used by CI
+    cmds:
+      - pre-commit run --all-files --show-diff-on-failure
+
+  update:
+    desc: Update pinned hook versions
+    cmds:
+      - pre-commit autoupdate

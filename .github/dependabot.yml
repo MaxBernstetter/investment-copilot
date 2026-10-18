@@ -1,0 +1,10 @@
+# Keeps SHA-pinned GitHub Actions up to date.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Wait before proposing fresh releases (supply-chain safety).
+    cooldown:
+      default-days: 7

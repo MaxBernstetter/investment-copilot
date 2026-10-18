@@ -15,6 +15,7 @@ Overview: `ARCHITECTURE.md` at the repository root.
 10. [[10-observability]]: per-service transparency, monitoring and logging strategy
 11. [[11-service-design]]: facade vs. domain (DDD), `api`/`job` process types, service qualities
 12. [[12-data-pipeline]]: stages, source contracts, revisions, validation gates, replay, reference data, concurrency, retention, backup
+13. [[13-build-and-ci]]: devbox toolchain, Taskfile rules, tested scripts, thin local-first CI, pre-commit hooks
 
 ## Decisions
 
@@ -33,3 +34,5 @@ Overview: `ARCHITECTURE.md` at the repository root.
 | [[0011-validation-gates-and-wap]] | Severity-based validation gates and write–audit–publish for marts |
 | [[0012-backup-and-restore]] | Daily Data Pump exports to OCI Object Storage, tested restore |
 | [[0013-openlineage]] | OpenLineage for run and dataset lineage; value lineage stays per service |
+| [[0014-taskfile-and-local-first-ci]] | Taskfile as single task entry point; thin CI that only calls tasks |
+| [[0015-pre-commit-hooks]] | pre-commit framework for git hooks |

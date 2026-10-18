@@ -5,6 +5,44 @@
       "last_modified": "2026-10-10T12:58:50Z",
       "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8?lastModified=1791637130&narHash=sha256-TuvwvSjJrpqyIYdjhQ7Wu%2BADVfeOpO2Um21%2FV7TOubw%3D"
     },
+    "go-task@latest": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#go-task",
+      "source": "devbox-search",
+      "version": "3.53.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/mp3m86aziykrwshmqfr7i6w4ak4c8qz4-go-task-3.53.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/mp3m86aziykrwshmqfr7i6w4ak4c8qz4-go-task-3.53.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/mwy1kwfwgq3diqxqkrkj8qbhrsr8xa4x-go-task-3.53.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/mwy1kwfwgq3diqxqkrkj8qbhrsr8xa4x-go-task-3.53.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3gax8wb82c05afr6bsi56ighadlzaqkc-go-task-3.53.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3gax8wb82c05afr6bsi56ighadlzaqkc-go-task-3.53.1"
+        }
+      }
+    },
     "nodejs@26.12.0": {
       "last_modified": "2026-10-16T02:15:57Z",
       "plugin_version": "0.0.5",
@@ -79,6 +117,56 @@
             }
           ],
           "store_path": "/nix/store/djy1m6wbw950wmavrnwq97l241qyvcrc-obsidian-1.14.4"
+        }
+      }
+    },
+    "pre-commit@latest": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#pre-commit",
+      "source": "devbox-search",
+      "version": "4.6.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0dar26xs343v7lgc4f25apigglwscqz1-pre-commit-4.6.2",
+              "default": true
+            },
+            {
+              "name": "dist",
+              "path": "/nix/store/226d90qkcsnb8cp060df18hj1v8haa53-pre-commit-4.6.2-dist"
+            }
+          ],
+          "store_path": "/nix/store/0dar26xs343v7lgc4f25apigglwscqz1-pre-commit-4.6.2"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dk7y0s94x3hlnklgdk3rza3n4r8gx0nv-pre-commit-4.6.2",
+              "default": true
+            },
+            {
+              "name": "dist",
+              "path": "/nix/store/9sw4aik2b96bbnjbvzvb6h2rfihbv7pc-pre-commit-4.6.2-dist"
+            }
+          ],
+          "store_path": "/nix/store/dk7y0s94x3hlnklgdk3rza3n4r8gx0nv-pre-commit-4.6.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/i6jzjlpz4pzk6jz3b0v2h33qxz8wqy7i-pre-commit-4.6.2",
+              "default": true
+            },
+            {
+              "name": "dist",
+              "path": "/nix/store/x2a03y3qvbz4czhih20gqhmmzmr52f9p-pre-commit-4.6.2-dist"
+            }
+          ],
+          "store_path": "/nix/store/i6jzjlpz4pzk6jz3b0v2h33qxz8wqy7i-pre-commit-4.6.2"
         }
       }
     }

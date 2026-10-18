@@ -1,0 +1,14 @@
+# Root entry point for every development and CI task. Only includes components.
+# Run `task --list` for the menu. See docs/architecture/13-build-and-ci.md.
+version: "3"
+
+includes:
+  toolchain:
+    taskfile: ./src/toolchain
+    dir: .
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
