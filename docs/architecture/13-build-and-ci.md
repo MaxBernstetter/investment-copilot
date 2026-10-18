@@ -70,7 +70,7 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-Python components (`contracts`, `persistence`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[01-bitemporal-model#Migrations]]).
+Python components (`contracts`, `persistence`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]).
 
 ## Pre-commit hooks
 
