@@ -6,8 +6,10 @@ stores each new or changed one as a new version with valid time
 clock). Versions are never overwritten: a changed value or source for the
 same observation closes its open version and opens a new one. Sending an
 unchanged observation again (same value and source) is an idempotent no-op,
-so reloads and lookback windows can be sent as they are. The normalization
-version is provenance: a reload that differs only in it is unchanged too.
+so reloads and lookback windows can be sent as they are. Provenance
+(``run_id``, ``change_reason``, ``normalization_version``, ``delivery_id``)
+describes how the value was written, not the value, so it never makes a
+version on its own.
 """
 
 from datetime import date
@@ -74,6 +76,14 @@ class ObservationVersion(BaseModel):
         description="Version of the source mapping (normalization rules) that produced a "
         "published value; not version-relevant",
         examples=["1"],
+    )
+    delivery_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Raw source delivery the value came from (an ingestion reference); "
+        "provenance like run_id, so a new delivery of an unchanged value is no change",
+        examples=["4711"],
     )
 
     @model_validator(mode="after")
