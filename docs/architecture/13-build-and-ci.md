@@ -59,7 +59,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `static-analysis.yml` | Push to `main`, pull requests, manual | `task toolchain:lint`: all pre-commit hooks on all files | `devbox run -- task toolchain:lint` |
 | `contracts.yml` | Changes in `src/contracts/`, the root Taskfile or devbox; manual | `contracts:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task contracts:<task>` |
 | `persistence.yml` | Changes in `src/services/persistence/`, `src/contracts/`, the root Taskfile or devbox; manual | `persistence:` `setup`, `lint`, `typecheck`, `test:unit`; `test:integration` in its own job | `devbox run -- task persistence:<task>` |
-| `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
+| `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, `src/contracts/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
 
 ### Current tasks
 
@@ -79,9 +79,10 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 |---|---|
 | `ingestion:setup` | Create the virtual environment from `uv.lock` |
 | `ingestion:fmt` | Format with ruff and apply safe lint fixes |
-| `ingestion:lint` | ruff lint and format check |
+| `ingestion:lint` | ruff lint and format check, import-linter layer rules |
 | `ingestion:typecheck` | mypy strict on sources and tests |
 | `ingestion:test:unit` | Unit tests (no I/O, no live sources) |
+| `ingestion:load:ecb:daily`, `ingestion:load:ecb:history` | Manual ECB loads against a running persistence api (see [[03-ecb-load]]); they call the live ECB API and never run in CI |
 
 ## Pre-commit hooks
 
