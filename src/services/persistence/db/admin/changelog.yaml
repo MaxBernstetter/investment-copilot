@@ -1,0 +1,9 @@
+# Admin changelog: creates the CORE schema owner and the service's runtime user.
+# Runs as an administrative user (SYSTEM) against the pluggable database.
+# Passwords come from the changelog parameters CORE_PASSWORD and CORE_APP_PASSWORD
+# (environment variables of the Liquibase process).
+# See docs/project/01-data-persistence/01-bitemporal-model.md.
+databaseChangeLog:
+  - include:
+      file: users.sql
+      relativeToChangelogFile: true
