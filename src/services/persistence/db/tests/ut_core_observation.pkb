@@ -26,12 +26,14 @@ create or replace package body ut_core_observation as
     p_method_version in varchar2 default null,
     p_source_id      in varchar2 default 'ecb',
     p_run_id         in varchar2 default 'run-1',
-    p_change_reason  in varchar2 default 'initial'
+    p_change_reason  in varchar2 default 'initial',
+    p_normalization_version in varchar2 default '1'
   ) return observation_version_t is
   begin
     return observation_version_t(
       p_curve_id, p_maturity, p_valid_date, p_value, p_origin, p_method_version,
-      case when p_origin = 'published' then p_source_id end, p_run_id, p_change_reason
+      case when p_origin = 'published' then p_source_id end, p_run_id, p_change_reason,
+      case when p_origin = 'published' then p_normalization_version end
     );
   end version;
 
@@ -138,6 +140,7 @@ create or replace package body ut_core_observation as
     ut.expect(l_row.source_id).to_equal('ecb');
     ut.expect(l_row.run_id).to_equal('run-1');
     ut.expect(l_row.change_reason).to_equal('initial');
+    ut.expect(l_row.normalization_version).to_equal('1');
   end keeps_provenance;
 
   procedure versions_a_changed_value is
@@ -233,6 +236,23 @@ create or replace package body ut_core_observation as
     ut.expect(l_rows(1).run_id).to_equal('run-1');
     ut.expect(l_rows(1).change_reason).to_equal('initial');
   end unchanged_reload_is_a_no_op;
+
+  procedure a_changed_normalization_version_alone_is_unchanged is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version(p_normalization_version => '1')));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(version(p_normalization_version => '2')), c_revised_at
+      )
+    ).to_equal(0);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).normalization_version).to_equal('1');
+    ut.expect(l_rows(1).known_to).to_equal(core_observation.open_known_to);
+  end a_changed_normalization_version_alone_is_unchanged;
 
   procedure records_a_mixed_batch is
     l_rows observation_rows;
