@@ -3,9 +3,17 @@
 # this directory as working directory.
 version: "3"
 
-# Local-only default: the persistence api started by `task persistence:run`.
+# Local-only defaults: the persistence api started by `task persistence:run`, and the
+# spool's Garage node started by spool:start. Override any of them through the
+# environment; never reuse them outside your machine.
 env:
   INGESTION_PERSISTENCE__URL: '{{.INGESTION_PERSISTENCE__URL | default "http://localhost:8001"}}'
+  INGESTION_SPOOL__URL: '{{.INGESTION_SPOOL__URL | default "s3://ingestion-spool"}}'
+  INGESTION_SPOOL__ENDPOINT: '{{.INGESTION_SPOOL__ENDPOINT | default "http://localhost:3900"}}'
+  INGESTION_SPOOL__ACCESS_KEY_ID: '{{.INGESTION_SPOOL__ACCESS_KEY_ID | default "GK10ca10000000000000000000"}}'
+  INGESTION_SPOOL__SECRET_ACCESS_KEY: '{{.INGESTION_SPOOL__SECRET_ACCESS_KEY | default "10ca100000000000000000000000000000000000000000000000000000000000"}}'
+  GARAGE_RPC_SECRET: '{{.GARAGE_RPC_SECRET | default "10ca100000000000000000000000000000000000000000000000000000000000"}}'
+  GARAGE_ADMIN_TOKEN: '{{.GARAGE_ADMIN_TOKEN | default "local-admin"}}'
 
 tasks:
   setup:
@@ -35,6 +43,31 @@ tasks:
     desc: Run the unit tests (no I/O, no live sources)
     cmds:
       - uv run --locked pytest tests/unit
+
+  test:integration:
+    desc: Run the integration tests against a Garage node (Testcontainers)
+    cmds:
+      - uv run --locked pytest tests/integration
+
+  spool:start:
+    desc: Start the spool's local Garage node and wait until it answers
+    cmds:
+      - docker compose up --detach --wait spool-store
+
+  spool:setup:
+    desc: Give the node its layout and create the spool bucket and key (idempotent)
+    cmds:
+      - spool/setup.sh
+
+  spool:stop:
+    desc: Stop the spool's local Garage node (keeps its data)
+    cmds:
+      - docker compose stop spool-store
+
+  spool:reset:
+    desc: Remove the spool's local Garage node and its data
+    cmds:
+      - docker compose down --volumes
 
   load:ecb:daily:
     desc: Load the ECB curve for VALID_DATE and its lookback window (live ECB call; manual only)
