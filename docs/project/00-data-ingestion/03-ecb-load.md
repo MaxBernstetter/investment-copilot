@@ -63,9 +63,9 @@ Declared with Pandera on a Polars frame (`infrastructure/ecb/payload.py`). Every
 
 Missing columns, unreadable CSV and any rule violation fail the load with `InvalidPayloadError` before anything of that window is written. Extra columns are tolerated. Quarantine and schema-drift alerts come later ([[12-data-pipeline#Source contracts and schema drift]]).
 
-## Mapping (minimal)
+## Mapping (normalization version 1)
 
-Only what is needed to write the grid; the common maturity grid, conventions and the normalization version are [#19](https://github.com/MaxBernstetter/investment-copilot/issues/19).
+The rules and the recorded conventions are described in [[01-data-sources#Mapping rules]].
 
 | Observation field | From |
 |---|---|
@@ -73,6 +73,7 @@ Only what is needed to write the grid; the common maturity grid, conventions and
 | `maturity` | `DATA_TYPE_FM` without `SR_` (`SR_10Y` → `10Y`) |
 | `valid_date` | `TIME_PERIOD` |
 | `value` | `OBS_VALUE`, unchanged (percent per annum) |
+| `normalization_version` | `NORMALIZATION_VERSION` (`1`) |
 | `origin`, `source_id`, `run_id`, `change_reason` | `published`, `ecb`, the run id, `initial` |
 
 ## Empty answers
@@ -92,7 +93,7 @@ Both are a successful run with zero rows and are never retried:
 
 - **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/investment-copilot/issues/15), PR [#71](https://github.com/MaxBernstetter/investment-copilot/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
 - **Change reason of a revised value:** every value is sent with `change_reason = initial`, and persistence stores it as sent. Which reason a revised value from a lookback rerun gets is open; reason derivation is [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
-- Raw payload retention ([#20](https://github.com/MaxBernstetter/investment-copilot/issues/20)), normalization ([#19](https://github.com/MaxBernstetter/investment-copilot/issues/19)), scheduling ([#21](https://github.com/MaxBernstetter/investment-copilot/issues/21)), the backfill feature ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface and domain metrics beyond the request counter.
+- Raw payload retention ([#20](https://github.com/MaxBernstetter/investment-copilot/issues/20)), scheduling ([#21](https://github.com/MaxBernstetter/investment-copilot/issues/21)), the backfill feature ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/investment-copilot/issues/32)) and domain metrics beyond the request counter.
 
 ## Tests
 
