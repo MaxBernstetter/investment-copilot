@@ -1,6 +1,6 @@
 # Bitemporal Model
 
-How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issues: [#12](https://github.com/MaxBernstetter/investment-copilot/issues/12) (bitemporal storage), [#15](https://github.com/MaxBernstetter/investment-copilot/issues/15) (versioning).
+How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issues: [#12](https://github.com/MaxBernstetter/investment-copilot/issues/12) (bitemporal storage), [#15](https://github.com/MaxBernstetter/investment-copilot/issues/15) (versioning), [#19](https://github.com/MaxBernstetter/investment-copilot/issues/19) (maturity grid and curve definitions).
 
 ## Two time axes
 
@@ -20,10 +20,10 @@ One row per version. Rows are insert-only; the only update is closing `known_to`
 | Column | Type | Null | Meaning |
 |---|---|---|---|
 | `version_id` | `NUMBER` identity | no | Surrogate key of the version (primary key) |
-| `curve_id` | `VARCHAR2(64)` | no | Curve the value belongs to |
-| `maturity` | `VARCHAR2(16)` | no | Tenor code, e.g. `3M`, `10Y`, `1Y6M` |
+| `curve_id` | `VARCHAR2(64)` | no | Curve the value belongs to; must be defined in `curve` (see [[#Reference data: maturity grid and curves]]) |
+| `maturity` | `VARCHAR2(16)` | no | Tenor code, e.g. `3M`, `10Y`; must be on the curve's grid |
 | `valid_date` | `DATE` | no | Valid time (a date, no time part) |
-| `value` | `NUMBER` | no | The yield in percent |
+| `value` | `NUMBER` | no | The yield, in the unit and conventions of its curve (`percent` for every curve today) |
 | `known_from` | `TIMESTAMP(6)` | no | Start of the knowledge interval (UTC) |
 | `known_to` | `TIMESTAMP(6)` | no | End of the knowledge interval (UTC), `9999-12-31` while open |
 | `origin` | `VARCHAR2(16)` | no | `published` (from a source) or `derived` (calculated) |
@@ -38,6 +38,21 @@ Constraints:
 - `method_version` is required for `derived` and forbidden for `published`.
 - **One open version per observation key:** the unique index `observation_version_uk` on (`curve_id`, `maturity`, `valid_date`, `origin`, `method_version`, `known_to`). The versions of one key never overlap, so their `known_to` values differ and only one can be open.
 
+## Reference data: maturity grid and curves
+
+The common maturity grid and the curve definitions are versioned reference data owned by persistence ([[12-data-pipeline#Reference data]]). They make curves from different sources comparable: every curve is stored on a grid, and its conventions are recorded with it.
+
+| Table | Key | Content |
+|---|---|---|
+| `maturity_grid` | `grid_version` | A grid version and its description. A version is never changed once applied; a different grid is a new version |
+| `grid_maturity` | (`grid_version`, `maturity`) | The tenors of a grid version, with their length in `months` for ordering (unique per version) |
+| `curve` | `curve_id` | The grid version a curve is stored on, and its conventions **as published**: `rate_type` (`spot`, `par`, `forward`), `compounding` (`continuous`, `annual`, `semi-annual`), `unit` (`percent`) and `source_model` (the source's fitting model, optional) |
+
+- **Grid version 1** holds the 11 tenors of phase 1: `3M`, `6M`, `1Y`, `2Y`, `3Y`, `5Y`, `7Y`, `10Y`, `15Y`, `20Y`, `30Y` ([[01-data-sources]]).
+- **`ecb-aaa-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)`.
+- Conventions are **recorded, not converted**: values are stored as the source publishes them. Converting between conventions (for example semi-annual par yields to continuous spot rates) is a calculation and produces *derived* values in processing.
+- Both are seeded by Liquibase changesets (`db/core/19_curve_reference_data.sql`). A new curve or grid version is a new changeset.
+
 Partitioning: interval range partitions of **one month on `valid_date`** (all indexes are local except the primary key). Queries filter by `valid_date`, so they prune partitions.
 
 ## PL/SQL interface: package `core_observation`
@@ -50,6 +65,7 @@ The service only calls the package; it never touches the table (see [[#Users and
 | `get_versions(p_curve_id, p_valid_date_from, p_valid_date_to)` | All stored versions of one curve in a valid-date range, as a cursor ordered by `valid_date`, `maturity`, `origin`, `method_version`, `known_from`. Used by tests; as-of retrieval comes with [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22). |
 | `open_version_exists` (`-20001`) | Raised when a concurrent call opened the first version of an observation of the batch before this one. Nothing of the batch is stored; the caller retries. |
 | `duplicate_observation` (`-20002`) | Raised when an observation appears more than once in the batch. Nothing of the batch is stored. |
+| `off_grid_observation` (`-20003`) | Raised when an observation names a curve without a definition in `curve`, or a maturity that is not on its curve's grid. Nothing of the batch is stored. |
 | `open_known_to` | The `known_to` sentinel of open versions. |
 
 `observation_version_t` holds the input row: every column of `observation` except `version_id`, `known_from` and `known_to`.
@@ -91,7 +107,7 @@ Liquibase SQL changelogs under `src/services/persistence/db/`:
 | Path | Runs as | Content |
 |---|---|---|
 | `admin/` | `SYSTEM` | Users `CORE` and `CORE_APP`, grants, passwords |
-| `core/` | `CORE` | Table, index, types, package (re-applied on change), grants to `CORE_APP` |
+| `core/` | `CORE` | Tables, index, types, reference data (grid and curves), package (re-applied on change), grants to `CORE_APP` |
 | `tests/` | – | utPLSQL test packages; installed by the integration tests only, never migrated |
 
 Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundles the Oracle JDBC driver and needs no Java runtime on the host. The nix `liquibase` package (Liquibase 5) wraps only the MySQL, PostgreSQL and Redshift drivers, and Liquibase 5 no longer bundles drivers itself, so it can't reach Oracle without extra jars. Locally, `task persistence:db:migrate` runs it through `src/services/persistence/compose.yaml`; the integration tests run the same image and changelogs against a Testcontainers Oracle.
@@ -100,8 +116,8 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 
 | Level | What | Where |
 |---|---|---|
-| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads, mixed batches, origins and method versions, duplicates, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
-| Integration | Migrations (partitioning, package valid, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
+| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads, mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
+| Integration | Migrations (partitioning, package valid, seeded grid and curve conventions, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
 | Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 
 utPLSQL (v3.2.2) is installed into the test container on demand from the pinned, checksum-verified GitHub release and cached under `src/services/persistence/.cache/utplsql`.
