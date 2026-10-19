@@ -89,4 +89,4 @@ Open: Oracle/PL-SQL availability for a personal project and German-language cont
 - ~~Which countries and sources offer the best reliability, history and genuine revisions?~~ Answered for phase 1 in [[01-data-sources]] and [[0016-ecb-aaa-curve-as-first-source]].
 - Which derived-curve methods are worth including before scope grows?
 - How prominent should the insight layer be?
-- Keep the name YieldLens, or rename (the repo is `investment-copilot`)?
+- ~~Keep the name YieldLens, or rename (the repo was `investment-copilot`)?~~ Kept: the product is YieldLens, the repository and project board are `yield-lens`.
