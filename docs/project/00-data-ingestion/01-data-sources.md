@@ -55,7 +55,7 @@ Not consumed, on purpose:
 
 ### Mapping rules
 
-Normalization maps each delivered row to an observation on the **common maturity grid** ([#19](https://github.com/MaxBernstetter/investment-copilot/issues/19)). The rules are versioned: **normalization version `1`** (`NORMALIZATION_VERSION` in `src/services/ingestion/src/ingestion/infrastructure/ecb/payload.py`). Every stored version carries the normalization version that produced it.
+Normalization maps each delivered row to an observation on the **common maturity grid** ([#19](https://github.com/MaxBernstetter/yield-lens/issues/19)). The rules are versioned: **normalization version `1`** (`NORMALIZATION_VERSION` in `src/services/ingestion/src/ingestion/infrastructure/ecb/payload.py`). Every stored version carries the normalization version that produced it.
 
 | Observation | From | Rule |
 |---|---|---|

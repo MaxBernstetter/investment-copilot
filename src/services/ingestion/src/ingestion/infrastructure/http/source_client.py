@@ -30,7 +30,7 @@ from ingestion.config import SourceSettings
 
 logger = logging.getLogger(__name__)
 
-REPOSITORY_URL = "https://github.com/MaxBernstetter/investment-copilot"
+REPOSITORY_URL = "https://github.com/MaxBernstetter/yield-lens"
 USER_AGENT = f"YieldLens/{version('ingestion')} (+{REPOSITORY_URL})"
 REQUESTS_METRIC = "yl_ingestion_source_requests_total"
 

@@ -2,7 +2,7 @@
 
 The first vertical slice of ingestion: it loads the ECB euro area AAA spot curve (11 grid tenors, 3M–30Y) into the bitemporal core, for one valid date with a lookback window, or for a history range. The source itself is described in [[01-data-sources]]; every call goes through the [[02-source-client]].
 
-Tracked in [#14](https://github.com/MaxBernstetter/investment-copilot/issues/14). Code: `src/services/ingestion/src/ingestion/`.
+Tracked in [#14](https://github.com/MaxBernstetter/yield-lens/issues/14). Code: `src/services/ingestion/src/ingestion/`.
 
 ## Flow
 
@@ -100,9 +100,9 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 
 ## Not yet in place
 
-- **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/investment-copilot/issues/15), PR [#71](https://github.com/MaxBernstetter/investment-copilot/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
-- **Change reason of a revised value:** every value is sent with `change_reason = initial`, and persistence stores it as sent. Which reason a revised value from a lookback rerun gets is open; reason derivation is [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
-- The backfill feature ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/investment-copilot/issues/32)) and domain metrics beyond the request counter.
+- **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/yield-lens/issues/15), PR [#71](https://github.com/MaxBernstetter/yield-lens/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
+- **Change reason of a revised value:** every value is sent with `change_reason = initial`, and persistence stores it as sent. Which reason a revised value from a lookback rerun gets is open; reason derivation is [#23](https://github.com/MaxBernstetter/yield-lens/issues/23).
+- The backfill feature ([#27](https://github.com/MaxBernstetter/yield-lens/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32)) and domain metrics beyond the request counter.
 
 ## Tests
 
