@@ -1,0 +1,37 @@
+# ING migrations for local development: Liquibase against the local Oracle Free
+# started by `task persistence:db:start` (one instance, one schema per service).
+# Used by `task ingestion:db:migrate`; tests use Testcontainers.
+# Passwords and the database URL come from the environment (the Taskfile sets
+# local-only defaults).
+name: yieldlens-ingestion
+
+x-liquibase: &liquibase
+  image: liquibase/liquibase:4.33.0
+  network_mode: host
+  volumes:
+    - ./db:/liquibase/changelog:ro
+  command: [--search-path=/liquibase/changelog, update]
+
+services:
+  migrate-admin:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: ${INGESTION_DB_URL:?set INGESTION_DB_URL}
+      LIQUIBASE_COMMAND_USERNAME: system
+      LIQUIBASE_COMMAND_PASSWORD: ${INGESTION_DB_ADMIN_PASSWORD:?set INGESTION_DB_ADMIN_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: admin/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+      ING_PASSWORD: ${INGESTION_DB_OWNER_PASSWORD:?set INGESTION_DB_OWNER_PASSWORD}
+      ING_APP_PASSWORD: ${INGESTION_DB_PASSWORD:?set INGESTION_DB_PASSWORD}
+
+  migrate:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: ${INGESTION_DB_URL:?set INGESTION_DB_URL}
+      LIQUIBASE_COMMAND_USERNAME: ing
+      LIQUIBASE_COMMAND_PASSWORD: ${INGESTION_DB_OWNER_PASSWORD:?set INGESTION_DB_OWNER_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: ing/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+    depends_on:
+      migrate-admin:
+        condition: service_completed_successfully

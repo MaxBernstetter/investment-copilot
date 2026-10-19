@@ -17,11 +17,15 @@ ingestion-load-ecb = "ingestion.job:main"
 
 [dependency-groups]
 dev = [
+    "docker>=7.1",
     "import-linter>=2.3",
     "mypy>=1.15",
     "opentelemetry-sdk>=1.30",
+    "oracledb>=3.0",
     "pytest>=8.3",
     "ruff==0.17.1",
+    "testcontainers>=4.10",
+    "types-docker>=7.1",
 ]
 
 [build-system]
@@ -40,6 +44,10 @@ strict = true
 python_version = "3.13"
 files = ["src", "tests"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

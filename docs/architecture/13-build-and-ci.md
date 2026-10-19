@@ -71,7 +71,7 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-Python components (`contracts`, `persistence`, `ingestion`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]).
+Python components (`contracts`, `persistence`, `ingestion`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]).
 
 Each service has its own Taskfile, included as `<service>:<task>` and run from the service directory (Python services use `uv run --locked`):
 
@@ -82,6 +82,8 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:lint` | ruff lint and format check, import-linter layer rules |
 | `ingestion:typecheck` | mypy strict on sources and tests |
 | `ingestion:test:unit` | Unit tests (no I/O, no live sources) |
+| `ingestion:test:integration` | Integration tests against Oracle Free (Testcontainers), including the utPLSQL suites of `ING` |
+| `ingestion:db:migrate` | Apply the `ING` changelogs to the local database started by `persistence:db:start` |
 | `ingestion:load:ecb:daily`, `ingestion:load:ecb:history` | Manual ECB loads against a running persistence api (see [[03-ecb-load]]); they call the live ECB API and never run in CI |
 
 ## Pre-commit hooks
