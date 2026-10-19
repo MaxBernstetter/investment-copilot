@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 ingestion-load-ecb = "ingestion.job:main"
+ingestion-scenario = "ingestion.job:run_scenario"
 
 [dependency-groups]
 dev = [

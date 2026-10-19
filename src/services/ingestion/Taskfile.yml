@@ -72,3 +72,10 @@ tasks:
       vars: [FROM, TO]
     cmds:
       - uv run --locked ingestion-load-ecb replay --fetched-from {{.FROM}} --fetched-to {{.TO}}
+
+  scenario:
+    desc: Write a scenario's events to its simulated curve (no source call; NAME is the scenario)
+    requires:
+      vars: [NAME]
+    cmds:
+      - uv run --locked ingestion-scenario {{.NAME}}

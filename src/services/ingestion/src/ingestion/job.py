@@ -1,13 +1,15 @@
-"""Composition root of the ``job`` process: wires the ECB source, ``ING`` and persistence.
+"""Composition roots of the jobs: the ECB source, ``ING`` and persistence for the load, and
+persistence alone for a scenario.
 
-Entry point ``ingestion-load-ecb`` (see ``ingestion.facade.jobs.load_ecb``). Exit
-status: ``0`` the load or replay finished (also with zero rows), ``1`` the load failed, ``2``
-usage or configuration error.
+Entry points ``ingestion-load-ecb`` (see ``ingestion.facade.jobs.load_ecb``) and
+``ingestion-scenario`` (see ``ingestion.facade.jobs.scenario``). Exit status: ``0`` the
+load, replay or scenario finished (also with zero rows), ``1`` it failed, ``2`` usage or
+configuration error.
 """
 
 import asyncio
 import sys
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from typing import Protocol
 
@@ -21,6 +23,7 @@ from ingestion.application.replay_deliveries import (
     ReplayResult,
     StoredDeliveries,
 )
+from ingestion.application.run_scenario import RunScenario, ScenarioResult
 from ingestion.config import IngestionSettings
 from ingestion.facade.jobs.load_ecb import (
     LoadCommand,
@@ -29,6 +32,12 @@ from ingestion.facade.jobs.load_ecb import (
     parse_command,
     replay_summary,
     summary,
+)
+from ingestion.facade.jobs.scenario import (
+    ScenarioCommand,
+    parse_scenario_command,
+    scenario_failure,
+    scenario_summary,
 )
 from ingestion.infrastructure.ecb import (
     SOURCE_ID,
@@ -50,6 +59,9 @@ LOAD_ERRORS = (
     httpx.HTTPError,
     oracledb.Error,
 )
+
+
+SCENARIO_ERRORS = (PersistenceWriteError, httpx.HTTPError)
 
 
 class Deliveries(DeliveryStore, StoredDeliveries, Protocol):
@@ -121,6 +133,41 @@ async def _replay(
     ):
         replay = ReplayDeliveries(SOURCE_ID, parse_delivery, deliveries, store)
         return await replay(command.fetched_from, command.fetched_to, command.run_id)
+
+
+def run_scenario(
+    argv: Sequence[str] | None = None,
+    *,
+    persistence_transport: httpx.AsyncBaseTransport | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> int:
+    """Run one scenario against its simulated curve. Tests inject the transport and the
+    pause; the defaults are real (persistence over HTTP, real seconds)."""
+    try:
+        settings = IngestionSettings()
+    except ValidationError as error:
+        print(scenario_failure(None, error), file=sys.stderr)
+        return 2
+    command = parse_scenario_command(argv)
+    try:
+        result = asyncio.run(_scenario(command, settings, persistence_transport, sleep))
+    except SCENARIO_ERRORS as error:
+        print(scenario_failure(command.scenario.name, error), file=sys.stderr)
+        return 1
+    print(scenario_summary(result))
+    return 0
+
+
+async def _scenario(
+    command: ScenarioCommand,
+    settings: IngestionSettings,
+    persistence_transport: httpx.AsyncBaseTransport | None,
+    sleep: Callable[[float], Awaitable[None]],
+) -> ScenarioResult:
+    """No source client and no delivery store: a scenario writes through persistence only."""
+    async with PersistenceClient(settings.persistence, transport=persistence_transport) as store:
+        scenario = RunScenario(store, sleep)
+        return await scenario(command.scenario, command.event_names)
 
 
 @asynccontextmanager

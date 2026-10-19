@@ -33,6 +33,11 @@ tasks:
     cmds:
       - docker compose --profile tools down --volumes --remove-orphans
 
+  scenario:corrected-yield:
+    desc: Run the corrected-yield scenario on the simulated curve ecb-aaa-spot-sim (no source call; real curves untouched)
+    cmds:
+      - docker compose --profile tools run --rm --build --entrypoint ingestion-scenario ingestion corrected-yield
+
   seed:
     desc: Load ECB history at two knowledge times (live ECB calls)
     vars:
