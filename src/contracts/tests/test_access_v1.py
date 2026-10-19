@@ -24,3 +24,22 @@ def test_curve_response_round_trips_with_missing_points() -> None:
     assert response.data.points[0].value is None
     assert response.data.points[1].value == 2.61
     assert v1.CurveObservationsResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_series_response_round_trips_with_gaps_between_dates() -> None:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "points": [
+                {"valid_date": "2026-03-12", "value": 2.61},
+                {"valid_date": "2026-03-14", "value": 2.7},
+            ],
+        },
+        "meta": {"as_of": "2026-03-15T09:00:00Z"},
+    }
+
+    response = v1.SeriesObservationsResponse.model_validate(body)
+
+    assert [point.valid_date.day for point in response.data.points] == [12, 14]
+    assert v1.SeriesObservationsResponse.model_validate_json(response.model_dump_json()) == response
