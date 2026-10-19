@@ -4,6 +4,7 @@ import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
 import { missingMaturities, type LabelledCurve } from './curveData'
 import { fetchCurve, type CurveResult } from './fetchCurve'
+import VersionHistory from '../versions/VersionHistory'
 
 const MAX_OVERLAYS = 5
 
@@ -13,6 +14,7 @@ export default function CurveView() {
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
   const [overlayDates, setOverlayDates] = useState<string[]>([])
   const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
+  const [historyMaturity, setHistoryMaturity] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -61,6 +63,10 @@ export default function CurveView() {
   }, [result, overlayCurves, overlayDates])
 
   const missing = result?.kind === 'ok' ? missingMaturities(result.curve.data.points) : []
+  const withValue =
+    result?.kind === 'ok'
+      ? result.curve.data.points.filter((point) => point.value !== null).map((point) => point.maturity)
+      : []
   const asOfText = asOf ? new Date(asOf).toUTCString() : ''
 
   return (
@@ -106,6 +112,25 @@ export default function CurveView() {
           )}
           <CurveChart curves={curves} />
           {missing.length > 0 && <p>No value for: {missing.join(', ')}</p>}
+          <div>
+            {withValue.map((maturity) => (
+              <button
+                key={maturity}
+                type="button"
+                onClick={() => setHistoryMaturity(maturity)}
+              >
+                History {maturity}
+              </button>
+            ))}
+          </div>
+          {historyMaturity !== undefined && (
+            <VersionHistory
+              maturity={historyMaturity}
+              validDate={shownDate}
+              asOf={asOf}
+              onClose={() => setHistoryMaturity(undefined)}
+            />
+          )}
         </>
       )}
       {result?.kind === 'offline' && (
