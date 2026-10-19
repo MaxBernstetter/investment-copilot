@@ -227,8 +227,9 @@ job-posting.md
 .idea
 .vscode
 
-# Local Claude Code settings and session state
-.claude/
+# Local Claude Code settings and session state; the project subagents are shared
+.claude/*
+!.claude/agents/
 
 # Local shell and tool config (never project files)
 .bashrc
