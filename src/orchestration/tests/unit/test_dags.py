@@ -37,6 +37,13 @@ def daily_load_ecb(dag_bag: DagBag) -> DAG:
     return dag
 
 
+@pytest.fixture(scope="module")
+def backfill_ecb(dag_bag: DagBag) -> DAG:
+    dag = dag_bag.dags["backfill_ecb"]
+    assert isinstance(dag, DAG)
+    return dag
+
+
 def test_every_dag_imports_uses_known_pools_and_has_an_owner_and_tags(dag_bag: DagBag) -> None:
     assert dag_bag.import_errors == {}
     assert dag_bag.dag_warnings == set()
@@ -87,3 +94,18 @@ def test_the_load_runs_in_the_ecb_pool_of_size_one(
 ) -> None:
     assert daily_load_ecb.get_task("load_ecb").pool == "ecb"
     assert pools["ecb"]["slots"] == 1
+
+
+def test_the_backfill_is_manual_and_loads_one_year_at_a_time_in_the_ecb_pool(
+    backfill_ecb: DAG, pools: dict[str, dict[str, object]]
+) -> None:
+    assert backfill_ecb.schedule is None
+    assert backfill_ecb.max_active_runs == 1
+
+    load = backfill_ecb.get_task("load_year")
+
+    assert load.pool == "ecb"
+    assert pools["ecb"]["slots"] == 1
+    assert load.max_active_tis_per_dag == 1
+    assert load.retries == 2
+    assert load.on_failure_callback == report_final_failure

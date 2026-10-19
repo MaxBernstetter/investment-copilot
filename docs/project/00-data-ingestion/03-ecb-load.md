@@ -102,7 +102,7 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 
 - **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/yield-lens/issues/15), PR [#71](https://github.com/MaxBernstetter/yield-lens/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
 - **Change reason of a revised value:** every value is sent with `change_reason = initial`, and persistence stores it as sent. Which reason a revised value from a lookback rerun gets is open; reason derivation is [#23](https://github.com/MaxBernstetter/yield-lens/issues/23).
-- The backfill feature ([#27](https://github.com/MaxBernstetter/yield-lens/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32)) and domain metrics beyond the request counter.
+- Late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32)) and domain metrics beyond the request counter.
 
 ## Tests
 
