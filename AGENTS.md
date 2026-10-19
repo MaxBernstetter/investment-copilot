@@ -17,6 +17,29 @@
 
 Trivial changes (typos, docs wording) skip steps 2 and 4.
 
+## Project board
+- The board <https://github.com/users/MaxBernstetter/projects/2> must reflect the current state of agentic development at all times.
+- Set an issue to `In progress` directly when work on it starts, before planning or coding, and update its status on every later change (`In review` once its merge request is open, back to `In progress` when it is reworked).
+
+## GitLab issues
+- When opening a merge request for a GitLab issue, prefix the MR title with the issue ID from the issue title, e.g. `[00.10] Load published curve for one country`.
+- After opening the merge request, wait until CodeRabbit has finished its review, then assess its comments and resolve them (use the `mr-threads` skill).
+
+## Merge request size
+Every merge request must be reviewable by a human in one sitting.
+- Aim for at most ~400 changed lines, not counting lockfiles and generated files. Treat ~800 as a hard limit.
+- One concern per merge request. Do not mix refactoring, formatting or dependency bumps with behaviour changes.
+- Check the expected size while planning. If an issue will exceed the limit, propose splitting it into smaller issues or stacked merge requests before implementing, each one independently green and reviewable.
+- Do not add scope found during implementation; propose a follow-up issue instead.
+- In the description, state what changed and why, and point to where to start reviewing.
+
+## Worktrees
+Issue, merge request and worktree relate 1:1:1. An issue split into stacked merge requests gets one worktree per merge request.
+- Work on one merge request only in its own git worktree under `.claude/worktrees/`, on its own branch. Never let two merge requests, issues or agents share a worktree, and never edit a worktree you did not create.
+- Name the worktree after its branch, e.g. `.claude/worktrees/feat-19-1-grid-reference` for `feat/19-1-grid-reference`.
+- Before creating a worktree or starting an agent, check that no other session or agent already owns the issue (`ListAgents`, the board, existing worktrees). If one does, ask it instead of starting in parallel.
+- Remove the worktree (`git worktree remove`) once its branch is pushed and work stops: merge request in review, merged, closed, superseded or paused. The pushed branch is the durable state; to rework, create a fresh worktree from it. Never remove a worktree with uncommitted changes without saving them first.
+
 ## Agent skills
 - Shared project skills are stored in `.agents/skills/`.
 - Before implementing a task, check for relevant skills and follow their instructions when applicable.
