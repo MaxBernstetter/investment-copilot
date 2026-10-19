@@ -58,5 +58,12 @@ class EcbSpotCurveSource:
         )
 
     def parse(self, delivery: RawDelivery) -> list[PublishedObservation]:
-        """Validate and map the payload; raises ``InvalidPayloadError`` if it breaks the schema."""
-        return parse_payload(delivery.payload) if delivery.payload is not None else []
+        return parse_delivery(delivery)
+
+
+def parse_delivery(delivery: RawDelivery) -> list[PublishedObservation]:
+    """Validate and map the payload; raises ``InvalidPayloadError`` if it breaks the schema.
+
+    Needs no client: replay parses stored deliveries with it.
+    """
+    return parse_payload(delivery.payload) if delivery.payload is not None else []

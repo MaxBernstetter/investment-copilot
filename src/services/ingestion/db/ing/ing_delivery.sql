@@ -22,6 +22,15 @@ create or replace package ing_delivery authid definer as
     p_payload         in blob      default null,
     p_payload_sha256  in varchar2  default null
   ) return delivery.delivery_id%type;
+
+  -- Every delivery of a source fetched in [p_fetched_from, p_fetched_to) (UTC),
+  -- payload included, in the order it was fetched (fetched_at, then delivery_id).
+  -- The replay source: it reads stored answers, never the source.
+  function get_deliveries(
+    p_source_id    in varchar2,
+    p_fetched_from in timestamp,
+    p_fetched_to   in timestamp
+  ) return sys_refcursor;
 end ing_delivery;
 /
 
@@ -57,6 +66,24 @@ create or replace package body ing_delivery as
       dbms_application_info.set_module(null, null);
       raise;
   end record_delivery;
+
+  function get_deliveries(
+    p_source_id    in varchar2,
+    p_fetched_from in timestamp,
+    p_fetched_to   in timestamp
+  ) return sys_refcursor is
+    l_deliveries sys_refcursor;
+  begin
+    open l_deliveries for
+      select delivery_id, source_id, run_id, request_url, response_status, fetched_at,
+             last_modified, etag, payload, payload_sha256
+        from delivery
+       where source_id = p_source_id
+         and fetched_at >= p_fetched_from
+         and fetched_at < p_fetched_to
+       order by fetched_at, delivery_id;
+    return l_deliveries;
+  end get_deliveries;
 
 end ing_delivery;
 /

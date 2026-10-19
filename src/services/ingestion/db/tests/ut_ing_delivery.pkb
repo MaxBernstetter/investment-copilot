@@ -91,5 +91,41 @@ create or replace package body ut_ing_delivery as
     );
   end rejects_malformed_hash;
 
+  procedure reads_deliveries_in_fetch_order is
+    l_later   number;
+    l_earlier number;
+    l_unused  number;
+    l_cursor  sys_refcursor;
+    l_row     delivery%rowtype;
+    l_rows    sys.odcinumberlist := sys.odcinumberlist();
+  begin
+    l_later := ing_delivery.record_delivery(
+      'ecb', 'run-2', c_url, 200, c_fetched_at + interval '1' hour,
+      p_payload => payload(), p_payload_sha256 => c_sha256
+    );
+    l_earlier := ing_delivery.record_delivery('ecb', 'run-1', c_url, 404, c_fetched_at);
+    -- Before or at the end of the period, or of another source: not read.
+    l_unused := ing_delivery.record_delivery('ecb', 'run-0', c_url, 404, c_fetched_at - interval '1' second);
+    l_unused := ing_delivery.record_delivery('ecb', 'run-3', c_url, 404, c_fetched_at + interval '1' day);
+    l_unused := ing_delivery.record_delivery('other', 'run-1', c_url, 404, c_fetched_at);
+
+    l_cursor := ing_delivery.get_deliveries('ecb', c_fetched_at, c_fetched_at + interval '1' day);
+    loop
+      fetch l_cursor into l_row;
+      exit when l_cursor%notfound;
+      l_rows.extend;
+      l_rows(l_rows.count) := l_row.delivery_id;
+      if l_row.delivery_id = l_later then
+        ut.expect(dbms_lob.compare(l_row.payload, payload())).to_equal(0);
+        ut.expect(l_row.payload_sha256).to_equal(c_sha256);
+      end if;
+    end loop;
+    close l_cursor;
+
+    ut.expect(anydata.convertcollection(l_rows)).to_equal(
+      anydata.convertcollection(sys.odcinumberlist(l_earlier, l_later))
+    );
+  end reads_deliveries_in_fetch_order;
+
 end ut_ing_delivery;
 /
