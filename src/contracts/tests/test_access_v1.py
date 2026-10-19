@@ -87,3 +87,41 @@ def test_value_versions_response_round_trips() -> None:
     ]
     assert response.data.versions[1].known_to is None
     assert v1.ValueVersionsResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_curve_changes_round_trip() -> None:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-03-12",
+            "valid_to": "2026-03-14",
+            "changes": [
+                {
+                    "valid_date": "2026-03-12",
+                    "maturity": "10Y",
+                    "old_value": 2.61,
+                    "new_value": 2.7,
+                    "change_reason": "correction",
+                    "source_id": "ecb",
+                    "known_from": "2026-03-13T08:00:00Z",
+                },
+                {
+                    "valid_date": "2026-03-13",
+                    "maturity": "3M",
+                    "old_value": None,
+                    "new_value": 1.1,
+                    "change_reason": "initial",
+                    "source_id": None,
+                    "known_from": "2026-03-13T08:00:00Z",
+                },
+            ],
+        },
+        "meta": {"since": "2026-03-12T08:00:00Z", "as_of": "2026-03-13T08:00:00Z"},
+    }
+
+    response = v1.CurveChangesResponse.model_validate(body)
+
+    assert [change.old_value for change in response.data.changes] == [2.61, None]
+    assert response.data.changes[0].change_reason is v1.ChangeReason.CORRECTION
+    assert response.meta.since < response.meta.as_of
+    assert v1.CurveChangesResponse.model_validate_json(response.model_dump_json()) == response

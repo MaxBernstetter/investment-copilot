@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
+from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
     CurveNotFoundError,
@@ -392,3 +393,133 @@ async def test_value_versions_unavailable() -> None:
     async with client_answering(httpx.MockTransport(garbage)) as client:
         with pytest.raises(PersistenceUnavailableError):
             await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)
+
+
+CHANGES_PATH = "/v1/curves/ecb-aaa-spot/changes"
+CHANGES_BODY = {
+    "data": {
+        "curve_id": "ecb-aaa-spot",
+        "valid_from": "2026-03-12",
+        "valid_to": "2026-03-14",
+        "changes": [
+            {
+                "valid_date": "2026-03-12",
+                "maturity": "10Y",
+                "old_value": 2.61,
+                "new_value": 2.7,
+                "change_reason": "correction",
+                "source_id": "ecb",
+                "known_from": "2026-03-14T08:00:00Z",
+            },
+        ],
+    },
+    "meta": {"since": "2026-03-13T08:00:00Z", "as_of": "2026-03-15T08:00:00Z"},
+}
+
+
+async def test_reads_changes() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=CHANGES_BODY)
+
+    since = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+    as_of = datetime(2026, 3, 15, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        changes = await client.changes(
+            "ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, as_of
+        )
+
+    assert seen[0].url.path == CHANGES_PATH
+    assert dict(seen[0].url.params) == {
+        "from": "2026-03-12",
+        "to": "2026-03-14",
+        "since": "2026-03-13T09:00:00+01:00",
+        "as_of": "2026-03-15T09:00:00+01:00",
+    }
+    assert changes == CurveChanges(
+        curve_id="ecb-aaa-spot",
+        valid_from=date(2026, 3, 12),
+        valid_to=date(2026, 3, 14),
+        since=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+        as_of=datetime(2026, 3, 15, 8, 0, tzinfo=UTC),
+        changes=(
+            ValueChange(
+                valid_date=date(2026, 3, 12),
+                maturity="10Y",
+                old_value=2.61,
+                new_value=2.7,
+                change_reason=ChangeReason.CORRECTION,
+                source_id="ecb",
+                known_from=datetime(2026, 3, 14, 8, 0, tzinfo=UTC),
+            ),
+        ),
+    )
+
+
+async def test_changes_omit_as_of_when_absent() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=CHANGES_BODY)
+
+    since = datetime(2026, 3, 13, 8, 0, tzinfo=UTC)
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        await client.changes("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, None)
+
+    assert "as_of" not in seen[0].url.params
+
+
+async def test_changes_not_found() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"type": "about:blank", "title": "Not found", "status": 404, "detail": "no curve"},
+            headers={"content-type": "application/problem+json"},
+        )
+
+    since = datetime(2026, 3, 13, 8, 0, tzinfo=UTC)
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(CurveNotFoundError) as raised:
+            await client.changes("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, None)
+
+    assert raised.value.detail == "no curve"
+
+
+async def test_changes_invalid_query_is_invalid_query() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422,
+            json={
+                "type": "about:blank",
+                "title": "Invalid request",
+                "status": 422,
+                "detail": "bad",
+            },
+        )
+
+    since = datetime(2026, 3, 13, 8, 0, tzinfo=UTC)
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(InvalidCurveQueryError):
+            await client.changes("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, None)
+
+
+async def test_changes_unavailable() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    def garbage(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"unexpected": True})
+
+    since = datetime(2026, 3, 13, 8, 0, tzinfo=UTC)
+    for handler in (answer, refuse, garbage):
+        async with client_answering(httpx.MockTransport(handler)) as client:
+            with pytest.raises(PersistenceUnavailableError):
+                await client.changes(
+                    "ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, None
+                )

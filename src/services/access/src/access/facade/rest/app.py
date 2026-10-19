@@ -19,7 +19,12 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
-from access.facade.mapping import to_response, to_series_response, to_versions_response
+from access.facade.mapping import (
+    to_changes_response,
+    to_response,
+    to_series_response,
+    to_versions_response,
+)
 from access.facade.rest.caching import cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
@@ -157,6 +162,38 @@ def _add_routes(app: FastAPI) -> None:
             request,
             to_versions_response(versions),
             cache_control=cache_control(as_of, versions.as_of),
+        )
+
+    @app.get(
+        v1.CURVE_CHANGES_PATH,
+        response_model=v1.CurveChangesResponse,
+        responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
+            status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
+            status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
+        },
+    )
+    async def curve_changes(
+        request: Request,
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        valid_from: Annotated[date, Query(alias="from")],
+        valid_to: Annotated[date, Query(alias="to")],
+        since: AwareDatetime,
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> Response:
+        """What changed in a curve over valid dates between ``since`` and ``as_of``.
+
+        A change is a value whose visible version differs between the two knowledge times;
+        ``old_value`` is null when the value was not known at ``since``. Without ``as_of``
+        the store picks its default; the answer reports both knowledge times in ``meta``.
+        """
+        changes = await services.curves.changes(curve_id, valid_from, valid_to, since, as_of)
+        return json_with_etag(
+            request,
+            to_changes_response(changes),
+            cache_control=cache_control(as_of, changes.as_of),
         )
 
     @app.get("/health")

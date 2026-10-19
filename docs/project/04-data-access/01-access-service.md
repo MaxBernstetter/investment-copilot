@@ -9,6 +9,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 | `GET /v1/curves/{curve_id}/observations?valid_date=&as_of=` | One curve on one valid date, as it was known at `meta.as_of` (both query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions?as_of=` | The version history of one value, as it was known at `meta.as_of`: versions oldest first, with `known_to` null while current; versions first known after `as_of` left out (`as_of` optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
+| `GET /v1/curves/{curve_id}/changes?from=&to=&since=&as_of=` | What changed in a curve over valid dates (`from`, `to` inclusive) between the knowledge times `meta.since` and `meta.as_of`: a value changed, or known only at `as_of` (`old_value` null); `since` is required, `as_of` optional | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /health` | Liveness: the process is up | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
@@ -43,7 +44,7 @@ The OpenAPI document is generated from the app (`task access:openapi`) and publi
 
 | Package | Content |
 |---|---|
-| `access.domain` | `CurveAsOf` and `CurvePoint`, and the errors of reading a curve |
+| `access.domain` | `CurveAsOf` and `CurvePoint`, the version history and changes of values, and the errors of reading a curve |
 | `access.application` | `CurveReader` port |
 | `access.infrastructure` | `PersistenceClient`: readiness, and the curve read (maps persistence answers and errors to the domain) |
 | `access.facade` | FastAPI app, CORS, routes, problem handlers, mapping to `contracts.access.v1`, OpenAPI export |

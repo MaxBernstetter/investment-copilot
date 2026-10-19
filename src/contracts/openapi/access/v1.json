@@ -13,6 +13,90 @@
         "title": "ChangeReason",
         "type": "string"
       },
+      "ChangesMeta": {
+        "additionalProperties": false,
+        "description": "The two knowledge times the changes were determined between.",
+        "properties": {
+          "as_of": {
+            "description": "Later knowledge time (UTC) of the comparison",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "since": {
+            "description": "Earlier knowledge time (UTC) of the comparison",
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "since",
+          "as_of"
+        ],
+        "title": "ChangesMeta",
+        "type": "object"
+      },
+      "CurveChanges": {
+        "additionalProperties": false,
+        "description": "The changes of one curve over a range of valid dates, in valid-date and grid order.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ValueChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "valid_from": {
+            "description": "Valid time: first valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Valid time: last valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_from",
+          "valid_to",
+          "changes"
+        ],
+        "title": "CurveChanges",
+        "type": "object"
+      },
+      "CurveChangesResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET`` on the :data:`CURVE_CHANGES_PATH` endpoint.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CurveChanges"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ChangesMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "CurveChangesResponse",
+        "type": "object"
+      },
       "CurveMeta": {
         "additionalProperties": false,
         "description": "How the answer was determined.",
@@ -235,6 +319,87 @@
           "value"
         ],
         "title": "SeriesPoint",
+        "type": "object"
+      },
+      "ValueChange": {
+        "additionalProperties": false,
+        "description": "One published value whose visible version differs between the two knowledge times.",
+        "properties": {
+          "change_reason": {
+            "$ref": "#/components/schemas/ChangeReason",
+            "description": "Reason of the version known at meta.as_of"
+          },
+          "known_from": {
+            "description": "Knowledge time (UTC) the version known at meta.as_of became known",
+            "format": "date-time",
+            "title": "Known From",
+            "type": "string"
+          },
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "new_value": {
+            "description": "Yield in percent known at meta.as_of",
+            "examples": [
+              2.7
+            ],
+            "title": "New Value",
+            "type": "number"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Yield in percent known at meta.since; null when the value was not known then",
+            "examples": [
+              2.61
+            ],
+            "title": "Old Value"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "ecb"
+            ],
+            "title": "Source Id"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_date",
+          "maturity",
+          "old_value",
+          "new_value",
+          "change_reason",
+          "source_id",
+          "known_from"
+        ],
+        "title": "ValueChange",
         "type": "object"
       },
       "ValueVersion": {
@@ -463,6 +628,118 @@
           }
         },
         "summary": "Ready"
+      }
+    },
+    "/v1/curves/{curve_id}/changes": {
+      "get": {
+        "description": "What changed in a curve over valid dates between ``since`` and ``as_of``.\n\nA change is a value whose visible version differs between the two knowledge times;\n``old_value`` is null when the value was not known at ``since``. Without ``as_of``\nthe store picks its default; the answer reports both knowledge times in ``meta``.",
+        "operationId": "curve_changes_v1_curves__curve_id__changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Since",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveChangesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Curve Changes"
       }
     },
     "/v1/curves/{curve_id}/maturities/{maturity}/observations": {
