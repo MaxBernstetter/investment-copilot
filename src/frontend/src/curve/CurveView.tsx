@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { readAsOf, writeAsOf } from '../asOf'
 import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
-import { missingMaturities } from './curveData'
+import { missingMaturities, type LabelledCurve } from './curveData'
 import { fetchCurve, type CurveResult } from './fetchCurve'
+
+const MAX_OVERLAYS = 5
 
 export default function CurveView() {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
   const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
+  const [overlayDates, setOverlayDates] = useState<string[]>([])
+  const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
 
   useEffect(() => {
     let active = true
@@ -20,12 +24,42 @@ export default function CurveView() {
     }
   }, [validDate, asOf])
 
+  useEffect(() => {
+    let active = true
+    Promise.all(overlayDates.map((date) => fetchCurve({ validDate: date, asOf }))).then(
+      (results) => {
+        if (!active) return
+        setOverlayCurves(
+          results.flatMap((next, i) =>
+            next.kind === 'ok' ? [{ label: overlayDates[i], points: next.curve.data.points }] : [],
+          ),
+        )
+      },
+    )
+    return () => {
+      active = false
+    }
+  }, [overlayDates, asOf])
+
   const changeAsOf = (next: string | undefined) => {
     setAsOf(next)
     writeAsOf(next)
   }
 
   const returnedDate = result?.kind === 'ok' ? result.curve.data.valid_date : ''
+  const shownDate = validDate ?? returnedDate
+  const canAddOverlay =
+    shownDate !== '' && !overlayDates.includes(shownDate) && overlayDates.length < MAX_OVERLAYS
+
+  const curves = useMemo<LabelledCurve[]>(() => {
+    if (result?.kind !== 'ok') return []
+    const current = { label: result.curve.data.valid_date, points: result.curve.data.points }
+    const overlays = overlayCurves.filter(
+      (curve) => overlayDates.includes(curve.label) && curve.label !== current.label,
+    )
+    return [current, ...overlays]
+  }, [result, overlayCurves, overlayDates])
+
   const missing = result?.kind === 'ok' ? missingMaturities(result.curve.data.points) : []
   const asOfText = asOf ? new Date(asOf).toUTCString() : ''
 
@@ -45,7 +79,32 @@ export default function CurveView() {
       {result === undefined && <p>Loading…</p>}
       {result?.kind === 'ok' && (
         <>
-          <CurveChart points={result.curve.data.points} />
+          <div>
+            <button
+              type="button"
+              disabled={!canAddOverlay}
+              onClick={() => setOverlayDates((dates) => [...dates, shownDate])}
+            >
+              Add to overlay
+            </button>
+          </div>
+          {overlayDates.length > 0 && (
+            <ul aria-label="Overlaid valid dates">
+              {overlayDates.map((date) => (
+                <li key={date}>
+                  {date}{' '}
+                  <button
+                    type="button"
+                    aria-label={`Remove ${date}`}
+                    onClick={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <CurveChart curves={curves} />
           {missing.length > 0 && <p>No value for: {missing.join(', ')}</p>}
         </>
       )}

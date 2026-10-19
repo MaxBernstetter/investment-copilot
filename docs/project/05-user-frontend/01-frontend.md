@@ -29,10 +29,19 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`) afte
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 - **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source.
 
+### Overlay
+
+"Add to overlay" pins the valid date currently shown, so the chart compares several dates of the same curve.
+
+- **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date is listed with a "Remove <date>" button.
+- **Chart:** the shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
+- **Data:** each pinned date is fetched with the current `as_of`, and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
+- **Scope:** overlays compare valid dates only; countries are not overlaid.
+
 | Path | Content |
 |---|---|
-| `src/curve/CurveView.tsx` | Curve page: date input, state messages, source |
-| `src/curve/CurveChart.tsx` | Plotly line chart with markers, gaps unconnected |
+| `src/curve/CurveView.tsx` | Curve page: date input, overlay, state messages, source |
+| `src/curve/CurveChart.tsx` | Plotly line chart with markers, one trace per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
 | `src/curve/curveData.ts` | Chart series and missing maturities |
 
