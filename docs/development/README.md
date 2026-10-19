@@ -7,5 +7,8 @@ How to plan and implement software pieces: [[principles/README|principles]]
 ### GitHub MCP connection
 [[02-github-mcp]]
 
+### Agent harness
+Which model does what in agentic development: [[03-agent-harness]]
+
 ### Architecture
 `ARCHITECTURE.md` (repository root) and [[architecture/README|architecture docs]]; build, tasks and CI: [[13-build-and-ci]]

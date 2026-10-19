@@ -40,6 +40,14 @@ Issue, merge request and worktree relate 1:1:1. An issue split into stacked merg
 - Before creating a worktree or starting an agent, check that no other session or agent already owns the issue (`ListAgents`, the board, existing worktrees). If one does, ask it instead of starting in parallel.
 - Remove the worktree (`git worktree remove`) once its branch is pushed and work stops: merge request in review, merged, closed, superseded or paused. The pushed branch is the durable state; to rework, create a fresh worktree from it. Never remove a worktree with uncommitted changes without saving them first.
 
+## Subagents and models
+Agentic work is split by model to save tokens (`docs/development/03-agent-harness.md`):
+- Grooming, planning and validation run on Opus: `groomer`, `planner`, `validator`.
+- All execution runs on Haiku: implementation, exploration and chores such as rebases, checks, board and PR bookkeeping go to `worker`.
+- The main session orchestrates and delegates. Keep it from reading or editing code itself beyond what a decision needs.
+- Hand `worker` concrete work units from a plan, never open design questions. A `validator` failure goes back to `worker` as its next work unit.
+- Skip the harness for trivial changes.
+
 ## Agent skills
 - Shared project skills are stored in `.agents/skills/`.
 - Before implementing a task, check for relevant skills and follow their instructions when applicable.
