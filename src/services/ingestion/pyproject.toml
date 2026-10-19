@@ -9,6 +9,7 @@ dependencies = [
     "pandera[polars]>=0.34",
     "polars>=2.0",
     "pydantic-settings>=2.8",
+    "yieldlens-contracts",
 ]
 
 [dependency-groups]
@@ -41,3 +42,6 @@ testpaths = ["tests"]
 addopts = ["--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
+
+[tool.uv.sources]
+yieldlens-contracts = { path = "../../contracts", editable = true }
