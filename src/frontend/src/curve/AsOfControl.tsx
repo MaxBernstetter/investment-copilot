@@ -1,3 +1,4 @@
+import { Button, TextInput } from '@mantine/core'
 import { localInputToUtc, utcToLocalInput } from '../asOf'
 
 type AsOfControlProps = {
@@ -7,21 +8,19 @@ type AsOfControlProps = {
 
 export default function AsOfControl({ asOf, onChange }: AsOfControlProps) {
   return (
-    <div>
-      <label>
-        Known as of{' '}
-        <input
-          type="datetime-local"
-          step="1"
-          value={asOf ? utcToLocalInput(asOf) : ''}
-          onChange={(event) =>
-            onChange(event.target.value ? localInputToUtc(event.target.value) : undefined)
-          }
-        />
-      </label>{' '}
-      <button type="button" onClick={() => onChange(undefined)}>
+    <>
+      <TextInput
+        type="datetime-local"
+        step={1}
+        label="Known as of"
+        value={asOf ? utcToLocalInput(asOf) : ''}
+        onChange={(event) =>
+          onChange(event.currentTarget.value ? localInputToUtc(event.currentTarget.value) : undefined)
+        }
+      />
+      <Button variant="default" onClick={() => onChange(undefined)}>
         Now
-      </button>
-    </div>
+      </Button>
+    </>
   )
 }

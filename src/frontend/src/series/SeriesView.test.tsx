@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { localInputToUtc } from '../asOf'
 import { fetchSeries, type SeriesResult } from './fetchSeries'

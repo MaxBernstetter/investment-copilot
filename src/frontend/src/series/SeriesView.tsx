@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Alert, Anchor, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
 import { readAsOf, writeAsOf } from '../asOf'
 import AsOfControl from '../curve/AsOfControl'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
@@ -31,60 +32,73 @@ export default function SeriesView() {
   const asOfText = asOf ? new Date(asOf).toUTCString() : ''
 
   return (
-    <section>
-      <h2>ECB euro area AAA spot time series</h2>
-      <label>
-        Maturity{' '}
-        <select value={maturity} onChange={(event) => setMaturity(event.target.value)}>
-          {MATURITIES.map((tenor) => (
-            <option key={tenor} value={tenor}>
-              {tenor}
-            </option>
-          ))}
-        </select>
-      </label>{' '}
-      <label>
-        From{' '}
-        <input
+    <Stack component="section" gap="md">
+      <Title order={2}>ECB euro area AAA spot time series</Title>
+      <Group gap="sm" align="flex-end">
+        <NativeSelect
+          label="Maturity"
+          data={MATURITIES}
+          value={maturity}
+          onChange={(event) => setMaturity(event.currentTarget.value)}
+        />
+        <TextInput
           type="date"
+          label="From"
           value={range.from}
           onChange={(event) => {
-            if (event.target.value) setRange({ ...range, from: event.target.value })
+            if (event.currentTarget.value) setRange({ ...range, from: event.currentTarget.value })
           }}
         />
-      </label>{' '}
-      <label>
-        To{' '}
-        <input
+        <TextInput
           type="date"
+          label="To"
           value={range.to}
           onChange={(event) => {
-            if (event.target.value) setRange({ ...range, to: event.target.value })
+            if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
           }}
         />
-      </label>
-      <AsOfControl asOf={asOf} onChange={changeAsOf} />
-      {asOf && <p role="status">Showing the series as known on {asOfText}</p>}
-      {result === undefined && <p>Loading…</p>}
+        <AsOfControl asOf={asOf} onChange={changeAsOf} />
+      </Group>
+      {asOf && (
+        <Alert variant="light" color="blue" role="status">
+          Showing the series as known on {asOfText}
+        </Alert>
+      )}
+      {result === undefined && (
+        <>
+          <Skeleton h={320} />
+          <VisuallyHidden>Loading…</VisuallyHidden>
+        </>
+      )}
       {result?.kind === 'ok' && result.series.data.points.length > 0 && (
-        <SeriesChart points={result.series.data.points} />
+        <Paper withBorder p="md">
+          <SeriesChart points={result.series.data.points} />
+        </Paper>
       )}
       {result?.kind === 'ok' && result.series.data.points.length === 0 && (
-        <p role="status">No values in this range.</p>
+        <Alert variant="light" color="blue" role="status">
+          No values in this range.
+        </Alert>
       )}
       {result?.kind === 'offline' && (
-        <p role="alert">Backend offline: the YieldLens API is not reachable. Try again later.</p>
+        <Alert color="red" role="alert">
+          Backend offline: the YieldLens API is not reachable. Try again later.
+        </Alert>
       )}
       {result?.kind === 'not-found' && !asOf && (
-        <p role="status">No data known for this maturity.</p>
+        <Alert variant="light" color="blue" role="status">
+          No data known for this maturity.
+        </Alert>
       )}
-      {result?.kind === 'not-found' && asOf && <p>No data known as of {asOfText}</p>}
+      {result?.kind === 'not-found' && asOf && <Text>No data known as of {asOfText}</Text>}
       {(result?.kind === 'invalid' || result?.kind === 'error') && (
-        <p role="alert">{result.detail}</p>
+        <Alert color="red" role="alert">
+          {result.detail}
+        </Alert>
       )}
-      <p>
-        Source: <a href="https://data.ecb.europa.eu/">ECB statistics</a>
-      </p>
-    </section>
+      <Text size="xs" c="dimmed">
+        Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
+      </Text>
+    </Stack>
   )
 }

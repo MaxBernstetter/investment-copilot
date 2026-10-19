@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { localInputToUtc } from '../asOf'
 import CurveChart from './CurveChart'
@@ -115,6 +115,18 @@ describe('CurveView', () => {
       validDate: undefined,
       asOf: '2026-10-01T12:00:00Z',
     })
+  })
+
+  it('shows the as-of banner as a status alert', async () => {
+    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
+
+    render(<CurveView />)
+
+    const banner = await screen.findByRole('status')
+    expect(banner).toHaveTextContent(
+      `Showing the curve as known on ${new Date('2026-10-01T12:00:00Z').toUTCString()}`,
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('Now clears as_of', async () => {

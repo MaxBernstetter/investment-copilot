@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Alert, Anchor, Button, Group, Paper, Pill, Skeleton, Stack, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
 import { readAsOf, writeAsOf } from '../asOf'
 import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
@@ -70,59 +71,70 @@ export default function CurveView() {
   const asOfText = asOf ? new Date(asOf).toUTCString() : ''
 
   return (
-    <section>
-      <h2>ECB euro area AAA spot curve</h2>
-      <label>
-        Valid date{' '}
-        <input
+    <Stack component="section" gap="md">
+      <Title order={2}>ECB euro area AAA spot curve</Title>
+      <Group gap="sm" align="flex-end">
+        <TextInput
           type="date"
+          label="Valid date"
           value={validDate ?? returnedDate}
-          onChange={(event) => setValidDate(event.target.value || undefined)}
+          onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
         />
-      </label>
-      <AsOfControl asOf={asOf} onChange={changeAsOf} />
-      {asOf && <p role="status">Showing the curve as known on {asOfText}</p>}
-      {result === undefined && <p>Loading…</p>}
+        <AsOfControl asOf={asOf} onChange={changeAsOf} />
+      </Group>
+      {asOf && (
+        <Alert variant="light" color="blue" role="status">
+          Showing the curve as known on {asOfText}
+        </Alert>
+      )}
+      {result === undefined && (
+        <>
+          <Skeleton h={320} />
+          <VisuallyHidden>Loading…</VisuallyHidden>
+        </>
+      )}
       {result?.kind === 'ok' && (
         <>
-          <div>
-            <button
-              type="button"
+          <Group gap="sm">
+            <Button
+              variant="light"
               disabled={!canAddOverlay}
               onClick={() => setOverlayDates((dates) => [...dates, shownDate])}
             >
               Add to overlay
-            </button>
-          </div>
+            </Button>
+          </Group>
           {overlayDates.length > 0 && (
-            <ul aria-label="Overlaid valid dates">
+            <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0} style={{ listStyle: 'none' }}>
               {overlayDates.map((date) => (
-                <li key={date}>
-                  {date}{' '}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${date}`}
-                    onClick={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
-                  >
-                    ×
-                  </button>
-                </li>
+                <Pill
+                  key={date}
+                  component="li"
+                  withRemoveButton
+                  removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
+                  onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
+                >
+                  {date}
+                </Pill>
               ))}
-            </ul>
+            </Group>
           )}
-          <CurveChart curves={curves} />
-          {missing.length > 0 && <p>No value for: {missing.join(', ')}</p>}
-          <div>
+          <Paper withBorder p="md">
+            <CurveChart curves={curves} />
+          </Paper>
+          {missing.length > 0 && <Text>No value for: {missing.join(', ')}</Text>}
+          <Group gap="xs">
             {withValue.map((maturity) => (
-              <button
+              <Button
                 key={maturity}
-                type="button"
+                size="xs"
+                variant="subtle"
                 onClick={() => setHistoryMaturity(maturity)}
               >
                 History {maturity}
-              </button>
+              </Button>
             ))}
-          </div>
+          </Group>
           {historyMaturity !== undefined && (
             <VersionHistory
               maturity={historyMaturity}
@@ -134,18 +146,24 @@ export default function CurveView() {
         </>
       )}
       {result?.kind === 'offline' && (
-        <p role="alert">Backend offline: the YieldLens API is not reachable. Try again later.</p>
+        <Alert color="red" role="alert">
+          Backend offline: the YieldLens API is not reachable. Try again later.
+        </Alert>
       )}
       {result?.kind === 'not-found' && !asOf && (
-        <p role="status">No data known for this date.</p>
+        <Alert variant="light" color="blue" role="status">
+          No data known for this date.
+        </Alert>
       )}
-      {result?.kind === 'not-found' && asOf && <p>No data known as of {asOfText}</p>}
+      {result?.kind === 'not-found' && asOf && <Text>No data known as of {asOfText}</Text>}
       {(result?.kind === 'invalid' || result?.kind === 'error') && (
-        <p role="alert">{result.detail}</p>
+        <Alert color="red" role="alert">
+          {result.detail}
+        </Alert>
       )}
-      <p>
-        Source: <a href="https://data.ecb.europa.eu/">ECB statistics</a>
-      </p>
-    </section>
+      <Text size="xs" c="dimmed">
+        Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
+      </Text>
+    </Stack>
   )
 }

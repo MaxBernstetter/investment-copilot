@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Alert, Button, Paper, Stack, Table, Text, Title } from '@mantine/core'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 
 type VersionHistoryProps = {
@@ -28,55 +29,67 @@ export default function VersionHistory({ maturity, validDate, asOf, onClose }: V
   }, [maturity, validDate, asOf])
 
   return (
-    <section aria-label={`Version history of ${maturity}`}>
-      <h3>
-        History of {maturity} on {validDate}
-      </h3>
-      {result === undefined && <p>Loading…</p>}
-      {result?.kind === 'ok' && result.versions.data.versions.length === 0 && (
-        <p role="status">No versions known.</p>
-      )}
-      {result?.kind === 'ok' && result.versions.data.versions.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Value</th>
-              <th scope="col">Known from</th>
-              <th scope="col">Known until</th>
-              <th scope="col">Reason</th>
-              <th scope="col">Source</th>
-              <th scope="col">Run</th>
-              <th scope="col">Delivery</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.versions.data.versions.map((version) => (
-              <tr key={version.version_id}>
-                <td>{version.value}</td>
-                <td>{utc(version.known_from)}</td>
-                <td>{version.known_to === null ? 'current' : utc(version.known_to)}</td>
-                <td>{version.change_reason}</td>
-                <td>{version.source_id ?? EMPTY}</td>
-                <td>{version.run_id}</td>
-                <td>{version.delivery_id ?? EMPTY}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {result?.kind === 'offline' && (
-        <p role="alert">Backend offline: the YieldLens API is not reachable. Try again later.</p>
-      )}
-      {result?.kind === 'not-found' && !asOf && (
-        <p role="status">No data known for this value.</p>
-      )}
-      {result?.kind === 'not-found' && asOf && <p>No data known as of {utc(asOf)}</p>}
-      {(result?.kind === 'invalid' || result?.kind === 'error') && (
-        <p role="alert">{result.detail}</p>
-      )}
-      <button type="button" onClick={onClose}>
-        Close
-      </button>
-    </section>
+    <Paper component="section" withBorder p="md" aria-label={`Version history of ${maturity}`}>
+      <Stack gap="sm">
+        <Title order={3}>
+          History of {maturity} on {validDate}
+        </Title>
+        {result === undefined && <Text>Loading…</Text>}
+        {result?.kind === 'ok' && result.versions.data.versions.length === 0 && (
+          <Alert variant="light" color="blue" role="status">
+            No versions known.
+          </Alert>
+        )}
+        {result?.kind === 'ok' && result.versions.data.versions.length > 0 && (
+          <Table.ScrollContainer minWidth={600}>
+            <Table striped highlightOnHover style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th scope="col">Value</Table.Th>
+                  <Table.Th scope="col">Known from</Table.Th>
+                  <Table.Th scope="col">Known until</Table.Th>
+                  <Table.Th scope="col">Reason</Table.Th>
+                  <Table.Th scope="col">Source</Table.Th>
+                  <Table.Th scope="col">Run</Table.Th>
+                  <Table.Th scope="col">Delivery</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {result.versions.data.versions.map((version) => (
+                  <Table.Tr key={version.version_id}>
+                    <Table.Td>{version.value}</Table.Td>
+                    <Table.Td>{utc(version.known_from)}</Table.Td>
+                    <Table.Td>{version.known_to === null ? 'current' : utc(version.known_to)}</Table.Td>
+                    <Table.Td>{version.change_reason}</Table.Td>
+                    <Table.Td>{version.source_id ?? EMPTY}</Table.Td>
+                    <Table.Td>{version.run_id}</Table.Td>
+                    <Table.Td>{version.delivery_id ?? EMPTY}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
+        {result?.kind === 'offline' && (
+          <Alert color="red" role="alert">
+            Backend offline: the YieldLens API is not reachable. Try again later.
+          </Alert>
+        )}
+        {result?.kind === 'not-found' && !asOf && (
+          <Alert variant="light" color="blue" role="status">
+            No data known for this value.
+          </Alert>
+        )}
+        {result?.kind === 'not-found' && asOf && <Text>No data known as of {utc(asOf)}</Text>}
+        {(result?.kind === 'invalid' || result?.kind === 'error') && (
+          <Alert color="red" role="alert">
+            {result.detail}
+          </Alert>
+        )}
+        <Button variant="default" size="xs" onClick={onClose} style={{ alignSelf: 'flex-start' }}>
+          Close
+        </Button>
+      </Stack>
+    </Paper>
   )
 }
