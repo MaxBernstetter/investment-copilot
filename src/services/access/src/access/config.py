@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     persistence_url: AnyHttpUrl = Field(description="Base URL of the persistence api")
     persistence_timeout_seconds: float = Field(default=10.0, gt=0)
     cors_origins: str = Field(
-        default="http://localhost:5173",
+        default="http://localhost:5174",
         description="Comma-separated origins allowed to call the API (the frontend)",
     )
 

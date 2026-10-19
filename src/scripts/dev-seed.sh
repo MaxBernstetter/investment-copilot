@@ -46,6 +46,6 @@ ingest history --start "$start" --end "$cutoff"
 sleep 2
 knowledge_time=$(date -u +%FT%TZ)
 echo "Knowledge time between the two loads: $knowledge_time"
-echo "Try: http://localhost:5173/?as_of=$knowledge_time"
+echo "Try: http://localhost:5174/?as_of=$knowledge_time"
 sleep 2
 ingest history --start "$after_cutoff" --end "$yesterday"

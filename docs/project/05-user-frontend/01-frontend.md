@@ -116,6 +116,6 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:typecheck` | `tsc -b` (app and Vite config) |
 | `frontend:test:unit` | Vitest, single run |
 | `frontend:build` | Production bundle in `dist/` |
-| `frontend:dev` | Vite dev server |
+| `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 
 CI runs `setup`, `audit`, `lint`, `typecheck`, `test:unit` and `build` in `.github/workflows/frontend.yml`; each of them generates the API types first, so CI needs no separate step.
