@@ -28,6 +28,17 @@ create or replace package body ut_core_observation as
   );
   type value_version_rows is table of value_version_t;
 
+  type change_t is record (
+    valid_date    date,
+    maturity      varchar2(16 char),
+    old_value     number,
+    new_value     number,
+    change_reason varchar2(16 char),
+    source_id     varchar2(64 char),
+    known_from    timestamp
+  );
+  type change_rows is table of change_t;
+
   c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
     || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
 
@@ -863,16 +874,6 @@ create or replace package body ut_core_observation as
     ut.expect(core_observation.knowledge_horizon()).to_equal(c_later);
   end a_failed_call_keeps_the_horizon;
 
-  type change_t is record (
-    valid_date    date,
-    maturity      varchar2(16 char),
-    old_value     number,
-    new_value     number,
-    change_reason varchar2(16 char),
-    source_id     varchar2(64 char),
-    known_from    timestamp
-  );
-  type change_rows is table of change_t;
 
   -- The changes of the test curve between two knowledge times, as
   -- date|maturity|old|new|reason pairs joined by commas; null when there are none.
