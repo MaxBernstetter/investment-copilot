@@ -13,7 +13,7 @@ Tasks should be traceable from initial requirements through implementation, veri
 
 ## GitHub Project
 
-The board is the user-owned project **Investment-Copilot**: <https://github.com/users/MaxBernstetter/projects/2> (owner `MaxBernstetter`, project number `2`). All epics and tasks of this repository are tracked there.
+The board is the user-owned project **yield-lens**: <https://github.com/users/MaxBernstetter/projects/2> (owner `MaxBernstetter`, project number `2`). All epics and tasks of this repository are tracked there.
 
 ### Fields
 
