@@ -116,5 +116,20 @@ create or replace package ut_core_observation as
 
   --%test(Value versions of an unknown value are empty)
   procedure value_versions_of_an_unknown_value_are_empty;
+
+  --%test(A knowledge time is after the knowledge horizon before the call)
+  procedure knowledge_time_is_after_the_horizon;
+
+  --%test(A call advances the knowledge horizon to its knowledge time)
+  procedure a_call_advances_the_horizon;
+
+  --%test(Knowledge time moves past the horizon when the database clock lags behind it)
+  procedure knowledge_time_increases_when_the_clock_lags;
+
+  --%test(Rejects a given knowledge time not after the horizon and stores nothing)
+  procedure rejects_a_given_knowledge_time_not_after_the_horizon;
+
+  --%test(A failed call keeps the knowledge horizon)
+  procedure a_failed_call_keeps_the_horizon;
 end ut_core_observation;
 /

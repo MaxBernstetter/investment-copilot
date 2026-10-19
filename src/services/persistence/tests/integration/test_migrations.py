@@ -67,3 +67,9 @@ def test_the_service_user_cannot_touch_the_table_directly(
         pytest.raises(oracledb.DatabaseError, match="ORA-00942"),
     ):
         cursor.execute(statement)
+
+
+def test_seeds_the_knowledge_clock_with_one_row(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute("select clock_id from knowledge_clock")
+        assert [clock_id for (clock_id,) in cursor] == [1]
