@@ -12,6 +12,10 @@ vi.mock('./series/SeriesView', () => ({
   default: () => <p>Time series view</p>,
 }))
 
+vi.mock('./changes/ChangesView', () => ({
+  default: () => <p>Changes view</p>,
+}))
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -52,6 +56,17 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Curve' }))
     expect(screen.getByText('Curve view')).toBeVisible()
     expect(screen.getByText('Time series view')).not.toBeVisible()
+  })
+
+  it('switches to the changes view', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Changes' }))
+    expect(screen.getByText('Changes view')).toBeVisible()
+    expect(screen.getByText('Curve view')).not.toBeVisible()
   })
 
   it('keeps the curve view mounted when switching tabs', async () => {
