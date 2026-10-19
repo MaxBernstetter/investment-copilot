@@ -124,10 +124,11 @@ A consumer asks *what did the curve look like on valid date `d` as it was known 
 - **Grid order:** every maturity of the curve's grid is returned, ordered by `months`. A maturity without a visible value comes back with a null `value`, so the shape of the curve never depends on which values were known.
 - **Undefined curve:** no rows. The service turns that into not found.
 - **Watermark:** `knowledge_horizon()` is the latest committed knowledge time. A read at `t <= knowledge_horizon()` is safe: every write committed later gets a knowledge time after the horizon it read, so it cannot appear at `t`. This holds because writes lock the knowledge clock ([[#Knowledge clock]]).
+- **Effective knowledge time:** the service reads at `min(t, knowledge_horizon())`, or at the horizon when no `t` is given. A `t` after the horizon is therefore answered at the horizon, and the response echoes the time it was answered at. A `t` after the database clock is rejected (`422`) before the horizon is consulted.
 
-The service reads the latest valid date known at `t` with `latest_valid_date` when no valid date is given.
+The service reads the latest valid date known at the effective time with `latest_valid_date` when no valid date is given.
 
-A series reads one maturity over a range of valid dates with `get_series`. It applies the same visibility and published-only rules per valid date, so a valid date revised after `t` still shows its value as of `t`, and a valid date with no version visible at `t` is absent from the result rather than null. `current_knowledge_time` supplies the default knowledge time.
+A series reads one maturity over a range of valid dates with `get_series`. It applies the same visibility and published-only rules per valid date, so a valid date revised after `t` still shows its value as of `t`, and a valid date with no version visible at `t` is absent from the result rather than null. `knowledge_horizon` supplies the default knowledge time and the cap on a requested one (see [[#As-of retrieval]]); `current_knowledge_time` is only the bound that rejects a time in the future.
 
 ## Users and privileges
 

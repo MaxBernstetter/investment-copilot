@@ -24,7 +24,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 
 `GET /v1/curves/{curve_id}/observations` takes two optional query parameters:
 
-- `as_of` (timezone-aware, e.g. `2026-03-13T08:00:00Z`): the knowledge time to read at. Defaults to the database clock (UTC), which is echoed in `meta.as_of`. A time after the database clock is `422`.
+- `as_of` (timezone-aware, e.g. `2026-03-13T08:00:00Z`): the knowledge time to read at. An `as_of` later than the knowledge horizon is answered at the horizon; without `as_of` the read is at the horizon. The effective time is echoed in `meta.as_of`. A time after the database clock is `422`.
 - `valid_date` (`YYYY-MM-DD`): the valid date of the curve. Defaults to the latest valid date with a published value known at `as_of`.
 
 The response `CurveObservationsResponse` carries `data` (`curve_id`, `valid_date`, `points` in grid order with `maturity`, `months` and `value`; `value` is null for a maturity with no published value known at `as_of`) and `meta.as_of`. Only published values count, and a version is visible when `known_from <= as_of < known_to`, so a past `as_of` gives the same answer after later revisions. See [[01-bitemporal-model#As-of retrieval]].
@@ -34,7 +34,7 @@ The response `CurveObservationsResponse` carries `data` (`curve_id`, `valid_date
 `GET /v1/curves/{curve_id}/maturities/{maturity}/observations` reads one maturity as a series. Query parameters, all optional:
 
 - `from` and `to` (`YYYY-MM-DD`): the inclusive valid-date range. `to` defaults to the latest valid date with a published value known at `as_of`; `from` defaults to 365 days before `to`. `from` after `to`, or a range longer than 3660 days, is `422`.
-- `as_of` (timezone-aware): the knowledge time to read at, as for the curve. Defaults to the database clock.
+- `as_of` (timezone-aware): the knowledge time to read at, as for the curve. Later times and no `as_of` are answered at the knowledge horizon.
 
 The response `SeriesObservationsResponse` carries `data` (`curve_id`, `maturity`, `points` with `valid_date` and `value`, in valid-date order) and `meta.as_of`. A valid date without a visible published value has no point, so the series has gaps rather than null values. See [[01-bitemporal-model#As-of retrieval]].
 

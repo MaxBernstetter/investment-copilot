@@ -3,7 +3,8 @@
 from datetime import date, datetime, timedelta
 from typing import Protocol
 
-from persistence.domain.curve import FutureAsOfError, NothingKnownError
+from persistence.application.knowledge_time import resolve_as_of
+from persistence.domain.curve import NothingKnownError
 from persistence.domain.series import InvalidRangeError, Series, SeriesPoint
 
 DEFAULT_RANGE = timedelta(days=365)
@@ -18,6 +19,10 @@ class SeriesReader(Protocol):
 
     async def current_knowledge_time(self) -> datetime:
         """The knowledge time now, from the database clock (UTC)."""
+        ...
+
+    async def knowledge_horizon(self) -> datetime:
+        """The committed knowledge horizon (UTC): the knowledge time of the latest commit."""
         ...
 
     async def latest_valid_date(self, curve_id: str, as_of: datetime) -> date | None:
@@ -47,11 +52,7 @@ class GetSeriesAsOf:
         valid_to: date | None,
         as_of: datetime | None,
     ) -> Series:
-        now = await self._reader.current_knowledge_time()
-        if as_of is None:
-            as_of = now
-        if as_of > now:
-            raise FutureAsOfError(f"as_of {as_of.isoformat()} is in the future")
+        as_of = await resolve_as_of(self._reader, as_of)
 
         if not await self._reader.has_maturity(curve_id, maturity):
             raise NothingKnownError(f"Maturity {maturity} is not on the grid of curve {curve_id}")

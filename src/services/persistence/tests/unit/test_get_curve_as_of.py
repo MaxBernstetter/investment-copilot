@@ -16,10 +16,30 @@ def reader_with(**values: float) -> FakeCurveReader:
     return FakeCurveReader(values={(CURVE, VALID_DATE): values})
 
 
-async def test_defaults_as_of_to_the_database_clock() -> None:
-    curve = await GetCurveAsOf(reader_with(**{"10Y": 2.61}))(CURVE, VALID_DATE, None)
+async def test_defaults_as_of_to_the_knowledge_horizon() -> None:
+    reader = FakeCurveReader(horizon=KNOWN_FROM, values={(CURVE, VALID_DATE): {"10Y": 2.61}})
 
-    assert curve.as_of == NOW
+    curve = await GetCurveAsOf(reader)(CURVE, VALID_DATE, None)
+
+    assert curve.as_of == KNOWN_FROM
+
+
+async def test_answers_an_as_of_after_the_horizon_at_the_horizon() -> None:
+    reader = FakeCurveReader(horizon=KNOWN_FROM, values={(CURVE, VALID_DATE): {"10Y": 2.61}})
+
+    curve = await GetCurveAsOf(reader)(CURVE, VALID_DATE, NOW)
+
+    assert curve.as_of == KNOWN_FROM
+
+
+async def test_keeps_an_as_of_at_or_before_the_horizon() -> None:
+    reader = FakeCurveReader(horizon=NOW, values={(CURVE, VALID_DATE): {"10Y": 2.61}})
+
+    earlier = await GetCurveAsOf(reader)(CURVE, VALID_DATE, KNOWN_FROM)
+    at_horizon = await GetCurveAsOf(reader)(CURVE, VALID_DATE, NOW)
+
+    assert earlier.as_of == KNOWN_FROM
+    assert at_horizon.as_of == NOW
 
 
 async def test_rejects_an_as_of_in_the_future() -> None:

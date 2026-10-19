@@ -92,6 +92,14 @@ class OracleObservationRepository:
             )
         return _as_utc(now)
 
+    async def knowledge_horizon(self) -> datetime:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            horizon = await connection.cursor().callfunc(
+                "core.core_observation.knowledge_horizon", oracledb.DB_TYPE_TIMESTAMP, []
+            )
+        return _as_utc(horizon)
+
     async def latest_valid_date(self, curve_id: str, as_of: datetime) -> date | None:
         async with self._pool.acquire() as connection:
             connection.call_timeout = self._call_timeout_ms
