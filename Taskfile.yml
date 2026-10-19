@@ -15,6 +15,9 @@ includes:
   ingestion:
     taskfile: ./src/services/ingestion
     dir: ./src/services/ingestion
+  orchestration:
+    taskfile: ./src/orchestration
+    dir: ./src/orchestration
 
 tasks:
   default:

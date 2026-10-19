@@ -1,0 +1,44 @@
+[project]
+name = "orchestration"
+version = "0.1.0"
+description = "YieldLens orchestration: Airflow DAGs that schedule the service jobs"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "apache-airflow==3.3.2",
+    "python-dateutil>=2.9",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15",
+    "pytest>=8.3",
+    "ruff==0.17.1",
+    "types-python-dateutil>=2.9",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "N"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.uv]
+# lazy-object-proxy 1.13.0 (2026-10-17) ships no Linux wheel for Python 3.13 and its
+# sdist fails to build; 1.12 has wheels.
+constraint-dependencies = ["lazy-object-proxy<1.13"]

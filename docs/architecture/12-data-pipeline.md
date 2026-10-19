@@ -84,6 +84,7 @@ Business calendars, maturity/tenor conventions, day-count conventions and curve 
 | Reference data | Owner |
 |---|---|
 | Source registry, source calendars (publication days) | ingestion |
+| Schedule calendars (when a source has published, e.g. TARGET for the ECB) | orchestration (`orchestration.target_calendar`) |
 | Curve definitions, maturity grid | persistence |
 | Market calendars, day-count and interpolation conventions | processing (calendars sourced from QuantLib) |
 
