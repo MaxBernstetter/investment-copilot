@@ -24,7 +24,7 @@ Every version of an observation is a row; rows are never updated in place except
 - Details of the implemented model: [[01-bitemporal-model]].
 - **As-of rule:** a version is visible at knowledge time *t* if `known_from <= t < known_to`.
 - **Integrity:** at most one open version per (`curve_id`, `maturity`, `valid_date`, `origin`, `method_version`).
-- **Simulated data** (scenario mechanism) is flagged and can be excluded or removed without touching real data.
+- **Simulated data** (scenario mechanism) lives on separate simulated curves (`simulated` = `Y`, e.g. `ecb-aaa-spot-sim`) and is written with source `scenario` only. The store rejects any batch that mixes simulated and real data. Simulated data is isolated, not removed: real curves are never touched.
 - **Reproducibility:** each version references the run that wrote it. The run records the source schema version, normalization version, method version, reference-data version and image SHA (see [[12-data-pipeline]]).
 - **Concurrency:** write packages lock per curve and valid-date range, so overlapping writers serialize.
 

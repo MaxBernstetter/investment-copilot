@@ -2,6 +2,7 @@ create or replace package body ut_core_observation as
 
   c_curve      constant varchar2(64) := 'ut-curve';
   c_other      constant varchar2(64) := 'ut-other-curve';
+  c_simulated  constant varchar2(64) := 'ut-simulated-curve';
   c_known_from constant timestamp := timestamp '2026-03-12 18:00:00';
   c_revised_at constant timestamp := timestamp '2026-03-13 18:00:00';
   c_later      constant timestamp := timestamp '2026-03-14 18:00:00';
@@ -40,6 +41,8 @@ create or replace package body ut_core_observation as
     values (c_curve, 1, 'spot', 'continuous', 'percent');
     insert into curve (curve_id, grid_version, rate_type, compounding, unit)
     values (c_other, 1, 'spot', 'continuous', 'percent');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit, simulated)
+    values (c_simulated, 1, 'spot', 'continuous', 'percent', 'Y');
   end define_test_curves;
 
   function version(
@@ -492,6 +495,46 @@ create or replace package body ut_core_observation as
 
     ut.expect(stored().count).to_equal(0);
   end rejects_a_maturity_off_the_grid;
+
+  procedure records_scenario_values_on_a_simulated_curve is
+    l_count pls_integer;
+  begin
+    l_count := recorded_count(
+      observation_version_list_t(version(p_curve_id => c_simulated, p_source_id => 'scenario')),
+      c_known_from
+    );
+
+    ut.expect(l_count).to_equal(1);
+    ut.expect(stored(c_simulated).count).to_equal(1);
+  end records_scenario_values_on_a_simulated_curve;
+
+  procedure rejects_a_scenario_value_on_a_real_curve is
+  begin
+    begin
+      record(observation_version_list_t(version(p_source_id => 'scenario')));
+      ut.fail('expected ORA-20005');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.simulated_mismatch);
+    end;
+
+    ut.expect(stored().count).to_equal(0);
+  end rejects_a_scenario_value_on_a_real_curve;
+
+  procedure rejects_a_source_value_on_a_simulated_curve is
+  begin
+    begin
+      record(observation_version_list_t(
+        version(p_curve_id => c_simulated), version('3Y', p_curve_id => c_simulated)
+      ));
+      ut.fail('expected ORA-20005');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.simulated_mismatch);
+    end;
+
+    ut.expect(stored(c_simulated).count).to_equal(0);
+  end rejects_a_source_value_on_a_simulated_curve;
 
   procedure records_nothing_for_empty_batch is
     l_known_from timestamp;
