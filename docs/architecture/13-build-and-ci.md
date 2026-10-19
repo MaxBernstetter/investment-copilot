@@ -74,13 +74,14 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-The local development stack (Oracle, the `CORE` and `ING` migrations, persistence api) lives in `src/deploy/` (namespace `dev`, run from that directory):
+The local development stack (Oracle, the `CORE` and `ING` migrations, persistence and access apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
 
 | Task | Does |
 |---|---|
 | `dev:up` | Start Oracle, apply the `CORE` and `ING` migrations and start the persistence api; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
+| `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
 
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 

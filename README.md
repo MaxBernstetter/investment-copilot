@@ -32,4 +32,17 @@ Domain services, interfaces, data model, tech stack and deployment: see [ARCHITE
 
 ## Development
 
-_Coming soon: a short guide on how to get the project running._
+### Demo: time travel on the local stack
+
+Prerequisites: Docker, and the devbox shell from this repository. The stack uses local-only default passwords (see `src/deploy/Taskfile.yml`); `task dev:seed` makes live calls to the ECB.
+
+1. `devbox shell`
+2. `task dev:up`: starts Oracle, applies the migrations and starts the `persistence` and `access` APIs (`http://localhost:8001`, `http://localhost:8000`).
+3. `task dev:seed`: loads ECB history from 2024-01-01 in two steps. The first load stops at a cutoff about 20 business days before yesterday. The second load covers the days after it. The task prints a knowledge time between the two loads and a `?as_of=` URL.
+4. `task frontend:dev`, then open <http://localhost:5173>: the latest curve is shown.
+5. Pick an older valid date in the explorer. The latest valid date is about 20 business days before yesterday.
+6. Open the printed `?as_of=` URL. Only the data the platform knew at that time is shown. Press "Now" to return to the latest view.
+
+The frontend calls `access` at `http://localhost:8000`; set `VITE_ACCESS_URL` to use another address.
+
+Rerunning `task dev:seed` records nothing new: the loads are idempotent. `task dev:down` stops the stack and keeps its data; `task dev:reset` also removes the data.
