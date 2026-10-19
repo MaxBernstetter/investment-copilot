@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+from persistence.domain.changes import ValueChange
 from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
     ChangeReason,
@@ -86,6 +87,9 @@ class FakeCurveReader:
     curves: set[str] = field(default_factory=lambda: {"ecb-aaa-spot"})
     values: dict[tuple[str, date], dict[str, float]] = field(default_factory=dict)
     versions: dict[tuple[str, str, date], list[ValueVersion]] = field(default_factory=dict)
+    value_changes: dict[str, list[ValueChange]] = field(default_factory=dict)
+    change_reads: list[tuple[datetime, datetime]] = field(default_factory=list)
+    """The (since, as_of) knowledge times each changes read was made at, oldest first."""
 
     async def current_knowledge_time(self) -> datetime:
         return self.now
@@ -132,6 +136,24 @@ class FakeCurveReader:
             for version in known
         ]
         return sorted(shown, key=lambda version: version.known_from)
+
+    async def has_curve(self, curve_id: str) -> bool:
+        return curve_id in self.curves
+
+    async def changes(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        since: datetime,
+        as_of: datetime,
+    ) -> list[ValueChange]:
+        self.change_reads.append((since, as_of))
+        return [
+            change
+            for change in self.value_changes.get(curve_id, [])
+            if valid_from <= change.valid_date <= valid_to
+        ]
 
     async def series_as_of(
         self, curve_id: str, maturity: str, valid_from: date, valid_to: date, as_of: datetime

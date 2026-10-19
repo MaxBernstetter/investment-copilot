@@ -12,6 +12,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 | `GET /v1/curves/{curve_id}/observations` | One published curve on one valid date as it was known at `as_of`; every grid maturity in grid order, `value` null where no published value was known | `200` `CurveObservationsResponse`; `404` no published value of the curve is known as of the time (or the curve is undefined); `422` invalid request, a naive `as_of`, or `as_of` after the database clock |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations` | One published maturity of a curve over a range of valid dates as it was known at `as_of`; points in valid-date order, valid dates without a visible published value left out (gaps) | `200` `SeriesObservationsResponse`; `404` the maturity is not on the curve's grid (or the curve is undefined), or no published value is known in the range as of the time; `422` invalid request, `from` after `to`, a range longer than 3660 days, a naive `as_of`, or `as_of` after the database clock |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions` | The version history of one published value on one valid date as it was known at `as_of`, oldest version first; `known_to` null while a version is still current at `as_of`; versions first known after `as_of` left out | `200` `ValueVersionsResponse`; `404` the maturity is not on the curve's grid (or the curve is undefined), or no published value of it for the valid date is known as of the time; `422` invalid request, a naive `as_of`, or `as_of` after the database clock |
+| `GET /v1/curves/{curve_id}/changes` | The values of one curve that changed between two knowledge times, `since` and `as_of`, over an inclusive range of valid dates; see [Comparing two knowledge states](#comparing-two-knowledge-states) | `200` `CurveChangesResponse`; `404` the curve is not defined; `422` invalid request (`since`, `from` or `to` missing), `from` after `to`, a range longer than 3660 days, a naive time, or `since` after `as_of` or either time after the database clock |
 | `GET /health` | Liveness | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the database answers a ping | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` |
 
@@ -39,13 +40,23 @@ The response `CurveObservationsResponse` carries `data` (`curve_id`, `valid_date
 
 The response `SeriesObservationsResponse` carries `data` (`curve_id`, `maturity`, `points` with `valid_date` and `value`, in valid-date order) and `meta.as_of`. A valid date without a visible published value has no point, so the series has gaps rather than null values. See [[01-bitemporal-model#As-of retrieval]].
 
+### Comparing two knowledge states
+
+`GET /v1/curves/{curve_id}/changes` answers what changed in a curve between two knowledge times. Query parameters:
+
+- `from` and `to` (`YYYY-MM-DD`, both required): the inclusive valid-date range, at most 3660 days, `from` not after `to`.
+- `since` (timezone-aware, required): the earlier knowledge time of the comparison.
+- `as_of` (timezone-aware, optional): the later knowledge time. Defaults to the knowledge horizon. Both times are capped at the horizon, as for the other reads; `since` must not be after `as_of`.
+
+A change is a published value whose visible version at `as_of` differs from the one visible at `since`. A value known only at `as_of` has `old_value` null. Changes are compared state to state, so a value that was changed and changed back is not listed. `change_reason` and `known_from` describe the version visible at `as_of`. The response `CurveChangesResponse` carries `data` (`curve_id`, `valid_from`, `valid_to`, and `changes` ordered by valid date and grid order) and `meta` (`since`, `as_of`). An empty `changes` list is a valid answer.
+
 ## Layers
 
 | Package | Content |
 |---|---|
-| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; `CurveAsOf` and `CurvePoint`; `Series` and `SeriesPoint`; `ValueVersions` and `ValueVersion`; domain errors |
-| `persistence.application` | `RecordVersions`, `GetCurveAsOf`, `GetSeriesAsOf` and `GetValueVersions` use cases and their ports (`ObservationRepository`, `CurveReader`, `SeriesReader`, `ValueVersionReader`) |
-| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions`, `get_as_of`, `get_series`, `get_value_versions`, `has_maturity`, `latest_valid_date` and `current_knowledge_time` through python-oracledb (thin mode, async pool) |
+| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; `CurveAsOf` and `CurvePoint`; `Series` and `SeriesPoint`; `ValueVersions` and `ValueVersion`; `CurveChanges` and `ValueChange`; domain errors |
+| `persistence.application` | `RecordVersions`, `GetCurveAsOf`, `GetSeriesAsOf`, `GetValueVersions` and `GetCurveChanges` use cases and their ports (`ObservationRepository`, `CurveReader`, `SeriesReader`, `ValueVersionReader`, `ChangeReader`) |
+| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions`, `get_as_of`, `get_series`, `get_value_versions`, `get_changes`, `has_maturity`, `has_curve`, `latest_valid_date` and `current_knowledge_time` through python-oracledb (thin mode, async pool) |
 | `persistence.facade` | FastAPI app, contract ↔ domain mapping, problem responses |
 | `persistence.api` | Composition root of the `api` process |
 

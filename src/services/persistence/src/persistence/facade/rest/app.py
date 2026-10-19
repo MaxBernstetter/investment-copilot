@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
+from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
@@ -20,6 +21,7 @@ from persistence.domain.curve import FutureAsOfError, NothingKnownError
 from persistence.domain.observation import InvalidObservationsError, OpenVersionExistsError
 from persistence.domain.series import InvalidRangeError
 from persistence.facade.mapping import (
+    to_changes_response,
     to_curve_response,
     to_observation,
     to_response,
@@ -39,6 +41,7 @@ class Services:
     get_curve_as_of: GetCurveAsOf
     get_series_as_of: GetSeriesAsOf
     get_value_versions: GetValueVersions
+    get_curve_changes: GetCurveChanges
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -162,6 +165,30 @@ def _add_routes(app: FastAPI) -> None:
         """
         versions = await services.get_value_versions(curve_id, maturity, valid_date, as_of)
         return to_versions_response(versions)
+
+    @app.get(
+        v1.CURVE_CHANGES_PATH,
+        response_model=v1.CurveChangesResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"description": "The curve is not defined"},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
+        },
+    )
+    async def curve_changes(
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        valid_from: Annotated[date, Query(alias="from")],
+        valid_to: Annotated[date, Query(alias="to")],
+        since: AwareDatetime,
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> v1.CurveChangesResponse:
+        """The values of a curve that changed between the knowledge times ``since`` and ``as_of``.
+
+        ``as_of`` defaults to the knowledge horizon. ``from`` and ``to`` are the inclusive
+        valid-date range, at most 3660 days long; ``from`` must not be after ``to``.
+        """
+        changes = await services.get_curve_changes(curve_id, valid_from, valid_to, since, as_of)
+        return to_changes_response(changes)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

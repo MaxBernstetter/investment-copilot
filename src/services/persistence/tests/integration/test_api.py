@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from contracts.persistence.v1 import (
+    CURVE_CHANGES_PATH,
     CURVE_OBSERVATIONS_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
@@ -291,3 +292,27 @@ def test_lists_both_versions_of_a_corrected_value(client: TestClient, curve_id: 
     ]
     assert versions[0]["known_to"] == versions[1]["known_from"]
     assert versions[1]["known_to"] is None
+
+
+def test_lists_the_change_of_a_corrected_value(client: TestClient, curve_id: str) -> None:
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id))
+    since = client.get(curve_path(curve_id), params={"valid_date": "2026-03-12"}).json()["meta"][
+        "as_of"
+    ]
+    client.post(
+        RECORD_VERSIONS_PATH,
+        json=batch(curve_id, ten_year="2.70", change_reason="correction"),
+    )
+
+    response = client.get(
+        CURVE_CHANGES_PATH.format(curve_id=curve_id),
+        params={"from": "2026-03-12", "to": "2026-03-12", "since": since},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["meta"]["since"] == since
+    assert [
+        (c["maturity"], c["old_value"], c["new_value"], c["change_reason"])
+        for c in body["data"]["changes"]
+    ] == [("10Y", 2.61, 2.7, "correction")]
