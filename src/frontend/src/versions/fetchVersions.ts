@@ -1,6 +1,5 @@
 import { api } from '../api/client'
 import type { components } from '../api/schema'
-import { CURVE_ID } from '../curve/fetchCurve'
 
 export type VersionsResult =
   | { kind: 'ok'; versions: components['schemas']['ValueVersionsResponse'] }
@@ -10,12 +9,14 @@ export type VersionsResult =
   | { kind: 'error'; detail: string }
 
 type FetchVersionsOptions = {
+  curveId: string
   maturity: string
   validDate: string
   asOf?: string
 }
 
 export async function fetchVersions({
+  curveId,
   maturity,
   validDate,
   asOf,
@@ -23,7 +24,7 @@ export async function fetchVersions({
   const query = asOf !== undefined ? { as_of: asOf } : {}
   const result = await api
     .GET('/v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions', {
-      params: { path: { curve_id: CURVE_ID, maturity, valid_date: validDate }, query },
+      params: { path: { curve_id: curveId, maturity, valid_date: validDate }, query },
     })
     .catch(() => undefined)
   if (result === undefined) return { kind: 'offline' }

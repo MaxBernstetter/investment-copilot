@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 async function renderLoaded() {
-  render(<CurveView />)
+  render(<CurveView curveId="ecb-aaa-spot" />)
   await waitFor(() => expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16'))
 }
 
@@ -70,10 +70,10 @@ function chartLabels(): string[] {
 
 describe('CurveView', () => {
   it('shows the latest curve on open', async () => {
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
-    expect(mockedFetch).toHaveBeenCalledWith({ validDate: undefined, asOf: undefined })
+    expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
     expect(screen.getByRole('link', { name: 'ECB statistics' })).toHaveAttribute(
       'href',
       'https://data.ecb.europa.eu/',
@@ -81,24 +81,24 @@ describe('CurveView', () => {
   })
 
   it('marks missing points', async () => {
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByText('No value for: 15Y, 20Y')).toBeInTheDocument()
   })
 
   it('refetches for a picked date', async () => {
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
     const input = await screen.findByLabelText(/Valid date/)
 
     fireEvent.change(input, { target: { value: '2026-10-01' } })
 
-    expect(mockedFetch).toHaveBeenLastCalledWith({ validDate: '2026-10-01', asOf: undefined })
+    expect(mockedFetch).toHaveBeenLastCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf: undefined })
   })
 
   it('shows the offline state', async () => {
     mockedFetch.mockResolvedValue({ kind: 'offline' })
 
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
   })
@@ -106,12 +106,13 @@ describe('CurveView', () => {
   it('passes as_of to the API and shows the banner', async () => {
     window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
 
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       `Showing the curve as known on ${new Date('2026-10-01T12:00:00Z').toUTCString()}`,
     )
     expect(mockedFetch).toHaveBeenCalledWith({
+      curveId: 'ecb-aaa-spot',
       validDate: undefined,
       asOf: '2026-10-01T12:00:00Z',
     })
@@ -120,7 +121,7 @@ describe('CurveView', () => {
   it('shows the as-of banner as a status alert', async () => {
     window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
 
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
 
     const banner = await screen.findByRole('status')
     expect(banner).toHaveTextContent(
@@ -131,12 +132,12 @@ describe('CurveView', () => {
 
   it('Now clears as_of', async () => {
     window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
     await screen.findByRole('status')
 
     fireEvent.click(screen.getByRole('button', { name: 'Now' }))
 
-    expect(mockedFetch).toHaveBeenLastCalledWith({ validDate: undefined, asOf: undefined })
+    expect(mockedFetch).toHaveBeenLastCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
     expect(new URLSearchParams(window.location.search).has('as_of')).toBe(false)
     expect(screen.queryByText(/Showing the curve as known on/)).not.toBeInTheDocument()
   })
@@ -148,7 +149,7 @@ describe('CurveView', () => {
         ? { kind: 'not-found', detail: 'no curve as of then' }
         : curveResult('2026-10-16', [2.1, 2.4, 2.6, null, null]),
     )
-    render(<CurveView />)
+    render(<CurveView curveId="ecb-aaa-spot" />)
     const input = await screen.findByLabelText(/Known as of/)
 
     fireEvent.change(input, { target: { value: chosen } })
@@ -167,7 +168,7 @@ describe('CurveView', () => {
     pickDate('2026-10-01')
     fireEvent.click(addButton())
 
-    expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-01', asOf: undefined })
+    expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf: undefined })
     const overlays = screen.getByRole('list', { name: 'Overlaid valid dates' })
     expect(within(overlays).getAllByRole('listitem')).toHaveLength(2)
     await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01', '2026-10-16']))
@@ -196,9 +197,9 @@ describe('CurveView', () => {
 
     const asOf = localInputToUtc(chosen)
     await waitFor(() =>
-      expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-16', asOf }),
+      expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-16', asOf }),
     )
-    expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-01', asOf })
+    expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf })
   })
 
   it('opens the history of a maturity', async () => {

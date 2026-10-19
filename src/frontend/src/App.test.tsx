@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import CurveView from './curve/CurveView'
 import { render } from './test/render'
 
 vi.mock('./curve/CurveView', () => ({
-  default: () => <p>Curve view</p>,
+  default: vi.fn(() => <p>Curve view</p>),
 }))
 
 vi.mock('./series/SeriesView', () => ({
@@ -14,6 +15,8 @@ vi.mock('./series/SeriesView', () => ({
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.clearAllMocks()
+  window.history.replaceState(null, '', '/')
 })
 
 describe('App', () => {
@@ -61,5 +64,37 @@ describe('App', () => {
 
     expect(screen.getByText('Curve view')).toBeInTheDocument()
     expect(screen.getByText('Curve view')).not.toBeVisible()
+  })
+
+  it('shows the simulated notice only for the simulated curve', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Simulated')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Simulated' }))
+
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Simulated data from a scenario, not real source data.',
+    )
+    expect(screen.getAllByText('Simulated')).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Real' }))
+
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Simulated')).toHaveLength(1)
+  })
+
+  it('passes the chosen curve to the curve view', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    window.history.replaceState(null, '', '/?curve=ecb-aaa-spot-sim')
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    expect(vi.mocked(CurveView).mock.lastCall?.[0]).toMatchObject({ curveId: 'ecb-aaa-spot-sim' })
+    expect(new URLSearchParams(window.location.search).get('curve')).toBe('ecb-aaa-spot-sim')
   })
 })

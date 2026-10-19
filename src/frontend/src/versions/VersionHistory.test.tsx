@@ -63,7 +63,7 @@ afterEach(() => {
 function renderHistory(props: { asOf?: string } = {}) {
   const onClose = vi.fn()
   render(
-    <VersionHistory maturity="10Y" validDate="2026-10-16" onClose={onClose} {...props} />,
+    <VersionHistory curveId="ecb-aaa-spot" maturity="10Y" validDate="2026-10-16" onClose={onClose} {...props} />,
   )
   return { onClose }
 }
@@ -101,6 +101,7 @@ describe('VersionHistory', () => {
 
     await screen.findByRole('table')
     expect(mockedFetch).toHaveBeenCalledWith({
+      curveId: 'ecb-aaa-spot',
       maturity: '10Y',
       validDate: '2026-10-16',
       asOf: '2026-10-18T12:00:00Z',
@@ -110,7 +111,7 @@ describe('VersionHistory', () => {
   it('shows not-found and offline states', async () => {
     mockedFetch.mockResolvedValueOnce({ kind: 'not-found', detail: 'no value' })
     const { unmount } = render(
-      <VersionHistory maturity="10Y" validDate="2026-10-16" onClose={vi.fn()} />,
+      <VersionHistory curveId="ecb-aaa-spot" maturity="10Y" validDate="2026-10-16" onClose={vi.fn()} />,
     )
     expect(await screen.findByRole('status')).toHaveTextContent('No data known for this value.')
     unmount()

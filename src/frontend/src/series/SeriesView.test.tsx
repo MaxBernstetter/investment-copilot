@@ -41,12 +41,13 @@ afterEach(() => {
 
 describe('SeriesView', () => {
   it('shows the 10Y series of the last year on open', async () => {
-    render(<SeriesView />)
+    render(<SeriesView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByLabelText('Maturity')).toHaveValue('10Y')
     expect(screen.getByLabelText('From')).toHaveValue('2025-10-19')
     expect(screen.getByLabelText('To')).toHaveValue('2026-10-19')
     expect(mockedFetch).toHaveBeenCalledWith({
+      curveId: 'ecb-aaa-spot',
       maturity: '10Y',
       from: '2025-10-19',
       to: '2026-10-19',
@@ -55,12 +56,13 @@ describe('SeriesView', () => {
   })
 
   it('refetches when the maturity changes', async () => {
-    render(<SeriesView />)
+    render(<SeriesView curveId="ecb-aaa-spot" />)
     const select = await screen.findByLabelText('Maturity')
 
     fireEvent.change(select, { target: { value: '2Y' } })
 
     expect(mockedFetch).toHaveBeenLastCalledWith({
+      curveId: 'ecb-aaa-spot',
       maturity: '2Y',
       from: '2025-10-19',
       to: '2026-10-19',
@@ -70,7 +72,7 @@ describe('SeriesView', () => {
 
   it('reads as_of from the URL and writes it on change', async () => {
     window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
-    render(<SeriesView />)
+    render(<SeriesView curveId="ecb-aaa-spot" />)
     await screen.findByRole('status')
 
     expect(mockedFetch).toHaveBeenCalledWith(
@@ -88,7 +90,7 @@ describe('SeriesView', () => {
   it('shows the offline alert', async () => {
     mockedFetch.mockResolvedValue({ kind: 'offline' })
 
-    render(<SeriesView />)
+    render(<SeriesView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
   })

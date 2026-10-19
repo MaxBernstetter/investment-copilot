@@ -3,6 +3,7 @@ import { Alert, Button, Paper, Stack, Table, Text, Title } from '@mantine/core'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 
 type VersionHistoryProps = {
+  curveId: string
   maturity: string
   validDate: string
   asOf?: string
@@ -15,18 +16,18 @@ function utc(iso: string): string {
   return new Date(iso).toUTCString()
 }
 
-export default function VersionHistory({ maturity, validDate, asOf, onClose }: VersionHistoryProps) {
+export default function VersionHistory({ curveId, maturity, validDate, asOf, onClose }: VersionHistoryProps) {
   const [result, setResult] = useState<VersionsResult | undefined>(undefined)
 
   useEffect(() => {
     let active = true
-    fetchVersions({ maturity, validDate, asOf }).then((next) => {
+    fetchVersions({ curveId, maturity, validDate, asOf }).then((next) => {
       if (active) setResult(next)
     })
     return () => {
       active = false
     }
-  }, [maturity, validDate, asOf])
+  }, [curveId, maturity, validDate, asOf])
 
   return (
     <Paper component="section" withBorder p="md" aria-label={`Version history of ${maturity}`}>
