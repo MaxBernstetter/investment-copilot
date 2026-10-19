@@ -84,7 +84,7 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 | Level | What | Where |
 |---|---|---|
 | utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, conflicts, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
-| Integration | Migrations (partitioning, package valid, idempotent rerun, no table access for `CORE_APP`) | `tests/integration/` (Testcontainers, Oracle Free) |
-| Unit | Domain rules, use case, REST facade | `tests/unit/` |
+| Integration | Migrations (partitioning, package valid, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
+| Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 
 utPLSQL (v3.2.2) is installed into the test container on demand from the pinned, checksum-verified GitHub release and cached under `src/services/persistence/.cache/utplsql`.
