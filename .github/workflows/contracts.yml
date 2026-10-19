@@ -9,14 +9,13 @@ name: Contracts
 on:
   push:
     branches: [main]
-    paths: &paths
+    paths:
       - src/contracts/**
       - .github/workflows/contracts.yml
       - Taskfile.yml
       - devbox.json
       - devbox.lock
   pull_request:
-    paths: *paths
   workflow_dispatch:
 
 permissions:
@@ -28,7 +27,7 @@ concurrency:
 
 jobs:
   checks:
-    name: lint, types, unit tests
+    name: "contracts: lint, types, unit tests"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

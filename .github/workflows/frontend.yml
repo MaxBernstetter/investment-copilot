@@ -8,7 +8,7 @@ name: Frontend
 on:
   push:
     branches: [main]
-    paths: &paths
+    paths:
       - src/frontend/**
       - src/contracts/openapi/access/**
       - .github/workflows/frontend.yml
@@ -16,7 +16,6 @@ on:
       - devbox.json
       - devbox.lock
   pull_request:
-    paths: *paths
   workflow_dispatch:
 
 permissions:
@@ -28,7 +27,7 @@ concurrency:
 
 jobs:
   checks:
-    name: lint, types, unit tests, build
+    name: "frontend: lint, types, unit tests, build"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

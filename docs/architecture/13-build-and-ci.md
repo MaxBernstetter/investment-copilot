@@ -43,7 +43,8 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 
 - **Thin workflows:** a job checks out the repo, provisions the devbox toolchain, restores caches, and calls tasks. No tool installs, scripts or logic in workflow YAML.
 - **Local parity:** every CI step is `devbox run -- task <component>:<task>`, so the exact step can be run locally with the same command and tool versions. `act` is optional, for debugging workflow wiring only.
-- **Path filters:** select which components' tasks run. A change in `src/contracts/` runs every consumer.
+- **Path filters:** on pushes to `main`, a component's workflow runs only when its files change. A change in `src/contracts/` runs every consumer.
+- **Pull requests are not path-filtered:** every component workflow runs on every pull request, so each required check reports on every PR (see [Required checks](#required-checks)).
 - **Services in tests:** integration tests start real dependencies via Testcontainers (Oracle Free, HTTP stubs), both locally and in CI. They don't rely on CI service containers.
 - **Hooks are re-checked:** CI runs `pre-commit run --all-files`, so skipping hooks locally cannot bypass them.
 - **Delivery:** image builds and deployments are tasks as well. The deploy workflow only calls them with environment-specific secrets (see the delivery and security principles).
@@ -57,12 +58,30 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | Workflow | Trigger | Runs | Local equivalent |
 |---|---|---|---|
 | `static-analysis.yml` | Push to `main`, pull requests, manual | `task toolchain:lint`: all pre-commit hooks on all files | `devbox run -- task toolchain:lint` |
-| `contracts.yml` | Changes in `src/contracts/`, the root Taskfile or devbox; manual | `contracts:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task contracts:<task>` |
-| `persistence.yml` | Changes in `src/services/persistence/`, `src/contracts/`, the root Taskfile or devbox; manual | `persistence:` `setup`, `lint`, `typecheck`, `test:unit`; `test:integration` in its own job | `devbox run -- task persistence:<task>` |
-| `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, `src/contracts/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
-| `orchestration.yml` | Push to `main` and pull requests touching `src/orchestration/`, the root Taskfile or devbox; manual | `orchestration:setup`, `orchestration:lint`, `orchestration:typecheck`, `orchestration:test:unit` | `devbox run -- task orchestration:<task>` |
-| `access.yml` | Changes in `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
-| `frontend.yml` | Changes in `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build` | `devbox run -- task frontend:<task>` |
+| `contracts.yml` | Pull requests; pushes to `main` changing `src/contracts/`, the root Taskfile or devbox; manual | `contracts:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task contracts:<task>` |
+| `persistence.yml` | Pull requests; pushes to `main` changing `src/services/persistence/`, `src/contracts/`, the root Taskfile or devbox; manual | `persistence:` `setup`, `lint`, `typecheck`, `test:unit`; `test:integration` in its own job | `devbox run -- task persistence:<task>` |
+| `ingestion.yml` | Pull requests; pushes to `main` changing `src/services/ingestion/`, `src/contracts/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
+| `orchestration.yml` | Pull requests; pushes to `main` changing `src/orchestration/`, the root Taskfile or devbox; manual | `orchestration:setup`, `orchestration:lint`, `orchestration:typecheck`, `orchestration:test:unit` | `devbox run -- task orchestration:<task>` |
+| `access.yml` | Pull requests; pushes to `main` changing `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
+| `frontend.yml` | Pull requests; pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build` | `devbox run -- task frontend:<task>` |
+
+### Required checks
+
+Branch protection needs stable check names. Each job below has a fixed `name:` that is its check name on pull requests:
+
+- `pre-commit` (`static-analysis.yml`)
+- `access: lint, types, unit tests`
+- `contracts: lint, types, unit tests`
+- `frontend: lint, types, unit tests, build`
+- `ingestion: lint, typecheck, unit tests`
+- `ingestion: integration tests`
+- `orchestration: lint, typecheck, unit tests`
+- `persistence: lint, types, unit tests`
+- `persistence: integration tests`
+
+Pull-request runs are not path-filtered, so every required check reports on every pull request, including PRs that touch only docs. Path filters apply only to pushes to `main`. A job skipped by a filter would otherwise leave a required check pending forever.
+
+A repository admin must add these names as required status checks in the `main` ruleset. Renaming a job changes its check name, so update the ruleset in the same change.
 
 ### Current tasks
 
