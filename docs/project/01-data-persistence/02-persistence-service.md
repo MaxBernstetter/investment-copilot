@@ -77,4 +77,8 @@ CI: `.github/workflows/persistence.yml` (also triggered by `src/contracts/**`).
 
 ## Not yet in place
 
-Transparency interface (`/v1/runs`, lineage, alerts), domain metrics, JSON logs, traces, the `Idempotency-Key` header of [[02-interfaces-and-contracts#REST standards]], the `job` process type, the Dockerfile and the OpenAPI document in `contracts`. They follow in their own issues.
+Transparency interface (`/v1/runs`, lineage, alerts), domain metrics, JSON logs, traces, the `Idempotency-Key` header of [[02-interfaces-and-contracts#REST standards]], the `job` process type and the OpenAPI document in `contracts`. They follow in their own issues.
+
+## Container image
+
+`src/services/persistence/Dockerfile` builds the api image (build context `src/`, because the service uses `contracts`). It runs as a non-root user on port 8001 and is started with the local stack by `task dev:up` (see [[09-deployment]]).

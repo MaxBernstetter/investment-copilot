@@ -1,0 +1,70 @@
+# Local development stack: the services of the VM, started by `task dev:*` (see
+# docs/architecture/09-deployment.md). Oracle and the spool are extended from their
+# service compose files; migrations and the persistence api are defined here.
+# Passwords come from the environment (the Taskfile sets local-only defaults).
+name: yieldlens-dev
+
+x-liquibase: &liquibase
+  image: liquibase/liquibase:4.33.0
+  profiles: [tools]
+  volumes:
+    - ../services/persistence/db:/liquibase/changelog:ro
+  command: [--search-path=/liquibase/changelog, update]
+
+services:
+  oracle:
+    extends:
+      file: ../services/persistence/compose.yaml
+      service: oracle
+
+  spool-store:
+    extends:
+      file: ../services/ingestion/compose.yaml
+      service: spool-store
+
+  core-migrate-admin:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: system
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_ADMIN_PASSWORD:?set PERSISTENCE_DB_ADMIN_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: admin/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+      CORE_PASSWORD: ${PERSISTENCE_DB_OWNER_PASSWORD:?set PERSISTENCE_DB_OWNER_PASSWORD}
+      CORE_APP_PASSWORD: ${PERSISTENCE_DB_PASSWORD:?set PERSISTENCE_DB_PASSWORD}
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  core-migrate:
+    <<: *liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: core
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_OWNER_PASSWORD:?set PERSISTENCE_DB_OWNER_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: core/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+    depends_on:
+      core-migrate-admin:
+        condition: service_completed_successfully
+
+  persistence:
+    build:
+      context: ..
+      dockerfile: services/persistence/Dockerfile
+    environment:
+      PERSISTENCE_DB_DSN: oracle:1521/FREEPDB1
+      PERSISTENCE_DB_PASSWORD: ${PERSISTENCE_DB_PASSWORD:?set PERSISTENCE_DB_PASSWORD}
+    ports:
+      - 127.0.0.1:8001:8001
+    depends_on:
+      oracle:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=2)"]
+      interval: 5s
+      retries: 30
+
+volumes:
+  oracle-data:
+  spool-data:
