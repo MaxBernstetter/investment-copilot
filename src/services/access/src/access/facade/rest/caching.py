@@ -3,16 +3,30 @@
 The ETag is a digest of the exact body, so the same answer always carries the same tag.
 """
 
+from datetime import datetime
 from hashlib import sha256
 
 from fastapi import Request, Response, status
 from pydantic import BaseModel
 
 ETAG_HEX_CHARS = 32
+NO_CACHE = "no-cache"
+IMMUTABLE = "public, max-age=31536000, immutable"
+
+
+def cache_control(requested: datetime | None, answered: datetime) -> str:
+    """``immutable`` for a settled answer: an ``as_of`` was asked and echoed back as the answer.
+
+    Persistence answers an ``as_of`` after its knowledge horizon at the horizon, so an answer
+    whose ``meta.as_of`` differs from the request can still change and must be revalidated.
+    """
+    if requested is not None and requested == answered:
+        return IMMUTABLE
+    return NO_CACHE
 
 
 def json_with_etag(
-    request: Request, model: BaseModel, *, cache_control: str = "no-cache"
+    request: Request, model: BaseModel, *, cache_control: str = NO_CACHE
 ) -> Response:
     """The model as JSON with an ``ETag``; ``304`` without a body if the client already has it."""
     body = model.model_dump_json().encode()

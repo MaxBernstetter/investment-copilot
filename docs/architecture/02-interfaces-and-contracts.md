@@ -26,8 +26,10 @@
 - **Pagination:** cursor-based (`limit`, `cursor`, `next_cursor`).
 - **Errors:** RFC 9457 problem details (`application/problem+json`).
 - **Caching:**
-  - Every response carries an `ETag`.
-  - Responses for an `as_of` in the past are immutable and get `Cache-Control: public, max-age=31536000, immutable`.
+  - Every response carries an `ETag`; conditional GET (`If-None-Match`) answers `304` without a body.
+  - A settled answer is immutable: the request had an `as_of` and the response's `meta.as_of` equals it. It gets `Cache-Control: public, max-age=31536000, immutable`.
+  - Every other answer gets `Cache-Control: no-cache` (revalidate with the `ETag`). Persistence answers an `as_of` after its knowledge horizon at the horizon, so such an answer is not settled.
+  - Errors are not cached by this rule.
 - **Writes:**
   - `POST` with an `Idempotency-Key` header, so retries from Airflow are safe.
   - Long-running operations (backfill, recalculation) return `202 Accepted` plus a run resource to poll.

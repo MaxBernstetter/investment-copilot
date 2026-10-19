@@ -20,10 +20,11 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 ### Caching
 
 - Both data endpoints return an `ETag` for the exact response body: a quoted digest of the body, so the same answer always carries the same tag.
-- Both send `Cache-Control: no-cache`: caches must revalidate with the `ETag` before reuse.
+- A settled answer is immutable: when the request has an `as_of` and `meta.as_of` equals it (as instants, so any UTC offset matches), both send `Cache-Control: public, max-age=31536000, immutable`. The answer never changes, so caches may reuse it without asking.
+- Every other answer sends `Cache-Control: no-cache`: no `as_of` was requested, or persistence answered at its knowledge horizon because the requested `as_of` was later. Caches must revalidate with the `ETag` before reuse.
+- A `304` carries the same `Cache-Control` as the `200` it stands for.
 - Conditional GET: a request with `If-None-Match` that lists the current tag (or `*`) gets `304 Not Modified` with the `ETag` and no body. Lists of tags and weak (`W/`) tags are accepted. Any other tag gets the full `200`.
-- Errors (problem details) carry no `ETag`.
-- Immutable caching for published data (`Cache-Control` with a long `max-age` and `immutable`) follows in a second step.
+- Errors (problem details) carry no `ETag` and no `Cache-Control`; they are never cached by this rule.
 
 ### Errors
 
@@ -79,7 +80,6 @@ devbox run -- task access:run       # access api on http://localhost:8000
 
 - Rate limiting
 - Other read endpoints (only the curve endpoint exists)
-- Immutable `Cache-Control` for published data (ETag and conditional GET are in place)
 - Transparency (lineage and run status for the frontend)
 - Metrics
 - Traces
