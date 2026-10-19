@@ -23,15 +23,21 @@ tasks:
       - uv run --locked ruff check --fix
 
   lint:
-    desc: Lint the Python code and check its formatting
+    desc: Lint the Python code, check its formatting and the layer rules
     cmds:
       - uv run --locked ruff check
       - uv run --locked ruff format --check
+      - uv run --locked lint-imports
 
   typecheck:
     desc: Type-check with mypy (strict)
     cmds:
       - uv run --locked mypy
+
+  test:unit:
+    desc: Run the unit tests (domain, use cases, REST facade; no I/O)
+    cmds:
+      - uv run --locked pytest tests/unit
 
   test:integration:
     desc: Run the integration tests against Oracle Free (Testcontainers; includes the utPLSQL suites)

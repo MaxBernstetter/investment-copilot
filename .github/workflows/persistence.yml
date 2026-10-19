@@ -1,5 +1,6 @@
-# Persistence service: lint, types and integration tests (Oracle Free via
-# Testcontainers, including the utPLSQL suites). Runs when the service or the toolchain change.
+# Persistence service: lint, types, unit tests and integration tests (Oracle Free via
+# Testcontainers, including the utPLSQL suites). Runs when the service, the
+# contracts it consumes, or the toolchain change.
 # Thin by design: provision the devbox toolchain, then run the same tasks as locally.
 # See docs/architecture/13-build-and-ci.md.
 #
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths: &paths
       - src/services/persistence/**
+      - src/contracts/**
       - .github/workflows/persistence.yml
       - Taskfile.yml
       - devbox.json
@@ -28,7 +30,7 @@ concurrency:
 
 jobs:
   checks:
-    name: lint, types
+    name: lint, types, unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -56,6 +58,9 @@ jobs:
 
       - name: Type-check
         run: devbox run -- task persistence:typecheck
+
+      - name: Unit tests
+        run: devbox run -- task persistence:test:unit
 
   integration:
     name: integration tests
