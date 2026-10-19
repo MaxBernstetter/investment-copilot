@@ -15,7 +15,7 @@
 | ML | scikit-learn (anomaly detection) |
 | AI | Claude API with tool use against `access` (optional, budget-capped) |
 | Orchestration | Apache Airflow 3 (HTTP provider, LocalExecutor) + Postgres metadata DB |
-| Frontend | React, TypeScript, Vite, Plotly.js, generated OpenAPI client |
+| Frontend | React, TypeScript, Vite, Mantine (UI; charts move to `@mantine/charts` in PR 3 of #153), generated OpenAPI client |
 | Quality tooling | ruff, mypy (strict), pytest, Testcontainers, import-linter; ESLint, Vitest |
 | Observability | OpenTelemetry SDK and Collector, Prometheus, Loki, Tempo, Grafana; Oracle observability exporter |
 | Containers | Docker (multi-arch amd64/arm64), Docker Compose, Caddy |
