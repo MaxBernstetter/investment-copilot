@@ -6,7 +6,7 @@ from functools import partial
 from typing import Any
 
 import pytest
-from contracts.persistence.v1 import RECORD_VERSIONS_PATH
+from contracts.persistence.v1 import CURVE_OBSERVATIONS_PATH, RECORD_VERSIONS_PATH
 from fastapi.testclient import TestClient
 
 from persistence.api import oracle_services
@@ -118,3 +118,63 @@ def test_rejects_an_observation_off_the_grid_and_stores_nothing(
 def test_is_live_and_ready(client: TestClient) -> None:
     assert client.get("/health").status_code == 200
     assert client.get("/ready").json() == {"status": "ready"}
+
+
+def curve_path(curve_id: str) -> str:
+    return CURVE_OBSERVATIONS_PATH.format(curve_id=curve_id)
+
+
+def ten_year_at(client: TestClient, curve_id: str, as_of: str) -> float | None:
+    response = client.get(curve_path(curve_id), params={"valid_date": "2026-03-12", "as_of": as_of})
+    assert response.status_code == 200
+    (point,) = [p for p in response.json()["data"]["points"] if p["maturity"] == "10Y"]
+    value: float | None = point["value"]
+    return value
+
+
+def test_reads_a_curve_before_and_after_a_revision(client: TestClient, curve_id: str) -> None:
+    first = client.post(RECORD_VERSIONS_PATH, json=batch(curve_id)).json()["known_from"]
+    second = client.post(RECORD_VERSIONS_PATH, json=batch(curve_id, ten_year="2.70")).json()[
+        "known_from"
+    ]
+
+    assert ten_year_at(client, curve_id, first) == 2.61
+    assert ten_year_at(client, curve_id, second) == 2.7
+
+
+def test_a_past_as_of_gives_a_repeatable_answer(client: TestClient, curve_id: str) -> None:
+    first = client.post(RECORD_VERSIONS_PATH, json=batch(curve_id)).json()["known_from"]
+    params = {"valid_date": "2026-03-12", "as_of": first}
+    before = client.get(curve_path(curve_id), params=params).json()
+
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id, ten_year="2.70"))
+
+    assert client.get(curve_path(curve_id), params=params).json() == before
+
+
+def test_reads_the_latest_curve_without_parameters(client: TestClient, curve_id: str) -> None:
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id))
+
+    response = client.get(curve_path(curve_id))
+
+    assert response.status_code == 200
+    assert response.json()["data"]["valid_date"] == "2026-03-12"
+    assert response.json()["meta"]["as_of"]
+
+
+def test_unknown_curve_is_not_found(client: TestClient, curve_id: str) -> None:
+    response = client.get(curve_path(f"{curve_id}-undefined"))
+
+    assert response.status_code == 404
+    assert response.json()["title"] == "Not found"
+
+
+def test_future_as_of_is_rejected(client: TestClient, curve_id: str) -> None:
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id))
+
+    response = client.get(
+        curve_path(curve_id), params={"as_of": "2100-01-01T00:00:00Z", "valid_date": "2026-03-12"}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid as_of"

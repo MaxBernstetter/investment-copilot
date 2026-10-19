@@ -9,6 +9,7 @@ from functools import partial
 
 from fastapi import FastAPI
 
+from persistence.application.get_curve_as_of import GetCurveAsOf
 from persistence.application.record_versions import RecordVersions
 from persistence.config import Settings
 from persistence.facade.rest.app import Services, create_app
@@ -31,6 +32,10 @@ async def oracle_services(settings: Settings) -> AsyncIterator[Services]:
     )
     try:
         repository = OracleObservationRepository(pool, call_timeout_ms=settings.db_call_timeout_ms)
-        yield Services(RecordVersions(repository), repository.is_reachable)
+        yield Services(
+            RecordVersions(repository),
+            repository.is_reachable,
+            GetCurveAsOf(repository),
+        )
     finally:
         await pool.close()

@@ -5,10 +5,11 @@ package, as the least-privilege user that has EXECUTE on it and nothing else.
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import oracledb
 
+from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
     InvalidObservationsError,
     Observation,
@@ -82,6 +83,46 @@ class OracleObservationRepository:
             return False
         return True
 
+    async def current_knowledge_time(self) -> datetime:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            now = await connection.cursor().callfunc(
+                "core.core_observation.current_knowledge_time", oracledb.DB_TYPE_TIMESTAMP, []
+            )
+        return _as_utc(now)
+
+    async def latest_valid_date(self, curve_id: str, as_of: datetime) -> date | None:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            valid_date = await cursor.callfunc(
+                "core.core_observation.latest_valid_date",
+                oracledb.DB_TYPE_DATE,
+                [curve_id, _bind_timestamp(cursor, as_of)],
+            )
+        return valid_date.date() if valid_date is not None else None
+
+    async def points_as_of(
+        self, curve_id: str, valid_date: date, as_of: datetime
+    ) -> list[CurvePoint]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            points = await cursor.callfunc(
+                "core.core_observation.get_as_of",
+                oracledb.DB_TYPE_CURSOR,
+                [curve_id, valid_date, _bind_timestamp(cursor, as_of)],
+            )
+            rows = await points.fetchall()
+        return [
+            CurvePoint(
+                maturity=maturity,
+                months=int(months),
+                value=float(value) if value is not None else None,
+            )
+            for maturity, months, value in rows
+        ]
+
 
 async def _version_list(
     connection: oracledb.AsyncConnection, observations: Sequence[Observation]
@@ -114,3 +155,10 @@ def _error_code(error: oracledb.DatabaseError) -> int | None:
 def _as_utc(timestamp: datetime) -> datetime:
     """CORE stores knowledge time as a plain TIMESTAMP in UTC."""
     return timestamp.replace(tzinfo=UTC)
+
+
+def _bind_timestamp(cursor: oracledb.AsyncCursor, as_of: datetime) -> oracledb.Var:
+    """Binds a knowledge time as a plain UTC TIMESTAMP, keeping its microseconds."""
+    variable = cursor.var(oracledb.DB_TYPE_TIMESTAMP)
+    variable.setvalue(0, as_of.astimezone(UTC).replace(tzinfo=None))
+    return variable

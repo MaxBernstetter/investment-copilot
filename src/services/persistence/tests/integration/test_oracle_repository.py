@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import oracledb
@@ -203,3 +203,27 @@ def record_without_commit(connection: oracledb.Connection, version: Observation)
 
 async def test_the_database_is_reachable(repository: OracleObservationRepository) -> None:
     assert await repository.is_reachable()
+
+
+async def test_points_as_of_returns_the_grid_with_microsecond_as_of(
+    repository: OracleObservationRepository, curve_id: str
+) -> None:
+    recorded = await repository.record_versions(
+        [observation(curve_id, "2Y", "2.10"), observation(curve_id, "10Y", "2.61")]
+    )
+
+    points = await repository.points_as_of(curve_id, date(2026, 3, 12), recorded.known_from)
+    before = await repository.points_as_of(
+        curve_id, date(2026, 3, 12), recorded.known_from - timedelta(microseconds=1)
+    )
+
+    assert len(points) == 11
+    assert [(p.maturity, p.months) for p in points][:4] == [
+        ("3M", 3),
+        ("6M", 6),
+        ("1Y", 12),
+        ("2Y", 24),
+    ]
+    assert {p.maturity: p.value for p in points}["2Y"] == 2.1
+    assert {p.maturity: p.value for p in points}["10Y"] == 2.61
+    assert all(p.value is None for p in before)
