@@ -37,7 +37,7 @@ ingestion-load-ecb replay --fetched-from 2026-10-01 --fetched-to 2026-10-18 [--r
 | `history` | 1 per calendar year | Each year clipped to `start`…`end`; the full history is 23 requests |
 | `replay` | 0 | The deliveries stored in `ING` that were fetched on these days (UTC), see [[04-raw-deliveries#Replay]] |
 
-- **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. Airflow ([#21](https://github.com/MaxBernstetter/investment-copilot/issues/21)) will pass its own.
+- **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
 - **Output:** one JSON line on stdout (`load_finished`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message).
 - **Exit status:** `0` the load finished, also with zero rows; `1` the load failed (kill switch, request failed, delivery not stored, payload invalid, write rejected); `2` usage or configuration error.
 - **Locally:** `devbox run -- task ingestion:load:ecb:daily VALID_DATE=2026-10-15` or `task ingestion:load:ecb:history START=… END=…` against a running persistence api (`task persistence:run`). These call the live ECB API: manual use only, never in CI.
@@ -102,7 +102,7 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 
 - **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/investment-copilot/issues/15), PR [#71](https://github.com/MaxBernstetter/investment-copilot/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
 - **Change reason of a revised value:** every value is sent with `change_reason = initial`, and persistence stores it as sent. Which reason a revised value from a lookback rerun gets is open; reason derivation is [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
-- Scheduling ([#21](https://github.com/MaxBernstetter/investment-copilot/issues/21)), the backfill feature ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/investment-copilot/issues/32)) and domain metrics beyond the request counter.
+- The backfill feature ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)), late-data handling ([#28](https://github.com/MaxBernstetter/investment-copilot/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/investment-copilot/issues/32)) and domain metrics beyond the request counter.
 
 ## Tests
 

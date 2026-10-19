@@ -72,7 +72,7 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-Python components (`contracts`, `persistence`, `ingestion`, `orchestration`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]).
+Python components (`contracts`, `persistence`, `ingestion`, `orchestration`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 
 Each service has its own Taskfile, included as `<service>:<task>` and run from the service directory (Python services use `uv run --locked`):
 

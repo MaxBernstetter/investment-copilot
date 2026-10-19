@@ -5,6 +5,7 @@ description = "YieldLens orchestration: Airflow DAGs that schedule the service j
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "apache-airflow==3.3.2",
+    "pendulum>=3.0",
     "python-dateutil>=2.9",
 ]
 
@@ -30,7 +31,7 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "N"]
 [tool.mypy]
 strict = true
 python_version = "3.13"
-files = ["src", "tests"]
+files = ["src", "dags", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

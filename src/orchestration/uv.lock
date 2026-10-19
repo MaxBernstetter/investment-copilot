@@ -1256,6 +1256,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "apache-airflow" },
+    { name = "pendulum" },
     { name = "python-dateutil" },
 ]
 
@@ -1270,6 +1271,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apache-airflow", specifier = "==3.3.2" },
+    { name = "pendulum", specifier = ">=3.0" },
     { name = "python-dateutil", specifier = ">=2.9" },
 ]
 
