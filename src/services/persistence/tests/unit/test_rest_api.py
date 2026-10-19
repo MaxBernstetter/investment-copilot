@@ -55,7 +55,7 @@ def test_records_a_batch_and_returns_its_knowledge_time(
 ) -> None:
     batch = {
         "observations": [
-            observation(maturity="2Y", normalization_version="1"),
+            observation(maturity="2Y", normalization_version="1", delivery_id="delivery-1"),
             observation(maturity="10Y"),
         ]
     }
@@ -69,8 +69,9 @@ def test_records_a_batch_and_returns_its_knowledge_time(
         "known_from": "2026-03-12T18:00:00Z",
     }
     assert [
-        (stored.maturity, stored.normalization_version) for stored, _ in backend.repository.versions
-    ] == [("2Y", "1"), ("10Y", None)]
+        (stored.maturity, stored.normalization_version, stored.delivery_id)
+        for stored, _ in backend.repository.versions
+    ] == [("2Y", "1", "delivery-1"), ("10Y", None, None)]
 
 
 def test_a_contract_violation_is_a_problem_response(

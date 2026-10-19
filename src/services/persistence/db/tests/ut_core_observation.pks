@@ -38,6 +38,9 @@ create or replace package ut_core_observation as
   --%test(A reload that differs only in its normalization version records nothing)
   procedure a_changed_normalization_version_alone_is_unchanged;
 
+  --%test(A reload that differs only in its source delivery records nothing)
+  procedure a_new_delivery_alone_is_unchanged;
+
   --%test(Records new, versions changed and skips unchanged observations in one batch)
   procedure records_a_mixed_batch;
 

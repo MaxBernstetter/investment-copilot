@@ -32,6 +32,7 @@ One row per version. Rows are insert-only; the only update is closing `known_to`
 | `run_id` | `VARCHAR2(128)` | no | Run that wrote the version |
 | `change_reason` | `VARCHAR2(16)` | no | `initial`, `revision`, `correction`, `recalculation` or `simulated` |
 | `normalization_version` | `VARCHAR2(64)` | yes | Version of the source mapping (normalization rules in ingestion) that produced a published value |
+| `delivery_id` | `VARCHAR2(64)` | yes | Raw source delivery (in ingestion's `ING` schema) a published value was parsed from; an opaque reference, no foreign key across schemas |
 
 Constraints:
 - `valid_date` has no time part; `known_from < known_to`.
@@ -83,7 +84,7 @@ Values are never overwritten. For each observation of a batch, identified by its
 | different `value` or `source_id` | The open version is closed (`known_to` = the call's `known_from`) and a new open version is inserted | recorded |
 | same `value` and `source_id` | **No-op**: nothing is written; the open version keeps its `run_id`, `change_reason` and `known_from` | unchanged |
 
-- **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id`, `change_reason` and `normalization_version` describe the write, so a reload by another run or another normalization version with the same value and source is unchanged; the open version keeps them as they were.
+- **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id`, `change_reason`, `normalization_version` and `delivery_id` describe the write, so a reload by another run, another normalization version or from another delivery with the same value and source is unchanged; the open version keeps them as they were.
 - Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`; as-of retrieval follows in [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22).
 - Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
 - Set-based: one locking `SELECT … FOR UPDATE`, one `UPDATE` (close changed versions) and one `INSERT … SELECT` (open versions for keys without one), each restricted to the batch's valid-date range, so partitions are pruned.
@@ -117,7 +118,7 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 
 | Level | What | Where |
 |---|---|---|
-| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads (also with another normalization version), mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
+| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads (also with another normalization version or delivery), mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
 | Integration | Migrations (partitioning, package valid, seeded grid and curve conventions, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
 | Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 

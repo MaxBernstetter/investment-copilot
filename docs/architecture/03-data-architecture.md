@@ -18,7 +18,7 @@ Every version of an observation is a row; rows are never updated in place except
 | `value` | The yield |
 | `known_from`, `known_to` | Knowledge interval (UTC, set by the database clock); `known_to` is `9999-12-31` (open) for the current version |
 | `origin` | `published` or `derived` (+ `method_version`) |
-| `source_id`, `run_id` | Provenance |
+| `source_id`, `run_id`, `delivery_id` | Provenance (`delivery_id`: the raw delivery in `ING` the value came from) |
 | `change_reason` | Initial, revision, correction, recalculation, simulated |
 
 - Details of the implemented model: [[01-bitemporal-model]].

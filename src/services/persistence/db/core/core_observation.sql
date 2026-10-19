@@ -29,8 +29,8 @@ create or replace package core_observation authid definer as
   -- * open version with another value or source_id: it is closed at the call's
   --   knowledge time and the observation becomes the new open version;
   -- * open version with the same value and source_id: unchanged, nothing is
-  --   written (run_id, change_reason and normalization_version describe how
-  --   the value was written, not the value).
+  --   written (run_id, change_reason, normalization_version and delivery_id
+  --   describe how the value was written, not the value).
   -- o_recorded_count counts the new versions only.
   -- All versions of one call share one knowledge time: p_known_from if given
   -- (for deterministic tests and replays), otherwise the database clock in UTC,
@@ -159,11 +159,12 @@ create or replace package body core_observation as
     -- changed ones. Unchanged observations still have their open version.
     insert into observation (
       curve_id, maturity, valid_date, value, known_from,
-      origin, method_version, source_id, run_id, change_reason, normalization_version
+      origin, method_version, source_id, run_id, change_reason, normalization_version,
+      delivery_id
     )
     select v.curve_id, v.maturity, v.valid_date, v.value, l_known_from,
            v.origin, v.method_version, v.source_id, v.run_id, v.change_reason,
-           v.normalization_version
+           v.normalization_version, v.delivery_id
       from table(p_versions) v
      where not exists (
        select 1
@@ -204,7 +205,8 @@ create or replace package body core_observation as
   begin
     open l_versions for
       select version_id, curve_id, maturity, valid_date, value, known_from, known_to,
-             origin, method_version, source_id, run_id, change_reason, normalization_version
+             origin, method_version, source_id, run_id, change_reason, normalization_version,
+             delivery_id
         from observation
        where curve_id = p_curve_id
          and valid_date between p_valid_date_from and p_valid_date_to

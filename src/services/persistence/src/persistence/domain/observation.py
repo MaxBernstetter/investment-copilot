@@ -65,6 +65,8 @@ class Observation:
     change_reason: ChangeReason
     normalization_version: str | None = None
     """Version of the source mapping that produced a published value; provenance only."""
+    delivery_id: str | None = None
+    """Raw source delivery (ingestion reference) a published value came from; provenance only."""
 
     def __post_init__(self) -> None:
         if (self.origin is Origin.DERIVED) != (self.method_version is not None):
