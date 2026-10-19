@@ -15,7 +15,7 @@ def test_cors_origins_default_to_the_vite_dev_server(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("ACCESS_PERSISTENCE_URL", "http://persistence:8001")
     monkeypatch.delenv("ACCESS_CORS_ORIGINS", raising=False)
 
-    assert Settings().cors_origin_list() == ["http://localhost:5173"]
+    assert Settings().cors_origin_list() == ["http://localhost:5174"]
 
 
 def test_cors_origins_are_comma_separated(monkeypatch: pytest.MonkeyPatch) -> None:

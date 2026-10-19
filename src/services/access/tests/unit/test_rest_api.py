@@ -18,7 +18,7 @@ from access.domain.curve import (
 from access.domain.series import Series, SeriesPoint
 from access.facade.rest.app import Services, create_app
 
-FRONTEND_ORIGIN = "http://localhost:5173"
+FRONTEND_ORIGIN = "http://localhost:5174"
 CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
 SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))

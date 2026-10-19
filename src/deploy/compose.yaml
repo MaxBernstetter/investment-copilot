@@ -98,7 +98,7 @@ services:
       dockerfile: services/access/Dockerfile
     environment:
       ACCESS_PERSISTENCE_URL: http://persistence:8001
-      ACCESS_CORS_ORIGINS: http://localhost:5173
+      ACCESS_CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5174}
     ports:
       - 127.0.0.1:8000:8000
     depends_on:
