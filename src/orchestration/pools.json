@@ -1,0 +1,7 @@
+{
+  "ecb": {
+    "slots": 1,
+    "description": "ECB Data Portal: one load at a time (source access policy)",
+    "include_deferred": false
+  }
+}

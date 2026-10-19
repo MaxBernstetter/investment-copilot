@@ -30,3 +30,8 @@ tasks:
     desc: Run the unit tests (no running Airflow, no live sources)
     cmds:
       - uv run --locked pytest tests/unit
+
+  pools:import:
+    desc: Create the Airflow pools from pools.json (needs the metadata DB of AIRFLOW_HOME)
+    cmds:
+      - uv run --locked airflow pools import pools.json
