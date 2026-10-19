@@ -1,0 +1,68 @@
+[project]
+name = "access"
+version = "0.1.0"
+description = "YieldLens access service: the public read-only API the frontend calls"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "pydantic-settings>=2.8",
+    "python-json-logger>=3.3",
+    "uvicorn>=0.34",
+    "yieldlens-contracts",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13",
+    "import-linter>=2.3",
+    "mypy>=1.15",
+    "pytest>=8.3",
+    "ruff==0.17.1",
+]
+
+[tool.uv.sources]
+yieldlens-contracts = { path = "../../contracts", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "N"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["access"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers point inward"
+type = "layers"
+layers = [
+    "access.api",
+    "access.facade | access.infrastructure",
+    "access.application",
+    "access.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "The domain and use cases have no I/O, frameworks or contracts"
+type = "forbidden"
+source_modules = ["access.domain", "access.application"]
+forbidden_modules = ["contracts", "fastapi", "httpx", "pydantic", "pydantic_settings"]

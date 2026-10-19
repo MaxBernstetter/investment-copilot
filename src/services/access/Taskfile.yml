@@ -1,0 +1,44 @@
+# Access service tasks (uv project in this directory). Glue only: every command is a single
+# binary call (see docs/architecture/13-build-and-ci.md).
+version: "3"
+
+# Local-only default: the persistence api started by `task persistence:run`.
+env:
+  ACCESS_PERSISTENCE_URL: '{{.ACCESS_PERSISTENCE_URL | default "http://localhost:8001"}}'
+
+vars:
+  PORT: '{{.PORT | default "8000"}}'
+
+tasks:
+  setup:
+    desc: Create the virtual environment from the lockfile
+    cmds:
+      - uv sync --locked
+
+  fmt:
+    desc: Format and auto-fix the Python code
+    cmds:
+      - uv run --locked ruff format
+      - uv run --locked ruff check --fix
+
+  lint:
+    desc: Lint the Python code, check its formatting and the layer rules
+    cmds:
+      - uv run --locked ruff check
+      - uv run --locked ruff format --check
+      - uv run --locked lint-imports
+
+  typecheck:
+    desc: Type-check with mypy (strict)
+    cmds:
+      - uv run --locked mypy
+
+  test:unit:
+    desc: Run the unit tests (domain, use cases, REST facade, persistence client; no real I/O)
+    cmds:
+      - uv run --locked pytest tests/unit
+
+  run:
+    desc: Run the api process locally on PORT (default 8000) against the persistence service
+    cmds:
+      - uv run --locked uvicorn --factory access.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
