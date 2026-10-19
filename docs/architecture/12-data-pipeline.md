@@ -92,7 +92,7 @@ Completeness checks use market calendars, so a holiday is not reported as a miss
 
 ## Concurrency control
 
-- **Writes:** persistence takes a lock per curve and valid-date range inside the PL/SQL write package (`DBMS_LOCK`/row locks), so overlapping writers serialize instead of racing.
+- **Writes:** persistence locks one knowledge clock row inside the PL/SQL write package, so writers serialize and knowledge times increase in commit order; the open versions of the batch are row-locked too ([[01-bitemporal-model#Concurrency]], [[0017-commit-safe-knowledge-time]]).
 - **DAGs:** `max_active_runs = 1` per DAG and data interval, plus a mutex (an Airflow pool of size 1) per curve-and-range for backfill, replay and recalculation.
 - **Jobs:** a job checks for a conflicting active run before starting and fails fast with a clear reason.
 

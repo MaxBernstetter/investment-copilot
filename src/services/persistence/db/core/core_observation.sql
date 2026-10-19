@@ -19,6 +19,10 @@ create or replace package core_observation authid definer as
   -- maturity that is not on its curve's grid. Nothing of the batch is stored.
   off_grid_observation constant pls_integer := -20003;
 
+  -- Raised when a given knowledge time is not after the committed knowledge
+  -- horizon. Nothing of the batch is stored.
+  knowledge_time_not_increasing constant pls_integer := -20004;
+
   -- known_to of the open (current) version.
   open_known_to constant timestamp := timestamp '9999-12-31 00:00:00';
 
@@ -35,10 +39,15 @@ create or replace package core_observation authid definer as
   -- an observation that already has a version is stored as 'revision'.
   -- correction, recalculation and simulated are stored as sent.
   -- o_recorded_count counts the new versions only.
-  -- All versions of one call share one knowledge time: p_known_from if given
-  -- (for deterministic tests and replays), otherwise the database clock in UTC,
-  -- read after the open versions of the batch are locked, so that concurrent
-  -- writers of the same observations get increasing knowledge times.
+  -- All versions of one call share one knowledge time. Every call first locks
+  -- the single row of table knowledge_clock, which serializes all writers, and
+  -- reads the knowledge horizon (the knowledge time of the latest committed call).
+  -- The knowledge time is p_known_from if given (for deterministic tests and
+  -- replays; it must be after the horizon, else -20004), otherwise the database
+  -- clock in UTC, moved forward to one microsecond after the horizon if the
+  -- clock lags behind it. Knowledge times therefore strictly increase by commit
+  -- order, and an as-of read at or before the horizon never changes later.
+  -- The call moves the horizon to its knowledge time when it stores its batch.
   procedure record_versions(
     p_versions       in  observation_version_list_t,
     o_known_from     out timestamp,
@@ -100,8 +109,16 @@ create or replace package core_observation authid definer as
     p_as_of    in timestamp
   ) return date;
 
-  -- The knowledge time now: the database clock in UTC.
+  -- The knowledge time now: the database clock in UTC. It is not the knowledge
+  -- time a write would get; see record_versions. Use knowledge_horizon for
+  -- the latest committed knowledge time.
   function current_knowledge_time return timestamp;
+
+  -- The knowledge horizon: the knowledge time of the latest committed call of
+  -- record_versions (1970-01-01 before the first one). Reads at or before it are
+  -- safe watermarks: no later commit adds a version known at or before it.
+  -- Does not lock; it sees the committed horizon of other sessions.
+  function knowledge_horizon return timestamp;
 end core_observation;
 /
 
@@ -156,6 +173,7 @@ create or replace package body core_observation as
     o_recorded_count out pls_integer,
     p_known_from     in  timestamp default null
   ) is
+    l_horizon         timestamp(6);
     l_known_from      timestamp(6);
     l_valid_date_from date;
     l_valid_date_to   date;
@@ -183,13 +201,34 @@ create or replace package body core_observation as
     ensure_unique_observations(p_versions);
     ensure_on_grid(p_versions);
 
+    -- Every writer locks the clock first, so knowledge times follow commit order.
+    select known_until
+      into l_horizon
+      from knowledge_clock
+     where clock_id = 1
+       for update;
+
     select min(valid_date), max(valid_date)
       into l_valid_date_from, l_valid_date_to
       from table(p_versions);
 
     open c_open_versions;
     close c_open_versions;
-    l_known_from := coalesce(p_known_from, sys_extract_utc(systimestamp));
+
+    if p_known_from is null then
+      l_known_from := greatest(
+        sys_extract_utc(systimestamp),
+        l_horizon + interval '0.000001' second
+      );
+    elsif p_known_from <= l_horizon then
+      raise_application_error(
+        knowledge_time_not_increasing,
+        'Knowledge time ' || to_char(p_known_from, 'YYYY-MM-DD HH24:MI:SS.FF6')
+          || ' is not after the knowledge horizon ' || to_char(l_horizon, 'YYYY-MM-DD HH24:MI:SS.FF6')
+      );
+    else
+      l_known_from := p_known_from;
+    end if;
 
     -- Close every open version whose value or source changed.
     update observation o
@@ -245,6 +284,12 @@ create or replace package body core_observation as
      );
 
     o_recorded_count := sql%rowcount;
+
+    -- Move the horizon to this call's knowledge time (rolled back with the batch on failure).
+    update knowledge_clock
+       set known_until = l_known_from
+     where clock_id = 1;
+
     o_known_from := l_known_from;
     dbms_application_info.set_module(null, null);
   exception
@@ -378,6 +423,16 @@ create or replace package body core_observation as
   begin
     return sys_extract_utc(systimestamp);
   end current_knowledge_time;
+
+  function knowledge_horizon return timestamp is
+    l_horizon timestamp(6);
+  begin
+    select known_until
+      into l_horizon
+      from knowledge_clock
+     where clock_id = 1;
+    return l_horizon;
+  end knowledge_horizon;
 
 end core_observation;
 /

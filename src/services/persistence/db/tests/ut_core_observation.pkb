@@ -30,9 +30,12 @@ create or replace package body ut_core_observation as
   c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
     || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
 
-  -- The test curves live on grid version 1; utPLSQL rolls them back after the suite.
+  -- The test curves live on grid version 1, and the knowledge clock starts at
+  -- 1970 so that tests can pass the fixed knowledge times above. utPLSQL rolls
+  -- both back after the suite, and each test's own writes are rolled back.
   procedure define_test_curves is
   begin
+    update knowledge_clock set known_until = timestamp '1970-01-01 00:00:00' where clock_id = 1;
     insert into curve (curve_id, grid_version, rate_type, compounding, unit)
     values (c_curve, 1, 'spot', 'continuous', 'percent');
     insert into curve (curve_id, grid_version, rate_type, compounding, unit)
@@ -746,6 +749,75 @@ create or replace package body ut_core_observation as
     l_rows := value_versions(c_later, p_maturity => '2Y');
     ut.expect(l_rows.count).to_equal(1);
   end value_versions_of_an_unknown_value_are_empty;
+
+  procedure knowledge_time_is_after_the_horizon is
+    l_horizon    timestamp := core_observation.knowledge_horizon();
+    l_known_from timestamp;
+    l_count      pls_integer;
+  begin
+    core_observation.record_versions(observation_version_list_t(version()), l_known_from, l_count);
+
+    ut.expect(l_known_from > l_horizon).to_be_true();
+  end knowledge_time_is_after_the_horizon;
+
+  procedure a_call_advances_the_horizon is
+    l_known_from timestamp;
+    l_count      pls_integer;
+  begin
+    core_observation.record_versions(observation_version_list_t(version()), l_known_from, l_count);
+
+    ut.expect(core_observation.knowledge_horizon()).to_equal(l_known_from);
+  end a_call_advances_the_horizon;
+
+  procedure knowledge_time_increases_when_the_clock_lags is
+    l_horizon    timestamp;
+    l_known_from timestamp;
+    l_count      pls_integer;
+  begin
+    -- The horizon ends up an hour ahead of the database clock.
+    update knowledge_clock
+       set known_until = sys_extract_utc(systimestamp) + interval '1' hour
+     where clock_id = 1;
+    l_horizon := core_observation.knowledge_horizon();
+
+    core_observation.record_versions(observation_version_list_t(version()), l_known_from, l_count);
+
+    ut.expect(l_known_from).to_equal(l_horizon + interval '0.000001' second);
+  end knowledge_time_increases_when_the_clock_lags;
+
+  procedure rejects_a_given_knowledge_time_not_after_the_horizon is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version('10Y', p_value => 2.61)), c_later);
+
+    begin
+      record(observation_version_list_t(version('10Y', p_value => 2.70)), c_revised_at);
+      ut.fail('expected ORA-20004');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.knowledge_time_not_increasing);
+    end;
+
+    ut.expect(core_observation.knowledge_horizon()).to_equal(c_later);
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+  end rejects_a_given_knowledge_time_not_after_the_horizon;
+
+  procedure a_failed_call_keeps_the_horizon is
+  begin
+    record(observation_version_list_t(version()), c_later);
+
+    begin
+      record(observation_version_list_t(version('4Y')));
+      ut.fail('expected ORA-20003');
+    exception
+      when others then
+        ut.expect(sqlcode).to_equal(core_observation.off_grid_observation);
+    end;
+
+    ut.expect(core_observation.knowledge_horizon()).to_equal(c_later);
+  end a_failed_call_keeps_the_horizon;
 
 end ut_core_observation;
 /
