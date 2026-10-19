@@ -36,6 +36,6 @@ tasks:
   seed:
     desc: Load ECB history at two knowledge times (live ECB calls)
     vars:
-      START: '2024-01-01'
+      START: '{{.START | default "2024-01-01"}}'
     cmds:
       - ../scripts/dev-seed.sh {{.START}}
