@@ -2,7 +2,7 @@
 
 The Airflow DAG `daily_load_ecb` runs the [[03-ecb-load|ECB curve load]] every TARGET business day after the ECB has published, and retries transient failures within the [[12-data-pipeline#Source access policy|source access policy]].
 
-Tracked in [#21](https://github.com/MaxBernstetter/investment-copilot/issues/21). Code: `src/orchestration/dags/daily_load_ecb.py`, with its steps in `src/orchestration/src/orchestration/ecb_daily_load.py` and the calendar in `orchestration/target_calendar.py`.
+Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: `src/orchestration/dags/daily_load_ecb.py`, with its steps in `src/orchestration/src/orchestration/ecb_daily_load.py` and the calendar in `orchestration/target_calendar.py`.
 
 ## When it runs and what it loads
 
@@ -13,7 +13,7 @@ Tracked in [#21](https://github.com/MaxBernstetter/investment-copilot/issues/21)
 | Valid date | The previous TARGET business day before the run day (Monday loads Friday, the Tuesday after Easter loads Maundy Thursday). The job's lookback window re-fetches the days before it |
 | TARGET holiday | The task is skipped (`AirflowSkipException`), so the run ends as success with a skipped task, not as a failure |
 | Run id | `daily_load_ecb-<valid date>`, so a retry or rerun reuses it |
-| Catchup | Off. A missed day is covered by the next run's lookback window; longer gaps are the backfill ([#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)) |
+| Catchup | Off. A missed day is covered by the next run's lookback window; longer gaps are the backfill ([#27](https://github.com/MaxBernstetter/yield-lens/issues/27)) |
 | Concurrency | `max_active_runs = 1` and the task runs in the pool `ecb` of size 1, so there is never more than one ECB load at a time |
 
 TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December. The calendar decides when to run; completeness checks against market calendars are processing's job ([[12-data-pipeline#Reference data]]).
@@ -51,6 +51,6 @@ Pools are created from `src/orchestration/pools.json` with `task orchestration:p
 
 ## Not yet in place
 
-- Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/investment-copilot/issues/32)), alerting on final failures ([#43](https://github.com/MaxBernstetter/investment-copilot/issues/43)).
+- Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32)), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
 - Deployment of Airflow itself (Compose stack with its Postgres metadata DB, `AIRFLOW_HOME`, importing the pools on start).
 - OpenLineage events and `traceparent` propagation from the task.

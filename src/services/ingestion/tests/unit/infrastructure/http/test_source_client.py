@@ -150,7 +150,7 @@ async def test_identifies_as_yieldlens_without_personal_contact_data(harness: Ha
 
     user_agent = stub.requests[0].headers["User-Agent"]
     assert re.fullmatch(
-        r"YieldLens/\d+\.\d+\.\d+ \(\+https://github\.com/MaxBernstetter/investment-copilot\)",
+        r"YieldLens/\d+\.\d+\.\d+ \(\+https://github\.com/MaxBernstetter/yield-lens\)",
         user_agent,
     )
     assert "@" not in user_agent

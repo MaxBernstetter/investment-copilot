@@ -1,6 +1,6 @@
 # Bitemporal Model
 
-How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issues: [#12](https://github.com/MaxBernstetter/investment-copilot/issues/12) (bitemporal storage), [#15](https://github.com/MaxBernstetter/investment-copilot/issues/15) (versioning), [#19](https://github.com/MaxBernstetter/investment-copilot/issues/19) (maturity grid and curve definitions).
+How the `persistence` service stores yield observations in the `CORE` schema so that every value carries a **valid time** and a **knowledge time**. Architecture context: [[03-data-architecture]]. Issues: [#12](https://github.com/MaxBernstetter/yield-lens/issues/12) (bitemporal storage), [#15](https://github.com/MaxBernstetter/yield-lens/issues/15) (versioning), [#19](https://github.com/MaxBernstetter/yield-lens/issues/19) (maturity grid and curve definitions).
 
 ## Two time axes
 
@@ -89,7 +89,7 @@ Values are never overwritten. For each observation of a batch, identified by its
 
 - **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id`, `change_reason`, `normalization_version` and `delivery_id` describe the write, so a reload by another run, another normalization version or from another delivery with the same value and source is unchanged; the open version keeps them as they were.
 - Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`, and the version visible at a given time through [[#As-of retrieval]].
-- Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
+- Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/yield-lens/issues/23).
 - Set-based: one locking `SELECT … FOR UPDATE`, one `UPDATE` (close changed versions) and one `INSERT … SELECT` (open versions for keys without one), each restricted to the batch's valid-date range, so partitions are pruned.
 
 ### Concurrency

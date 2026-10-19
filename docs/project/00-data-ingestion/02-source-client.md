@@ -2,7 +2,7 @@
 
 The HTTP client every source adapter uses to call a public source. It enforces the [[12-data-pipeline#Source access policy]] in one place, so ingestion cannot get YieldLens rate-limited or banned. The values per source are in its source note (ECB: [[01-data-sources#Access policy for this source]]).
 
-Tracked in [#66](https://github.com/MaxBernstetter/investment-copilot/issues/66). Code: `src/services/ingestion/src/ingestion/infrastructure/http/source_client.py`.
+Tracked in [#66](https://github.com/MaxBernstetter/yield-lens/issues/66). Code: `src/services/ingestion/src/ingestion/infrastructure/http/source_client.py`.
 
 ## What it does
 
@@ -18,10 +18,10 @@ Tracked in [#66](https://github.com/MaxBernstetter/investment-copilot/issues/66)
 | Fail fast | Any other answer (`4xx`, `500`, redirects) raises `SourceRequestError` without retry |
 | "No data" | The adapter passes a predicate `is_no_data(response)`. A matching response is an empty delivery (`Outcome.NO_DATA`), checked first and never retried |
 | Conditional requests | `if_modified_since` (timezone-aware) and `if_none_match` become `If-Modified-Since` / `If-None-Match`. `304` is `Outcome.NOT_MODIFIED` |
-| Identification | `User-Agent: YieldLens/<version> (+https://github.com/MaxBernstetter/investment-copilot)`; the version is the `ingestion` package version. No personal contact data |
+| Identification | `User-Agent: YieldLens/<version> (+https://github.com/MaxBernstetter/yield-lens)`; the version is the `ingestion` package version. No personal contact data |
 | Metric | Every attempt counts once in `yl_ingestion_source_requests_total{source,status}` |
 
-The limits hold **per client instance**, that is per process. Use one client per source and process. Limits across processes are the orchestrator's job: an Airflow pool of size 1 per source ([#21](https://github.com/MaxBernstetter/investment-copilot/issues/21), [#27](https://github.com/MaxBernstetter/investment-copilot/issues/27)).
+The limits hold **per client instance**, that is per process. Use one client per source and process. Limits across processes are the orchestrator's job: an Airflow pool of size 1 per source ([#21](https://github.com/MaxBernstetter/yield-lens/issues/21), [#27](https://github.com/MaxBernstetter/yield-lens/issues/27)).
 
 ## Interface
 
@@ -54,7 +54,7 @@ match response.outcome:
 | `SourceDisabledError` | The kill switch is on; nothing was sent |
 | `SourceRequestError(source, url, attempts, status_code)` | Non-retryable answer or retries exhausted; `status_code` is `None` after a network error or timeout |
 
-The ECB adapter ([#14](https://github.com/MaxBernstetter/investment-copilot/issues/14), [[03-ecb-load]]) passes `ingestion.infrastructure.ecb.is_no_data`: a `404` whose body says "No Series was returned" or "No results found".
+The ECB adapter ([#14](https://github.com/MaxBernstetter/yield-lens/issues/14), [[03-ecb-load]]) passes `ingestion.infrastructure.ecb.is_no_data`: a `404` whose body says "No Series was returned" or "No results found".
 
 ## Configuration
 
