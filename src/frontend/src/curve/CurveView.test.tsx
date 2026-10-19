@@ -1,11 +1,12 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { localInputToUtc } from '../asOf'
+import CurveChart from './CurveChart'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 
 vi.mock('./CurveChart', () => ({
-  default: () => null,
+  default: vi.fn(() => null),
 }))
 
 vi.mock('./fetchCurve', () => ({
@@ -13,6 +14,7 @@ vi.mock('./fetchCurve', () => ({
 }))
 
 const mockedFetch = vi.mocked(fetchCurve)
+const mockedChart = vi.mocked(CurveChart)
 
 function curveResult(validDate: string, values: (number | null)[]): CurveResult {
   const grid = ['3M', '1Y', '10Y', '15Y', '20Y']
@@ -31,7 +33,9 @@ function curveResult(validDate: string, values: (number | null)[]): CurveResult 
 }
 
 beforeEach(() => {
-  mockedFetch.mockResolvedValue(curveResult('2026-10-16', [2.1, 2.4, 2.6, null, null]))
+  mockedFetch.mockImplementation(async ({ validDate }) =>
+    curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.6, null, null]),
+  )
 })
 
 afterEach(() => {
@@ -39,6 +43,24 @@ afterEach(() => {
   vi.clearAllMocks()
   window.history.replaceState(null, '', '/')
 })
+
+async function renderLoaded() {
+  render(<CurveView />)
+  await waitFor(() => expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16'))
+}
+
+function addButton() {
+  return screen.getByRole('button', { name: 'Add to overlay' })
+}
+
+function pickDate(date: string) {
+  fireEvent.change(screen.getByLabelText(/Valid date/), { target: { value: date } })
+}
+
+function chartLabels(): string[] {
+  const last = mockedChart.mock.lastCall
+  return last ? last[0].curves.map((curve) => curve.label) : []
+}
 
 describe('CurveView', () => {
   it('shows the latest curve on open', async () => {
@@ -118,5 +140,60 @@ describe('CurveView', () => {
     expect(new URLSearchParams(window.location.search).get('as_of')).toBe(
       localInputToUtc(chosen),
     )
+  })
+
+  it('overlays a second date', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+
+    expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-01', asOf: undefined })
+    const overlays = screen.getByRole('list', { name: 'Overlaid valid dates' })
+    expect(within(overlays).getAllByRole('listitem')).toHaveLength(2)
+    await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01', '2026-10-16']))
+  })
+
+  it('removes an overlaid date', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 2026-10-16' }))
+
+    expect(screen.queryByRole('button', { name: 'Remove 2026-10-16' })).not.toBeInTheDocument()
+    await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01']))
+  })
+
+  it('refetches overlays when as_of changes', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+    const chosen = '2026-10-01T12:00:00'
+
+    fireEvent.change(screen.getByLabelText(/Known as of/), { target: { value: chosen } })
+
+    const asOf = localInputToUtc(chosen)
+    await waitFor(() =>
+      expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-16', asOf }),
+    )
+    expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-01', asOf })
+  })
+
+  it('caps the overlay at 5 curves', async () => {
+    await renderLoaded()
+    const dates = ['2026-10-16', '2026-10-01', '2026-09-30', '2026-09-29', '2026-09-28']
+    for (const date of dates) {
+      pickDate(date)
+      fireEvent.click(addButton())
+    }
+
+    const overlays = screen.getByRole('list', { name: 'Overlaid valid dates' })
+    expect(within(overlays).getAllByRole('listitem')).toHaveLength(5)
+    pickDate('2026-09-27')
+    expect(addButton()).toBeDisabled()
   })
 })
