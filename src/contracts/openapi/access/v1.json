@@ -366,6 +366,9 @@
             },
             "description": "Successful Response"
           },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -461,6 +464,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
           },
           "404": {
             "content": {
