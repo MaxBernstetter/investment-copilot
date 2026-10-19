@@ -1,6 +1,6 @@
 # AI Agent Skills — Full Catalog
 
-> Auto-generated. Total: **2712 skills** across **131 categories**.
+> Auto-generated. Total: **2715 skills** across **131 categories**.
 > When asked "what skill should I use?", browse this file and suggest the most relevant skill IDs.
 > Install a skill: `Ctrl+Shift+/` → search for the skill ID → press Enter.
 
@@ -313,7 +313,9 @@ Chat widget, Messages, PromptInput, Avatar, LLM _(risk: unknown)_
 - **pakistan-payments-stack**: Design and implement production-grade Pakistani payment integrations (JazzCash, Easypaisa, bank/PSP rails, optional Raast) for SaaS with PKR billing, webhook reliability, and reconciliation. _(risk: safe)_
 - **2slides-ppt-generator**: AI-powered presentation generation via the 2slides API — create slides from text, match a reference image style, summarize documents into decks, add AI voice narration, and export pages/audio. Use for any "make slides", "create a deck", or "slides from this document" request. _(risk: safe)_
 - **adhx**: Fetch any X/Twitter post as clean LLM-friendly JSON. Converts x.com, twitter.com, or adhx.com links into structured data with full article content, author info, and engagement metrics. No scraping or browser required. _(risk: safe)_
+- **aident-loadout**: Run multi-step work across apps the user connected in Aident Loadout: live action schemas, connection checks, cost preflight, and approval before side effects. _(risk: critical)_
 - **connection-auth-rules**: Build a Connection Auth Rules for a Monte Carlo connection type. Fetches live connector schemas and transform steps from the apollo-agent repo. _(risk: unknown)_
+- **curlshot**: Capture web page screenshots, PDFs and scrolling videos, or render HTML/Markdown to images, with the hosted CurlShot API. _(risk: safe)_
 - **famulor-skill**: Operate Famulor assistants, communication history, campaigns, knowledge, automations, telephony, and workspace administration through its hosted MCP server. _(risk: critical)_
 - **gemini-interactions-api**: Build with the Gemini Interactions API for text, chat, multimodal generation, streaming, managed or background agents, function calling, structured output, and generateContent migrations. _(risk: critical)_
 - **gemini-live-api-dev**: Use this skill when building real-time, bidirectional streaming applications with the Gemini Live API. _(risk: critical)_
@@ -329,8 +331,6 @@ Chat widget, Messages, PromptInput, Avatar, LLM _(risk: unknown)_
 - **us-property-data**: Use when a task needs real U.S. residential property data: valuation, listings, price or tax history, schools, or a zillow.com URL. _(risk: safe)_
 - **youtube-full**: Fetch YouTube transcripts, search videos, browse channels, and extract playlists via TranscriptAPI — no yt-dlp, no Google API key, works from any cloud server. _(risk: safe)_
 - **youtube-transcript-skills**: Fetch YouTube video transcripts, search videos/channels, browse channels, and extract playlists via the getyoutubetranscript.com API - free tier, no card required. _(risk: safe)_
-- **aident-loadout**: Run multi-step work across apps the user connected in Aident Loadout: live action schemas, connection checks, cost preflight, and approval before side effects. _(risk: critical)_
-- **curlshot**: Capture web page screenshots, PDFs and scrolling videos, or render HTML/Markdown to images, with the hosted CurlShot API. _(risk: safe)_
 
 ## app-builder
 
@@ -648,6 +648,7 @@ applications.
 - **okr-system**: OKR register: objective, owner and level, department, quarter and year, up to three key results with progress percentages, parent OKR and overall progress. Use for objective tracking. _(risk: safe)_
 - **onboarding-playbook**: Onboarding checklist: step, phase and order, department, owner, linked SOP and required flag. Use for joiner onboarding. _(risk: safe)_
 - **organization-design**: Org structure register: department, type, parent, head, location, approved against actual headcount, annual budget, cost centre code and establishment date. Use for org design. _(risk: safe)_
+- **outreachgenie-list-audit**: Audit saved OutreachGenie prospect lists against an outreach flow for missing template values, text limits and incomplete collection, using read-only MCP snapshots and local reports. _(risk: safe)_
 - **party-ledger-reconciliation**: Party ledger reconciliation: party type, name and PAN/VAT, ledger against statement balance, difference and reason, duplicates, confirmation status and adjustment. Use for balance checks. _(risk: safe)_
 - **payment-accounting**: Payment voucher register: payment number and date, paid to and purpose, mode, gross amount, TDS rate and deducted, net paid, invoice allocation, ledger and reconciliation status. Use for vouchers. _(risk: safe)_
 - **payments-received**: Payments received log: reference, client and invoice, amount and currency, payment date and method, withholding tax, bank account, received-by and receipt-sent status. Use for incoming payments. _(risk: safe)_
@@ -692,7 +693,6 @@ applications.
 - **time-tracking**: Time entry register: employee, project, client, task, hours, billable flag, rate and amount, invoice and approver. Use for time tracking. _(risk: safe)_
 - **usage-based-pricing**: Design pricing models that developers understand, accept, and can predict. Trigger phrases: usage-based pricing, API pricing, metered billing, developer pricing, pricing page, cost calculator, pay as you go, pricing transparency, competitive pricing, developer billing _(risk: critical)_
 - **vendor-contractor-management**: Vendor register: name, type, services, contact, linked contract dates, payment terms and rating. Use for vendor and contractor management. _(risk: safe)_
-- **outreachgenie-list-audit**: Audit saved OutreachGenie prospect lists against an outreach flow for missing template values, text limits and incomplete collection, using read-only MCP snapshots and local reports. _(risk: safe)_
 
 ## business-strategy
 
@@ -1029,6 +1029,7 @@ GitHub Actions, CI, action, marketplace _(risk: unknown)_
 - **seo-plan**: Strategic SEO planning for new or existing websites. Industry-specific templates, competitive analysis, content strategy, and implementation roadmap. Use when user says "SEO plan", "SEO strategy", "content strategy", "site architecture", or "SEO roadmap".
  _(risk: critical)_
 - **slideops**: Turn a repository into a cited HTML slide deck and detect the day it drifts from the code. Citations record file, lines, and hash; a stdlib check reports CURRENT, MOVED, or CHANGED. _(risk: critical)_
+- **story-bible-continuity**: Deterministic continuity check for long manuscripts against a story bible: name drift, age arithmetic, era anachronisms, unpaid foreshadowing, POV leaks. Use for continuity checks on novels or serials. _(risk: safe)_
 - **technical-tutorials**: When the user wants to create step-by-step technical tutorials, quickstarts, or code walkthroughs. Trigger phrases include "tutorial," "quickstart," "getting started guide," "walkthrough," "step by step," "how to guide," "hands-on guide," or "code tutorial." _(risk: critical)_
 - **unslop-file**: Humanize natural-language memory files (CLAUDE.md, todos, preferences, docs) by removing AI-isms and adding burstiness while preserving every code block, URL, path, command, and heading exactly. _(risk: critical)_
 - **wordpress-centric-high-seo-optimized-blogwriting-skill**: Generate clean, human-sounding, SEO-optimized WordPress blog posts with optional Yoast metadata, JSON-LD schema markup, and image SEO planning. Supports modular batch output. _(risk: safe)_
@@ -1124,6 +1125,7 @@ market, solution, financials, and strategy
 - **nexrad-product-access**: Discover and access NEXRAD data for a selected radar site, time, product, or Level II moment using completed archive volumes, real-time chunks, or supported Level III sources with metadata validation. _(risk: safe)_
 - **noaa-radar-satellite-fetching**: Retrieve NOAA NEXRAD and GOES products from public cloud archives using verified site, product, channel, sector, and scan-time selection. _(risk: safe)_
 - **optim-agent**: Guide agent-driven parameter optimization for configurable systems with measurable objectives. Use for HPO, inference tuning, simulations, or RL/control experiments. _(risk: safe)_
+- **pangolinfo-amazon-data-research**: Plan and run read-only Amazon product, review, category, seller, and market research through Pangolinfo's documented MCP bridge. _(risk: safe)_
 - **postgres-readonly-queries**: Execute safe read-only SQL queries against PostgreSQL databases with multi-connection support and defense-in-depth write protection. _(risk: safe)_
 - **sql-sentinel**: Audit SQL for the cost & performance anti-patterns that burn warehouse credits. Scores warehouse health 0-100 and outputs a prioritized cost-reduction plan for BigQuery, Snowflake, Redshift, and Postgres. _(risk: critical)_
 - **warehouse**: Plan and review read-only data warehouse analysis with explicit scope, privacy, provenance, and validation checks. _(risk: critical)_
@@ -1133,7 +1135,6 @@ market, solution, financials, and strategy
 - **weather-model-run-discovery**: Resolve the newest complete numerical weather prediction cycle and forecast objects across provider mirrors without downloading full payloads. _(risk: safe)_
 - **weather-observation-fetching**: Retrieve surface and upper-air weather observations from authoritative APIs and archives with station identity, time, units, and quality flags preserved. _(risk: safe)_
 - **weather-pipeline-performance-diagnosis**: Diagnose slow weather-data workflows by measuring discovery, transfer, parsing, scientific processing, and rendering separately before changing code. _(risk: safe)_
-- **pangolinfo-amazon-data-research**: Plan and run read-only Amazon product, review, category, seller, and market research through Pangolinfo's documented MCP bridge. _(risk: safe)_
 
 ## data-ai
 
@@ -1508,7 +1509,7 @@ api docs, reference,... _(risk: unknown)_
 - **ai-pipeline-orchestration**: Orchestrate AI/ML pipelines for data ingestion, model training, batch inference, and RAG indexing using Prefect, Airflow, or Dagster. _(risk: critical)_
 - **ai-sre-incident-response**: Build AI-focused SRE incident response practices for LLM outages, degraded quality, runaway cost events, and safety regressions. _(risk: critical)_
 - **alerting-oncall**: Set up alerting rules, configure on-call rotations, and manage incident response workflows. _(risk: critical)_
-- **antigravity-maintainer-batch-release**: Run protected AAS maintainer sweeps, PR merge batches, canonical sync, Core preview checks, and scripted releases. Use for repository maintenance, main alignment, CLI/MCP/Workbench changes, or release work; not ordinary contribution tasks. _(risk: critical)_
+- **antigravity-maintainer-batch-release**: Run protected AAS maintainer sweeps, PR merge batches, resumable review, immutable distribution, Core checks, and scripted releases. Use for repository maintenance, main alignment, CLI/MCP/Workbench changes, or release work; not ordinary contribution tasks. _(risk: critical)_
 - **apple-container**: Build, run, and manage OCI/Linux containers as lightweight per-container VMs on Apple-silicon macOS using Apple's open-source container CLI, no Docker daemon required. _(risk: critical)_
 - **argocd-gitops**: Implement GitOps with ArgoCD for declarative Kubernetes deployments. _(risk: critical)_
 - **arm-templates**: Deploy Azure resources with ARM templates and Bicep. Create modular deployments and manage dependencies. Use when deploying Azure-native IaC. _(risk: critical)_
@@ -1622,6 +1623,7 @@ api docs, reference,... _(risk: unknown)_
 - **semantic-versioning**: Automate versioning and changelog generation using semantic versioning principles. _(risk: critical)_
 - **service-mesh**: Implement Istio and Linkerd service meshes. Configure mTLS, traffic management, and observability. Use when managing microservices communication. _(risk: critical)_
 - **shipping-and-launch**: Prepares production launches. Use when preparing to deploy to production. Use when you need a pre-launch checklist, when setting up monitoring, when planning a staged rollout, or when you need a rollback strategy. _(risk: critical)_
+- **solidping**: Run SolidPing uptime monitoring through its hosted MCP server: list and diagnose checks, read results and incidents, create checks across 40+ types, and manage status pages. _(risk: critical)_
 - **sre-dashboards**: Design and operationalize SRE dashboards that surface reliability, latency, error, saturation, and capacity signals across services. _(risk: critical)_
 - **ssh-configuration**: Configure SSH servers and clients securely. Manage keys, tunnels, and config files. Use when setting up secure remote access. _(risk: critical)_
 - **sshepherd**: Zero-knowledge SSH ops CLI — server health checks, docker/systemd control, log tailing, Postgres introspection, and declarative deploys, without ever exposing credentials to the agent. _(risk: critical)_
@@ -1638,7 +1640,6 @@ api docs, reference,... _(risk: unknown)_
 - **vibecode-production-qa-validator**: 13-phase production QA for fullstack Next.js apps: build verification, SEO tags, OG images, favicon, route regression, API auth, page speed, lazy load, vulnerability scan, UI/UX cards, error boundaries, database, secure rendering, and cleanup. _(risk: safe)_
 - **vllm-server**: Deploy and manage vLLM for high-throughput LLM inference. Configure continuous batching, tensor parallelism, quantization, and OpenAI-compatible API endpoints for production LLM serving. _(risk: critical)_
 - **windows-server**: Administer Windows Server systems. Manage IIS, Active Directory, and PowerShell automation. Use when administering Windows infrastructure. _(risk: critical)_
-- **solidping**: Run SolidPing uptime monitoring through its hosted MCP server: list and diagnose checks, read results and incidents, create checks across 40+ types, and manage status pages. _(risk: critical)_
 
 ## document-processing
 
@@ -1714,6 +1715,7 @@ api docs, reference,... _(risk: unknown)_
 - **axonx**: Develop AxonX research plugins and operate quantitative research tasks through CLI or MCP, inspecting execution status, logs, artifacts, and lineage. _(risk: critical)_
 - **equibles**: Query Equibles for US stock market data: SEC filing search, XBRL financial statements, earnings call transcripts, insider and 13F holdings, and daily prices. _(risk: safe)_
 - **fxmacrodata**: Query FXMacroData for official-source macro indicators, release calendars, central-bank policy rates, FX rates and CFTC positioning across 22 currencies. _(risk: safe)_
+- **krexa**: Turn a trading idea, post or video into fixed rules, backtest and paper-trade them, and request a user-approved live agent through Krexa's MCP server. Cannot move funds. _(risk: critical)_
 - **longbridge**: Guide to using a separately installed Longbridge integration — real-time quotes, charts, fundamentals, portfolio analysis, options, and more for HK/US/A-share/SG markets. Trilingual: Simplified Chinese, Traditional Chinese, English. _(risk: critical)_
 - **longbridge-content**: Latest news articles, regulatory filings, community discussion topics for listed stocks, and SEC EDGAR filing analysis (10-K/10-Q/8-K/proxy/Form 4) via Longbridge. _(risk: critical)_
 - **longbridge-derivatives**: Curated upstream guidance for Longbridge Derivatives; use when the workflow matches the user goal. _(risk: unknown)_
@@ -1729,7 +1731,6 @@ api docs, reference,... _(risk: unknown)_
 - **traderspy-trading-signals**: Fetch and explain TraderSpy's AI crypto futures signals: entry, take-profit ladder, stop, triggers, status against the live price, and how recent signals resolved. Use for "latest signals". _(risk: safe)_
 - **xvary-stock-research**: Thesis-driven equity analysis from public SEC EDGAR and market data; /analyze, /score, /compare workflows with bundled Python tools (Claude Code, Cursor, Codex). _(risk: safe)_
 - **yield-intelligence**: Passive income portfolio analysis — activate when user asks about dividend yields, Treasury rates, REIT income, monthly passive income goals, or portfolio yield optimization. Scans 4 asset classes, ranks by risk-adjusted return, and builds allocations targeting a specific monthly income. _(risk: safe)_
-- **krexa**: Turn a trading idea, post or video into fixed rules, backtest and paper-trade them, and request a user-approved live agent through Krexa's MCP server. Cannot move funds. _(risk: critical)_
 
 ## fintech
 
@@ -2235,6 +2236,7 @@ strategy and planning.
 
 - **ai-dev-jobs-mcp**: Search indexed AI and ML jobs, inspect listings and employers, match roles, and view salary and market stats via AI Dev Jobs MCP _(risk: safe)_
 - **cowork-to-code-bridge**: Use an already-installed, independently verified cowork-to-code bridge to run narrowly approved actions on the user's own macOS, Linux, or WSL2 machine through a local file queue. _(risk: critical)_
+- **keenable-search-mcp**: Search the public web with site and date filters, and read pages with an extraction prompt, through Keenable's keyless MCP server. Use when the user chooses Keenable or its connected tools. _(risk: safe)_
 - **mercury-mcp**: Cheatsheet for the Mercury (proton) MCP tools. Use when connected to the Mercury MCP server to look up which mercury_* tool to call for messaging teammates, threads, tasks, automations, or admin team-graph edits. _(risk: critical)_
 - **not-human-search-mcp**: Search AI-ready websites, inspect indexed site details, verify MCP endpoints, and discover tools and APIs using the Not Human Search MCP server _(risk: safe)_
 - **parallel-search-mcp**: Search the public web and verify sources with Parallel's free Search MCP. Use when the user chooses Parallel or its connected tools for current information and URL extraction. _(risk: safe)_
@@ -2519,6 +2521,8 @@ add data to Google Sheets, find a spreadsheet, check sheet...
 - **obsidian-bases**: Create and edit Obsidian Bases (.base files) with views, filters, formulas, and summaries. Use when working with .base files, creating database-like views of notes, or when the user mentions Bases, table views, card views, filters, or formulas in Obsidian. _(risk: critical)_
 - **obsidian-cli**: Use the Obsidian CLI to read, create, search, and manage vault content, or to develop and debug Obsidian plugins and themes from the command line. _(risk: critical)_
 - **obsidian-markdown**: Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syntax. Use when working with .md files in Obsidian, or when the user mentions wikilinks, callouts, frontmatter, tags, embeds, or Obsidian notes. _(risk: critical)_
+- **ppl-personal-crm**: Uses the ppl personal CRM over MCP to prepare for conversations, recall facts about people, log interactions and manage relationship follow-ups. _(risk: critical)_
+- **project-memory-log**: Maintain one operation log and one deduplicated document catalog for long-running projects. Use when resuming project work or tracing durable document changes across sessions. _(risk: critical)_
 - **read-all-adrs**: Read every ADR in a project before summarizing architectural context or decisions. _(risk: safe)_
 - **rich-elicitation**: Asks clarifying questions in multiple rounds before starting ambiguous tasks. Fires when 2+ task dimensions each have 3+ viable answers.
 - **session-handoff**: Use when context approaches capacity, before /clear or /compact, when switching tasks, or when ending a coding session: produces a structured handoff artifact for the next session. _(risk: safe)_
@@ -2527,7 +2531,6 @@ add data to Google Sheets, find a spreadsheet, check sheet...
 - **time-ledger**: Natural-language time tracking: parse what the user says they did into Activity/Minutes/Date rows in their own Notion database — asking instead of guessing when unsure. _(risk: critical)_
 - **trading-ledger**: A trading journal that captures the decision, not just the fill: thesis, plan, and emotion at the moment of entry, written to the user's own Notion database; reviews grade decisions, not P&L. _(risk: critical)_
 - **workorai**: WorkorAI talent-marketplace skill: candidates search jobs and manage applications; employers run the job lifecycle and get ranked candidate matches with white-box fit explanations. _(risk: critical)_
-- **project-memory-log**: Maintain one operation log and one deduplicated document catalog for long-running projects. Use when resuming project work or tracing durable document changes across sessions. _(risk: critical)_
 
 ## programming-languages
 
