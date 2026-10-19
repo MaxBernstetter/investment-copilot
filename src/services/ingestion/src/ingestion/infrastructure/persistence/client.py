@@ -18,6 +18,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict
 from ingestion.application.load_published_curve import RecordedBatch
 from ingestion.config import PersistenceSettings
 from ingestion.domain.observation import PublishedObservation
+from ingestion.domain.scenario import SCENARIO_SOURCE_ID, ScenarioEvent
 
 WRITE_ATTEMPTS = 3
 """Attempts per batch when persistence answers ``409`` (two writers raced to create the
@@ -89,6 +90,29 @@ class PersistenceClient:
             await self._send(_request(source_id, chunk, run_id, delivery_id))
             for chunk in batched(observations, v1.MAX_BATCH_SIZE, strict=False)
         ]
+
+    async def record_event(self, curve_id: str, event: ScenarioEvent, run_id: str) -> RecordedBatch:
+        """Send one scenario event as ``published`` versions of a simulated curve.
+
+        The values carry the scenario source id and the event's change reason, and no
+        delivery: a scenario event is not a raw source delivery.
+        """
+        request = v1.RecordVersionsRequest(
+            observations=[
+                v1.ObservationVersion(
+                    curve_id=curve_id,
+                    maturity=value.maturity,
+                    valid_date=value.valid_date,
+                    value=value.value,
+                    origin=v1.Origin.PUBLISHED,
+                    source_id=SCENARIO_SOURCE_ID,
+                    run_id=run_id,
+                    change_reason=v1.ChangeReason(event.change_reason.value),
+                )
+                for value in event.values
+            ]
+        )
+        return await self._send(request)
 
     async def _send(self, request: v1.RecordVersionsRequest) -> RecordedBatch:
         body = request.model_dump_json()
