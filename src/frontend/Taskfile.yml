@@ -18,32 +18,42 @@ tasks:
     cmds:
       - npm run lint -- --fix
 
+  generate:
+    desc: Generate the access API types
+    deps: [setup]
+    sources:
+      - ../contracts/openapi/access/v1.json
+    generates:
+      - src/api/schema.d.ts
+    cmds:
+      - npx openapi-typescript ../contracts/openapi/access/v1.json -o src/api/schema.d.ts
+
   lint:
     desc: Lint the TypeScript code with ESLint
-    deps: [setup]
+    deps: [generate]
     cmds:
       - npm run lint
 
   typecheck:
     desc: Type-check the app and the tooling config with tsc
-    deps: [setup]
+    deps: [generate]
     cmds:
       - npm run typecheck
 
   test:unit:
     desc: Run the unit tests with Vitest
-    deps: [setup]
+    deps: [generate]
     cmds:
       - npm run test
 
   build:
     desc: Build the production bundle with Vite
-    deps: [setup]
+    deps: [generate]
     cmds:
       - npm run build
 
   dev:
     desc: Start the Vite dev server
-    deps: [setup]
+    deps: [generate]
     cmds:
       - npm run dev
