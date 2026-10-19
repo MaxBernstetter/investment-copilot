@@ -9,6 +9,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 | Method and path | Purpose | Responses |
 |---|---|---|
 | `POST /v1/observations/versions` | Record a batch of observations as versions, all or nothing; unchanged observations are no-ops | `200` `RecordVersionsResponse`; `409` a concurrent write recorded the first version of an observation of the batch first (retry); `422` contract violation, an observation appears twice in the batch, or it names an undefined curve or a maturity off its curve's grid |
+| `GET /v1/curves/{curve_id}/observations` | One published curve on one valid date as it was known at `as_of`; every grid maturity in grid order, `value` null where no published value was known | `200` `CurveObservationsResponse`; `404` no published value of the curve is known as of the time (or the curve is undefined); `422` invalid request, a naive `as_of`, or `as_of` after the database clock |
 | `GET /health` | Liveness | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the database answers a ping | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` |
 
@@ -18,13 +19,22 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 - Errors are RFC 9457 problem details (`application/problem+json`).
 - Knowledge time can't be set through the API; only the database clock sets it.
 
+### Reading a curve as of a time
+
+`GET /v1/curves/{curve_id}/observations` takes two optional query parameters:
+
+- `as_of` (timezone-aware, e.g. `2026-03-13T08:00:00Z`): the knowledge time to read at. Defaults to the database clock (UTC), which is echoed in `meta.as_of`. A time after the database clock is `422`.
+- `valid_date` (`YYYY-MM-DD`): the valid date of the curve. Defaults to the latest valid date with a published value known at `as_of`.
+
+The response `CurveObservationsResponse` carries `data` (`curve_id`, `valid_date`, `points` in grid order with `maturity`, `months` and `value`; `value` is null for a maturity with no published value known at `as_of`) and `meta.as_of`. Only published values count, and a version is visible when `known_from <= as_of < known_to`, so a past `as_of` gives the same answer after later revisions. See [[01-bitemporal-model#As-of retrieval]].
+
 ## Layers
 
 | Package | Content |
 |---|---|
-| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; domain errors |
-| `persistence.application` | `RecordVersions` use case and the `ObservationRepository` port |
-| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions` through python-oracledb (thin mode, async pool) |
+| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; `CurveAsOf` and `CurvePoint`; domain errors |
+| `persistence.application` | `RecordVersions` and `GetCurveAsOf` use cases and their ports (`ObservationRepository`, `CurveReader`) |
+| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions`, `get_as_of`, `latest_valid_date` and `current_knowledge_time` through python-oracledb (thin mode, async pool) |
 | `persistence.facade` | FastAPI app, contract ↔ domain mapping, problem responses |
 | `persistence.api` | Composition root of the `api` process |
 
