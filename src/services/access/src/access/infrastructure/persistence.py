@@ -1,13 +1,27 @@
-"""Client of the persistence service's readiness probe."""
+"""Client of the persistence service: readiness and the curve read interface."""
 
+from datetime import date, datetime
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
+from urllib.parse import quote
 
 import httpx
+from contracts.persistence import v1
+from pydantic import ValidationError
+
+from access.domain.curve import (
+    CurveAsOf,
+    CurveNotFoundError,
+    CurvePoint,
+    InvalidCurveQueryError,
+    PersistenceUnavailableError,
+)
+
+HTTP_UNPROCESSABLE_CONTENT = 422
 
 
 class PersistenceClient:
-    """Asks the persistence service whether it is ready to serve."""
+    """Calls the persistence service: readiness, and curves as of a knowledge time."""
 
     def __init__(
         self,
@@ -38,3 +52,57 @@ class PersistenceClient:
         except httpx.HTTPError:
             return False
         return response.status_code == httpx.codes.OK
+
+    async def curve_as_of(
+        self, curve_id: str, valid_date: date | None, as_of: datetime | None
+    ) -> CurveAsOf:
+        """Read one curve; absent parameters are left to persistence (its defaults)."""
+        path = v1.CURVE_OBSERVATIONS_PATH.format(curve_id=quote(curve_id, safe=""))
+        params: dict[str, str] = {}
+        if valid_date is not None:
+            params["valid_date"] = valid_date.isoformat()
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat()
+        try:
+            response = await self._http.get(path, params=params)
+        except httpx.HTTPError as error:
+            raise PersistenceUnavailableError from error
+
+        if response.status_code == httpx.codes.OK:
+            return _to_domain(_parse(response))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+
+def _parse(response: httpx.Response) -> v1.CurveObservationsResponse:
+    try:
+        return v1.CurveObservationsResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise PersistenceUnavailableError("persistence sent an unexpected curve body") from error
+
+
+def _to_domain(body: v1.CurveObservationsResponse) -> CurveAsOf:
+    return CurveAsOf(
+        curve_id=body.data.curve_id,
+        valid_date=body.data.valid_date,
+        as_of=body.meta.as_of,
+        points=tuple(
+            CurvePoint(maturity=point.maturity, months=point.months, value=point.value)
+            for point in body.data.points
+        ),
+    )
+
+
+def _problem_detail(response: httpx.Response) -> str:
+    """The ``detail`` of a problem document, or the raw body when it is not one."""
+    try:
+        body: Any = response.json()
+    except ValueError:
+        return response.text
+    detail: object = body.get("detail") if isinstance(body, dict) else None
+    if isinstance(detail, str):
+        return detail
+    return response.text

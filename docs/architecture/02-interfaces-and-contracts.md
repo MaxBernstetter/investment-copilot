@@ -5,7 +5,7 @@
 - `contracts/` is the **only** code shared between services. It contains Pydantic interface models and the OpenAPI document per service, versioned as the Python package `contracts.<service>.v<N>` (`src/contracts/src/contracts/<service>/v<N>/`). `src/contracts` is its own uv project; services depend on it by path.
 - Contracts contain data shapes and validation only, with no behaviour.
 - Breaking change → new major version. Old versions stay until no consumer uses them.
-- The frontend consumes the `access` OpenAPI document through a generated TypeScript client.
+- The frontend consumes the `access` OpenAPI document through a generated TypeScript client. The document is generated from the app by `task access:openapi` and published at `src/contracts/openapi/access/v1.json`; the unit test `test_published_openapi_document_is_current` fails when the code and the published file drift.
 
 ## Dependency rules
 

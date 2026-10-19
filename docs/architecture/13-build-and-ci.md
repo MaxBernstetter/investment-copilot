@@ -91,6 +91,7 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:db:migrate` | Apply the `ING` changelogs to the local database started by `persistence:db:start` |
 | `ingestion:load:ecb:daily`, `ingestion:load:ecb:history` | Manual ECB loads against a running persistence api (see [[03-ecb-load]]); they call the live ECB API and never run in CI |
 | `ingestion:load:ecb:replay` | Manual replay of stored ECB deliveries (`FROM`, `TO`: fetch days) against a running persistence api; never calls the ECB (see [[04-raw-deliveries#Replay]]) |
+| `access:openapi` | Export the access OpenAPI document to `src/contracts/openapi/access/v1.json` (committed; the unit test fails when it is stale) |
 
 ## Pre-commit hooks
 

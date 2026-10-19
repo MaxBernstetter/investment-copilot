@@ -1,0 +1,294 @@
+{
+  "components": {
+    "schemas": {
+      "CurveMeta": {
+        "additionalProperties": false,
+        "description": "How the answer was determined.",
+        "properties": {
+          "as_of": {
+            "description": "Knowledge time (UTC) the curve was read at; the database clock if none was requested",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of"
+        ],
+        "title": "CurveMeta",
+        "type": "object"
+      },
+      "CurveObservations": {
+        "additionalProperties": false,
+        "description": "One curve on one valid date, with its points in grid order.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the curve",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_date",
+          "points"
+        ],
+        "title": "CurveObservations",
+        "type": "object"
+      },
+      "CurveObservationsResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/observations``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CurveObservations"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CurveMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "CurveObservationsResponse",
+        "type": "object"
+      },
+      "CurvePoint": {
+        "additionalProperties": false,
+        "description": "One maturity of a curve on the common grid.",
+        "properties": {
+          "maturity": {
+            "description": "Tenor code, e.g. 3M, 10Y",
+            "examples": [
+              "10Y"
+            ],
+            "title": "Maturity",
+            "type": "string"
+          },
+          "months": {
+            "description": "Length of the tenor in months, for ordering",
+            "exclusiveMinimum": 0.0,
+            "title": "Months",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Yield in percent; null if no published value was known as of meta.as_of",
+            "examples": [
+              2.61
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "maturity",
+          "months",
+          "value"
+        ],
+        "title": "CurvePoint",
+        "type": "object"
+      },
+      "Problem": {
+        "additionalProperties": true,
+        "description": "RFC 9457 problem details, the body of every error response.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status",
+          "detail"
+        ],
+        "title": "Problem",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "YieldLens access",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "Liveness: the process is up.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness: the persistence service is reachable and ready.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Ready"
+      }
+    },
+    "/v1/curves/{curve_id}/observations": {
+      "get": {
+        "description": "One curve on one valid date, as it was known at ``meta.as_of``.\n\nWithout ``valid_date`` or ``as_of`` the store picks its defaults; the answer\nreports the knowledge time it used in ``meta.as_of``.",
+        "operationId": "curve_observations_v1_curves__curve_id__observations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "valid_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Valid Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveObservationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Curve Observations"
+      }
+    }
+  }
+}
