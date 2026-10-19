@@ -38,6 +38,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
   - Formatted with shfmt and linted with ShellCheck (pre-commit and CI).
   - Tested with bats; tests live in `src/scripts/tests/` and run in CI like any other code.
 - **Escalation:** if a script outgrows Bash (complex parsing, data handling), it becomes a small Python CLI with tests instead.
+- **Analysis scripts:** read-only, manually run analyses that document how a decision was derived may be a single standard-library Python file (formatted and linted with ruff), e.g. `src/scripts/plausibility_thresholds.py` for [[01-plausibility-thresholds]]. They are not run in CI.
 
 ## CI
 

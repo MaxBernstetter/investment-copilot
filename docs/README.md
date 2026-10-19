@@ -12,6 +12,7 @@ YieldLens turns government bond yield data into an explorable, auditable and his
 
 - [[project/00-data-ingestion/README|00 Data ingestion]]
 - [[project/01-data-persistence/README|01 Data persistence]]
+- [[project/02-data-processing/README|02 Data processing]]
 - [[project/04-data-access/README|04 Data access]]
 - [[project/05-user-frontend/README|05 User frontend]]
 
