@@ -12,6 +12,9 @@ includes:
   persistence:
     taskfile: ./src/services/persistence
     dir: ./src/services/persistence
+  access:
+    taskfile: ./src/services/access
+    dir: ./src/services/access
   ingestion:
     taskfile: ./src/services/ingestion
     dir: ./src/services/ingestion
