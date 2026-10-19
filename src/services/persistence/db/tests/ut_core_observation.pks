@@ -29,6 +29,15 @@ create or replace package ut_core_observation as
   --%test(Keeps every previous version with contiguous knowledge intervals)
   procedure keeps_previous_versions;
 
+  --%test(The first version keeps its initial change reason)
+  procedure the_first_version_keeps_initial;
+
+  --%test(A later version sent as initial is stored as a revision)
+  procedure a_later_version_sent_as_initial_is_a_revision;
+
+  --%test(A later correction keeps its change reason)
+  procedure a_later_correction_keeps_its_reason;
+
   --%test(Each version is visible as of its own knowledge interval)
   procedure versions_are_visible_as_of_their_knowledge_time;
 

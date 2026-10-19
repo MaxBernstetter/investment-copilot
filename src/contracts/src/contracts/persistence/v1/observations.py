@@ -34,7 +34,13 @@ class Origin(StrEnum):
 
 
 class ChangeReason(StrEnum):
-    """Why a version exists."""
+    """Why a version exists.
+
+    Sent by the caller and stored as sent, except for one case: an ``initial``
+    version of an observation that already has a version is stored as
+    ``revision``. ``correction``, ``recalculation`` and ``simulated`` are stored
+    as sent.
+    """
 
     INITIAL = "initial"
     REVISION = "revision"

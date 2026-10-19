@@ -253,6 +253,45 @@ create or replace package body ut_core_observation as
     ut.expect(l_rows(3).known_to).to_equal(core_observation.open_known_to);
   end keeps_previous_versions;
 
+  procedure the_first_version_keeps_initial is
+  begin
+    record(observation_version_list_t(version()));
+
+    ut.expect(stored()(1).change_reason).to_equal('initial');
+  end the_first_version_keeps_initial;
+
+  procedure a_later_version_sent_as_initial_is_a_revision is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+
+    ut.expect(
+      recorded_count(observation_version_list_t(version(p_value => 2.70)), c_revised_at)
+    ).to_equal(1);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(2);
+    ut.expect(l_rows(1).change_reason).to_equal('initial');
+    ut.expect(l_rows(2).change_reason).to_equal('revision');
+  end a_later_version_sent_as_initial_is_a_revision;
+
+  procedure a_later_correction_keeps_its_reason is
+    l_rows observation_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+
+    ut.expect(
+      recorded_count(
+        observation_version_list_t(version(p_value => 2.70, p_change_reason => 'correction')),
+        c_revised_at
+      )
+    ).to_equal(1);
+
+    l_rows := stored();
+    ut.expect(l_rows.count).to_equal(2);
+    ut.expect(l_rows(2).change_reason).to_equal('correction');
+  end a_later_correction_keeps_its_reason;
+
   procedure versions_are_visible_as_of_their_knowledge_time is
   begin
     record(observation_version_list_t(version('2Y', p_value => 2.10), version('10Y', p_value => 2.61)));
