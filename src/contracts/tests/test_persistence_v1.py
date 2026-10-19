@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from contracts.persistence.v1 import (
     MAX_BATCH_SIZE,
     ChangeReason,
+    CurveChangesResponse,
     CurveObservationsResponse,
     CurvePoint,
     ObservationVersion,
@@ -16,6 +17,7 @@ from contracts.persistence.v1 import (
     RecordVersionsResponse,
     SeriesObservationsResponse,
     SeriesPoint,
+    ValueChange,
     ValueVersion,
     ValueVersionsResponse,
 )
@@ -258,3 +260,53 @@ def test_value_version_rejects_a_naive_known_from() -> None:
         ValueVersion.model_validate(
             value_versions_response()["data"]["versions"][0] | {"known_from": "2026-03-12T18:00:00"}
         )
+
+
+def changes_response(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-03-12",
+            "valid_to": "2026-03-14",
+            "changes": [
+                {
+                    "valid_date": "2026-03-12",
+                    "maturity": "10Y",
+                    "old_value": 2.61,
+                    "new_value": 2.7,
+                    "change_reason": "correction",
+                    "source_id": "ecb",
+                    "known_from": "2026-03-13T18:00:00Z",
+                },
+            ],
+        },
+        "meta": {
+            "since": "2026-03-12T18:00:00Z",
+            "as_of": "2026-03-13T18:00:00Z",
+        },
+    }
+    return body | overrides
+
+
+def test_curve_changes_round_trip() -> None:
+    response = CurveChangesResponse.model_validate(changes_response())
+
+    assert response.data.valid_from == date(2026, 3, 12)
+    assert response.data.changes[0].old_value == 2.61
+    assert response.data.changes[0].change_reason is ChangeReason.CORRECTION
+    assert response.meta.since < response.meta.as_of
+    assert CurveChangesResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_value_change_allows_a_missing_old_value() -> None:
+    change = ValueChange.model_validate(
+        changes_response()["data"]["changes"][0] | {"old_value": None, "change_reason": "initial"}
+    )
+
+    assert change.old_value is None
+    assert change.new_value == 2.7
+
+
+def test_value_change_rejects_a_non_finite_new_value() -> None:
+    with pytest.raises(ValidationError, match="new_value"):
+        ValueChange.model_validate(changes_response()["data"]["changes"][0] | {"new_value": "NaN"})

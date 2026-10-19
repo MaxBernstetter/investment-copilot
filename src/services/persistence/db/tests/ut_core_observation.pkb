@@ -863,5 +863,139 @@ create or replace package body ut_core_observation as
     ut.expect(core_observation.knowledge_horizon()).to_equal(c_later);
   end a_failed_call_keeps_the_horizon;
 
+  type change_t is record (
+    valid_date    date,
+    maturity      varchar2(16 char),
+    old_value     number,
+    new_value     number,
+    change_reason varchar2(16 char),
+    source_id     varchar2(64 char),
+    known_from    timestamp
+  );
+  type change_rows is table of change_t;
+
+  -- The changes of the test curve between two knowledge times, as
+  -- date|maturity|old|new|reason pairs joined by commas; null when there are none.
+  function changes_text(
+    p_from     in date,
+    p_to       in date,
+    p_since    in timestamp,
+    p_as_of    in timestamp,
+    p_curve_id in varchar2 default c_curve
+  ) return varchar2 is
+    l_cursor  sys_refcursor := core_observation.get_changes(p_curve_id, p_from, p_to, p_since, p_as_of);
+    l_changes change_rows;
+    l_text    varchar2(4000);
+  begin
+    fetch l_cursor bulk collect into l_changes;
+    close l_cursor;
+    for i in 1 .. l_changes.count loop
+      l_text := l_text || case when i > 1 then ',' end
+        || to_char(l_changes(i).valid_date, 'YYYY-MM-DD') || '|' || l_changes(i).maturity || '|'
+        || case when l_changes(i).old_value is null then 'null' else to_char(l_changes(i).old_value, 'TM9') end || '|'
+        || to_char(l_changes(i).new_value, 'TM9') || '|' || l_changes(i).change_reason;
+    end loop;
+    return l_text;
+  end changes_text;
+
+  -- The changes rows of the test curve between two knowledge times.
+  function changes(
+    p_from  in date,
+    p_to    in date,
+    p_since in timestamp,
+    p_as_of in timestamp
+  ) return change_rows is
+    l_cursor  sys_refcursor := core_observation.get_changes(c_curve, p_from, p_to, p_since, p_as_of);
+    l_changes change_rows;
+  begin
+    fetch l_cursor bulk collect into l_changes;
+    close l_cursor;
+    return l_changes;
+  end changes;
+
+  procedure changes_list_values_whose_version_changed is
+    l_changes change_rows;
+  begin
+    record(observation_version_list_t(version('2Y', p_value => 2.10), version('10Y')), c_known_from);
+    record(observation_version_list_t(
+      version(p_value => 2.70, p_change_reason => 'correction')
+    ), c_revised_at);
+
+    ut.expect(changes_text(date '2026-03-12', date '2026-03-12', c_known_from, c_revised_at))
+      .to_equal('2026-03-12|10Y|2.61|2.7|correction');
+
+    l_changes := changes(date '2026-03-12', date '2026-03-12', c_known_from, c_revised_at);
+    ut.expect(l_changes.count).to_equal(1);
+    ut.expect(l_changes(1).source_id).to_equal('ecb');
+    ut.expect(l_changes(1).known_from).to_equal(c_revised_at);
+  end changes_list_values_whose_version_changed;
+
+  procedure changes_include_values_first_known_later is
+    l_changes change_rows;
+  begin
+    record(observation_version_list_t(version()), c_known_from);
+    record(observation_version_list_t(version('2Y', p_value => 2.10)), c_revised_at);
+
+    ut.expect(changes_text(date '2026-03-12', date '2026-03-12', c_known_from, c_revised_at))
+      .to_equal('2026-03-12|2Y|null|2.1|initial');
+
+    l_changes := changes(date '2026-03-12', date '2026-03-12', c_known_from, c_revised_at);
+    ut.expect(l_changes(1).old_value).to_be_null();
+    ut.expect(l_changes(1).known_from).to_equal(c_revised_at);
+  end changes_include_values_first_known_later;
+
+  procedure changes_compare_two_states_not_intermediate_versions is
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)), c_known_from);
+    record(observation_version_list_t(version(p_value => 2.70, p_change_reason => 'revision')), c_revised_at);
+    record(observation_version_list_t(version(p_value => 2.65, p_change_reason => 'correction')), c_later);
+
+    ut.expect(changes_text(date '2026-03-12', date '2026-03-12', c_known_from, c_later))
+      .to_equal('2026-03-12|10Y|2.61|2.65|correction');
+  end changes_compare_two_states_not_intermediate_versions;
+
+  procedure changes_between_equal_times_are_empty is
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)), c_known_from);
+    record(observation_version_list_t(version(p_value => 2.70, p_change_reason => 'correction')), c_revised_at);
+
+    ut.expect(changes_text(date '2026-03-12', date '2026-03-12', c_revised_at, c_revised_at))
+      .to_be_null();
+  end changes_between_equal_times_are_empty;
+
+  procedure changes_respect_the_valid_date_range is
+  begin
+    record(observation_version_list_t(
+      version(p_value => 2.61),
+      version(p_valid_date => date '2026-03-13', p_value => 2.62)
+    ), c_known_from);
+    record(observation_version_list_t(
+      version(p_value => 2.70, p_change_reason => 'correction'),
+      version(p_valid_date => date '2026-03-13', p_value => 2.71, p_change_reason => 'correction')
+    ), c_revised_at);
+
+    ut.expect(changes_text(date '2026-03-13', date '2026-03-13', c_known_from, c_revised_at))
+      .to_equal('2026-03-13|10Y|2.62|2.71|correction');
+  end changes_respect_the_valid_date_range;
+
+  procedure changes_ignore_derived_values is
+  begin
+    record(observation_version_list_t(
+      version(p_value => 2.50, p_origin => 'derived', p_method_version => 'm1')
+    ), c_known_from);
+    record(observation_version_list_t(
+      version(p_value => 2.55, p_origin => 'derived', p_method_version => 'm1')
+    ), c_revised_at);
+
+    ut.expect(changes_text(date '2026-03-12', date '2026-03-12', c_known_from, c_revised_at))
+      .to_be_null();
+  end changes_ignore_derived_values;
+
+  procedure has_curve_checks_the_definition is
+  begin
+    ut.expect(core_observation.has_curve(c_curve)).to_equal(1);
+    ut.expect(core_observation.has_curve('ut-undefined')).to_equal(0);
+  end has_curve_checks_the_definition;
+
 end ut_core_observation;
 /
