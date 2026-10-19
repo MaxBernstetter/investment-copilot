@@ -2,47 +2,44 @@
 
 **YieldLens** — an explorable, auditable and historically reproducible government bond yield dataset.
 
-## What is this project about?
+Yield curves feed risk calculations, valuation and investment decisions, but most tools show only the latest value and overwrite history. YieldLens keeps every value it has ever known:
 
-### The problem
+- **Bitemporal history:** every value has a valid time (the date it applies to) and a knowledge time (when the platform learned it). Corrections add versions; nothing is overwritten.
+- **Time travel:** every view and API call accepts an as-of time: "what did the platform show last Tuesday, based on what it knew then?"
+- **Provenance:** every value links to its source delivery and ingestion run.
 
-Yield curves feed risk calculations, valuation and investment decisions. Users need more than the latest curve. They need to know where a value came from, whether it was corrected and when, what was reported last Tuesday, and whether today's load succeeded. Most tools show only the latest value and overwrite history, so past results can't be reproduced and numbers can't be traced.
+Today it loads the ECB euro area AAA spot curve (3M–30Y) daily, stores it bitemporally in Oracle, and serves it through a read-only API and a browser explorer with curve, overlay, time-series and time-travel views. More in [docs/idea/](docs/idea/) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
-### The idea
+## Try it locally
 
-YieldLens is a small platform for government bond yield curves, built on one core dataset in which nothing is overwritten:
+Prerequisites: Docker with Compose, and [devbox](https://www.jetify.com/devbox) (it provides `task`, Node and the other tools in pinned versions).
 
-- **Bitemporal history:** every value has a valid time (the date it applies to) and a knowledge time (when the platform learned it). Corrections and recalculations add versions.
-- **Time travel:** every view and API call accepts an as-of date, so you can ask "what did the platform show last Tuesday, based on what it knew then?"
-- **Provenance:** every value links to its source, ingestion run, quality checks and, for calculated curves, its method version.
-- **Data quality:** rule results are stored as data, so failed or suspicious loads are visible and explained.
-- **Derived curves:** curves fitted and interpolated by the platform, with historical recalculation when the methodology changes.
+1. Open the toolchain shell: `devbox shell`
+2. Start the stack: `task dev:up`
+   Starts Oracle, applies the migrations and the `persistence` and `access` APIs, and waits until they are healthy. The first run pulls and builds images and takes a few minutes.
+3. Load real data: `task dev:seed`
+   Loads ECB history since 2024-01-01 in two loads at two knowledge times and prints an `as_of` link between them. This calls the ECB API (a few requests). Use `task dev:seed START=2026-01-01` for less history.
+4. Start the explorer: `task frontend:dev`, then open <http://localhost:5173>
+   You see the latest curve. Pick another valid date, overlay dates, or switch to the time series of one maturity.
+5. Travel in time: open the printed `?as_of=` link
+   The explorer shows only what the platform knew at that time: the latest curve is about 20 business days older. "Now" returns to today.
 
-It consists of a data platform, an API, an explorer UI and an operations view. It covers a few countries, daily observations and several years of history. It is not a trading system.
+The API is at <http://localhost:8000>, e.g. `curl localhost:8000/v1/curves/ecb-aaa-spot/observations`.
+Stop with `task dev:down` (keeps the data) or `task dev:reset` (removes it). Ports used: 1521, 8000, 8001, 5173.
 
-More detail is in [docs/idea/](docs/idea/):
+## Develop
 
-1. [Problem statement](docs/idea/00-problem-statement.md)
-2. [Problem solution](docs/idea/01-problem-solution.md)
-3. [Features](docs/idea/02-features.md)
+1. Clone, run `devbox shell`, then `task toolchain:setup` once to install the git hooks.
+2. Set up the components you work on: `task <component>:setup`, with `access`, `contracts`, `frontend`, `ingestion`, `orchestration` or `persistence`. `task --list` shows every task.
+3. Run the same checks as CI: `task <component>:lint`, `:typecheck`, `:test:unit`; `task toolchain:lint` runs all pre-commit hooks. Integration tests (`persistence`, `ingestion`) need Docker.
+4. For agent-driven work with the GitHub board, export a `GITHUB_PAT` as described in [GitHub MCP connection](docs/development/02-github-mcp.md).
 
-## Architecture
+Before changing code, read:
 
-Domain services, interfaces, data model, tech stack and deployment: see [ARCHITECTURE.md](ARCHITECTURE.md).
+- [AGENTS.md](AGENTS.md): working rules for humans and agents (board, PR size, worktrees, subagents).
+- [Development principles](docs/development/principles/README.md) and the Definition of done.
+- [Task management](docs/development/01-task-management.md): issues, board and pull requests.
+- [Build, tasks and CI](docs/architecture/13-build-and-ci.md): Taskfiles, workflows, required checks.
+- [Agent harness](docs/development/03-agent-harness.md): which model does what in agentic development.
 
-## Development
-
-### Demo: time travel on the local stack
-
-Prerequisites: Docker, and the devbox shell from this repository. The stack uses local-only default passwords (see `src/deploy/Taskfile.yml`); `task dev:seed` makes live calls to the ECB.
-
-1. `devbox shell`
-2. `task dev:up`: starts Oracle, applies the migrations and starts the `persistence` and `access` APIs (`http://localhost:8001`, `http://localhost:8000`).
-3. `task dev:seed`: loads ECB history from 2024-01-01 in two steps. The first load stops at a cutoff about 20 business days before yesterday. The second load covers the days after it. The task prints a knowledge time between the two loads and a `?as_of=` URL.
-4. `task frontend:dev`, then open <http://localhost:5173>: the latest curve is shown.
-5. Pick an older valid date in the explorer. The latest valid date is about 20 business days before yesterday.
-6. Open the printed `?as_of=` URL. Only the data the platform knew at that time is shown. Press "Now" to return to the latest view.
-
-The frontend calls `access` at `http://localhost:8000`; set `VITE_ACCESS_URL` to use another address.
-
-Rerunning `task dev:seed` records nothing new: the loads are idempotent. `task dev:down` stops the stack and keeps its data; `task dev:reset` also removes the data.
+The `docs/` folder is an Obsidian vault; start at [docs/README.md](docs/README.md).
