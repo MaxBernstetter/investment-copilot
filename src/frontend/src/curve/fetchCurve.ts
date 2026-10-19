@@ -1,8 +1,6 @@
 import { api } from '../api/client'
 import type { components } from '../api/schema'
 
-export const CURVE_ID = 'ecb-aaa-spot'
-
 export type CurveResult =
   | { kind: 'ok'; curve: components['schemas']['CurveObservationsResponse'] }
   | { kind: 'not-found'; detail: string }
@@ -11,18 +9,19 @@ export type CurveResult =
   | { kind: 'error'; detail: string }
 
 type FetchCurveOptions = {
+  curveId: string
   validDate?: string
   asOf?: string
 }
 
-export async function fetchCurve({ validDate, asOf }: FetchCurveOptions = {}): Promise<CurveResult> {
+export async function fetchCurve({ curveId, validDate, asOf }: FetchCurveOptions): Promise<CurveResult> {
   const query = {
     ...(validDate !== undefined ? { valid_date: validDate } : {}),
     ...(asOf !== undefined ? { as_of: asOf } : {}),
   }
   const result = await api
     .GET('/v1/curves/{curve_id}/observations', {
-      params: { path: { curve_id: CURVE_ID }, query },
+      params: { path: { curve_id: curveId }, query },
     })
     .catch(() => undefined)
   if (result === undefined) return { kind: 'offline' }

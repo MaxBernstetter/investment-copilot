@@ -25,13 +25,13 @@ The views are built from Mantine components: `Title` for headings, `TextInput` a
 
 ## Curve view
 
-The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`) after the health check passes.
+The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes.
 
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
 - **Valid date:** picking a date refetches for that date. Clearing the input returns to the latest curve.
 - **Gaps:** maturities without a published value (`value: null`) are plotted as gaps, not zeros, and listed under the chart ("No value for: …"). Points keep the API's grid order.
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
-- **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source.
+- **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source, except for the simulated curve.
 
 ### Overlay
 
@@ -113,6 +113,19 @@ The "Known as of" control shows the curve as it was known at a chosen time (the 
 | `src/asOf.ts` | Read and write `as_of` in the URL; local and UTC conversion |
 | `src/curve/AsOfControl.tsx` | "Known as of" input and "Now" button |
 
+## Curve choice
+
+The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) and "Simulated" (`ecb-aaa-spot-sim`, scenario data). The choice applies to the curve and time series views.
+
+- **Control:** a segmented control labelled "Curve" in the header, shown once the backend is online. It defaults to "Real".
+- **Simulated:** choosing "Simulated" shows an orange "Simulated" badge next to the control and a notice above the views ("Simulated data from a scenario, not real source data."). The views then omit the ECB source credit, since the data is not from ECB statistics.
+- **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. A missing or unknown value falls back to the real curve.
+- **Views:** switching the curve resets the view state (pinned overlays, open history), and each view titles itself with the curve's label.
+
+| Path | Content |
+|---|---|
+| `src/curve/curves.ts` | Curve options, default, URL read and write of `curve` |
+
 ## Offline state
 
 On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the curve view; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later."). While the check runs, the page shows "Loading…".
@@ -127,7 +140,7 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 | `src/config.ts` | `ACCESS_URL` |
 | `src/api/client.ts` | Typed `openapi-fetch` client |
 | `src/api/schema.d.ts` | Generated API types, git-ignored |
-| `src/curve/` | Curve view (see above) |
+| `src/curve/` | Curve view and curve choice (see above) |
 | `src/series/` | Time series view (see above) |
 | `src/test/setup.ts` | Test setup (jest-dom matchers, Mantine browser mocks) |
 | `src/test/render.tsx` | `render` wrapping UI in `MantineProvider`; re-exports Testing Library |

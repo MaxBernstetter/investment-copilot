@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react'
-import { AppShell, Alert, Container, Group, Loader, Tabs, Text, Title } from '@mantine/core'
+import { AppShell, Alert, Badge, Container, Group, Loader, SegmentedControl, Tabs, Text, Title } from '@mantine/core'
 import { isBackendOnline } from './backend'
 import CurveView from './curve/CurveView'
+import { curveById, readCurveId, writeCurveId } from './curve/curves'
 import SeriesView from './series/SeriesView'
 
 type BackendState = 'checking' | 'online' | 'offline'
 export default function App() {
   const [state, setState] = useState<BackendState>('checking')
   const [view, setView] = useState<string | null>('curve')
+  const [curveId, setCurveId] = useState(() => readCurveId(window.location.search))
+  const simulated = curveById(curveId).isSimulated
+
+  const changeCurve = (next: string) => {
+    setCurveId(next)
+    writeCurveId(next)
+  }
 
   useEffect(() => {
     let active = true
@@ -26,10 +34,27 @@ export default function App() {
           <Group h="100%" px="md" justify="space-between" wrap="nowrap">
             <Title order={3}>YieldLens</Title>
             {state === 'online' && (
-              <Tabs.List>
-                <Tabs.Tab value="curve">Curve</Tabs.Tab>
-                <Tabs.Tab value="series">Time series</Tabs.Tab>
-              </Tabs.List>
+              <Group gap="sm" wrap="nowrap">
+                <SegmentedControl
+                  aria-label="Curve"
+                  size="xs"
+                  value={curveId}
+                  onChange={changeCurve}
+                  data={[
+                    { label: 'Real', value: 'ecb-aaa-spot' },
+                    { label: 'Simulated', value: 'ecb-aaa-spot-sim' },
+                  ]}
+                />
+                {simulated && (
+                  <Badge color="orange" variant="filled">
+                    Simulated
+                  </Badge>
+                )}
+                <Tabs.List>
+                  <Tabs.Tab value="curve">Curve</Tabs.Tab>
+                  <Tabs.Tab value="series">Time series</Tabs.Tab>
+                </Tabs.List>
+              </Group>
             )}
           </Group>
         </AppShell.Header>
@@ -48,11 +73,16 @@ export default function App() {
             )}
             {state === 'online' && (
               <>
+                {simulated && (
+                  <Alert color="orange" variant="light" role="note" mb="md">
+                    Simulated data from a scenario, not real source data.
+                  </Alert>
+                )}
                 <Tabs.Panel value="curve">
-                  <CurveView />
+                  <CurveView key={curveId} curveId={curveId} />
                 </Tabs.Panel>
                 <Tabs.Panel value="series">
-                  <SeriesView />
+                  <SeriesView key={curveId} curveId={curveId} />
                 </Tabs.Panel>
               </>
             )}

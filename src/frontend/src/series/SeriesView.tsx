@@ -2,13 +2,18 @@ import { useEffect, useState } from 'react'
 import { Alert, Anchor, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
 import { readAsOf, writeAsOf } from '../asOf'
 import AsOfControl from '../curve/AsOfControl'
+import { curveById } from '../curve/curves'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesChart from './SeriesChart'
 import { defaultRange, MATURITIES } from './seriesData'
 
 const DEFAULT_MATURITY = '10Y'
 
-export default function SeriesView() {
+type SeriesViewProps = {
+  curveId: string
+}
+
+export default function SeriesView({ curveId }: SeriesViewProps) {
   const [maturity, setMaturity] = useState(DEFAULT_MATURITY)
   const [range, setRange] = useState(() => defaultRange(new Date()))
   const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
@@ -16,13 +21,13 @@ export default function SeriesView() {
 
   useEffect(() => {
     let active = true
-    fetchSeries({ maturity, from: range.from, to: range.to, asOf }).then((next) => {
+    fetchSeries({ curveId, maturity, from: range.from, to: range.to, asOf }).then((next) => {
       if (active) setResult(next)
     })
     return () => {
       active = false
     }
-  }, [maturity, range, asOf])
+  }, [curveId, maturity, range, asOf])
 
   const changeAsOf = (next: string | undefined) => {
     setAsOf(next)
@@ -33,7 +38,7 @@ export default function SeriesView() {
 
   return (
     <Stack component="section" gap="md">
-      <Title order={2}>ECB euro area AAA spot time series</Title>
+      <Title order={2}>{curveById(curveId).label} time series</Title>
       <Group gap="sm" align="flex-end">
         <NativeSelect
           label="Maturity"
@@ -96,9 +101,11 @@ export default function SeriesView() {
           {result.detail}
         </Alert>
       )}
-      <Text size="xs" c="dimmed">
-        Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
-      </Text>
+      {!curveById(curveId).isSimulated && (
+        <Text size="xs" c="dimmed">
+          Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
+        </Text>
+      )}
     </Stack>
   )
 }

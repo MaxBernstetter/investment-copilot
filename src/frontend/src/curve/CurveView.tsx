@@ -4,12 +4,17 @@ import { readAsOf, writeAsOf } from '../asOf'
 import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
 import { missingMaturities, type LabelledCurve } from './curveData'
+import { curveById } from './curves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import VersionHistory from '../versions/VersionHistory'
 
 const MAX_OVERLAYS = 5
 
-export default function CurveView() {
+type CurveViewProps = {
+  curveId: string
+}
+
+export default function CurveView({ curveId }: CurveViewProps) {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
   const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
@@ -19,17 +24,17 @@ export default function CurveView() {
 
   useEffect(() => {
     let active = true
-    fetchCurve({ validDate, asOf }).then((next) => {
+    fetchCurve({ curveId, validDate, asOf }).then((next) => {
       if (active) setResult(next)
     })
     return () => {
       active = false
     }
-  }, [validDate, asOf])
+  }, [curveId, validDate, asOf])
 
   useEffect(() => {
     let active = true
-    Promise.all(overlayDates.map((date) => fetchCurve({ validDate: date, asOf }))).then(
+    Promise.all(overlayDates.map((date) => fetchCurve({ curveId, validDate: date, asOf }))).then(
       (results) => {
         if (!active) return
         setOverlayCurves(
@@ -42,7 +47,7 @@ export default function CurveView() {
     return () => {
       active = false
     }
-  }, [overlayDates, asOf])
+  }, [curveId, overlayDates, asOf])
 
   const changeAsOf = (next: string | undefined) => {
     setAsOf(next)
@@ -72,7 +77,7 @@ export default function CurveView() {
 
   return (
     <Stack component="section" gap="md">
-      <Title order={2}>ECB euro area AAA spot curve</Title>
+      <Title order={2}>{curveById(curveId).label}</Title>
       <Group gap="sm" align="flex-end">
         <TextInput
           type="date"
@@ -137,6 +142,7 @@ export default function CurveView() {
           </Group>
           {historyMaturity !== undefined && (
             <VersionHistory
+              curveId={curveId}
               maturity={historyMaturity}
               validDate={shownDate}
               asOf={asOf}
@@ -161,9 +167,11 @@ export default function CurveView() {
           {result.detail}
         </Alert>
       )}
-      <Text size="xs" c="dimmed">
-        Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
-      </Text>
+      {!curveById(curveId).isSimulated && (
+        <Text size="xs" c="dimmed">
+          Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
+        </Text>
+      )}
     </Stack>
   )
 }

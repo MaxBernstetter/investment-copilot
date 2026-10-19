@@ -1,6 +1,5 @@
 import { api } from '../api/client'
 import type { components } from '../api/schema'
-import { CURVE_ID } from '../curve/fetchCurve'
 
 export type SeriesResult =
   | { kind: 'ok'; series: components['schemas']['SeriesObservationsResponse'] }
@@ -10,6 +9,7 @@ export type SeriesResult =
   | { kind: 'error'; detail: string }
 
 type FetchSeriesOptions = {
+  curveId: string
   maturity: string
   from: string
   to: string
@@ -17,6 +17,7 @@ type FetchSeriesOptions = {
 }
 
 export async function fetchSeries({
+  curveId,
   maturity,
   from,
   to,
@@ -29,7 +30,7 @@ export async function fetchSeries({
   }
   const result = await api
     .GET('/v1/curves/{curve_id}/maturities/{maturity}/observations', {
-      params: { path: { curve_id: CURVE_ID, maturity }, query },
+      params: { path: { curve_id: curveId, maturity }, query },
     })
     .catch(() => undefined)
   if (result === undefined) return { kind: 'offline' }
