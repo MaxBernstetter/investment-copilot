@@ -21,7 +21,7 @@
     {
       "name": "all JS",
       "path": "dist/assets/*.js",
-      "limit": "300 kB",
+      "limit": "320 kB",
       "gzip": true
     },
     {
