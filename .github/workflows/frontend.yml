@@ -1,0 +1,64 @@
+# Frontend: lint, types, unit tests and build of the React web app.
+# Thin by design: provision the devbox toolchain, then run the same tasks as locally.
+# See docs/architecture/13-build-and-ci.md.
+#
+# Local equivalent: devbox run -- task frontend:<task>
+name: Frontend
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - src/frontend/**
+      - src/contracts/openapi/access/**
+      - .github/workflows/frontend.yml
+      - Taskfile.yml
+      - devbox.json
+      - devbox.lock
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint, types, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Cache npm packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+
+      - name: Set up
+        run: devbox run -- task frontend:setup
+
+      - name: Lint
+        run: devbox run -- task frontend:lint
+
+      - name: Type-check
+        run: devbox run -- task frontend:typecheck
+
+      - name: Unit tests
+        run: devbox run -- task frontend:test:unit
+
+      - name: Build
+        run: devbox run -- task frontend:build

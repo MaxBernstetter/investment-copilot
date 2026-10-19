@@ -3,7 +3,7 @@
 # See docs/architecture/13-build-and-ci.md.
 
 # Vendored agent skills and generated lockfiles are not ours to reformat.
-exclude: ^(\.agents?/|skills-lock\.json$|devbox\.lock$)
+exclude: ^(\.agents?/|skills-lock\.json$|devbox\.lock$|src/frontend/package-lock\.json$)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
