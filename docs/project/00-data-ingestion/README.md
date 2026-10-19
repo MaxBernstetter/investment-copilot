@@ -9,3 +9,4 @@ Data ingestion brings source data into the platform, reliably and repeatably. It
 - [[03-ecb-load]]: the first vertical slice that loads the ECB curve into the bitemporal core
 - [[04-daily-schedule]]: the Airflow DAG that runs the daily load on TARGET business days
 - [[04-raw-deliveries]]: the raw bronze stage in the `ING` schema, kept for traceability
+- [[05-scenarios]]: scenario events that write a simulated curve in steps (gaps, bad values, late values, corrections)
