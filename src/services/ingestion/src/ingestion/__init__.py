@@ -1,0 +1,1 @@
+"""YieldLens ingestion service."""
