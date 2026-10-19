@@ -8,6 +8,8 @@ from pydantic import ValidationError
 from contracts.persistence.v1 import (
     MAX_BATCH_SIZE,
     ChangeReason,
+    CurveObservationsResponse,
+    CurvePoint,
     ObservationVersion,
     Origin,
     RecordVersionsRequest,
@@ -133,3 +135,39 @@ def test_response_without_unchanged_count_reports_none() -> None:
     )
 
     assert response.unchanged_count == 0
+
+
+def curve_response(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_date": "2026-03-12",
+            "points": [
+                {"maturity": "3M", "months": 3, "value": None},
+                {"maturity": "10Y", "months": 120, "value": 2.61},
+            ],
+        },
+        "meta": {"as_of": "2026-03-13T09:00:00Z"},
+    }
+    return body | overrides
+
+
+def test_curve_response_round_trips_with_missing_points() -> None:
+    response = CurveObservationsResponse.model_validate(curve_response())
+
+    assert response.data.points[0].value is None
+    assert response.data.points[1].value == 2.61
+    assert CurveObservationsResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_curve_response_requires_an_aware_as_of() -> None:
+    with pytest.raises(ValidationError, match="as_of"):
+        CurveObservationsResponse.model_validate(
+            curve_response(meta={"as_of": "2026-03-13T09:00:00"})
+        )
+
+
+def test_curve_point_value_is_a_json_number() -> None:
+    point = CurvePoint(maturity="10Y", months=120, value=2.61)
+
+    assert '"value":2.61' in point.model_dump_json()

@@ -50,6 +50,26 @@ create or replace package core_observation authid definer as
     p_valid_date_from in date,
     p_valid_date_to   in date
   ) return sys_refcursor;
+
+  -- The published value of every maturity on the curve's grid, as known at
+  -- p_as_of for one valid date: a version is visible when
+  -- known_from <= p_as_of < known_to. Columns maturity, months, value; one row
+  -- per grid maturity ordered by months, value null where no version is
+  -- visible. No rows for an undefined curve.
+  function get_as_of(
+    p_curve_id   in varchar2,
+    p_valid_date in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor;
+
+  -- The latest valid date with a published value visible at p_as_of; null if none.
+  function latest_valid_date(
+    p_curve_id in varchar2,
+    p_as_of    in timestamp
+  ) return date;
+
+  -- The knowledge time now: the database clock in UTC.
+  function current_knowledge_time return timestamp;
 end core_observation;
 /
 
@@ -213,6 +233,47 @@ create or replace package body core_observation as
        order by valid_date, maturity, origin, method_version, known_from;
     return l_versions;
   end get_versions;
+
+  function get_as_of(
+    p_curve_id   in varchar2,
+    p_valid_date in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor is
+    l_points sys_refcursor;
+  begin
+    open l_points for
+      select g.maturity, g.months, o.value
+        from curve c
+        join grid_maturity g on g.grid_version = c.grid_version
+        left join observation o
+          on o.curve_id = c.curve_id and o.maturity = g.maturity
+         and o.valid_date = p_valid_date and o.origin = 'published'
+         and o.known_from <= p_as_of and p_as_of < o.known_to
+       where c.curve_id = p_curve_id
+       order by g.months;
+    return l_points;
+  end get_as_of;
+
+  function latest_valid_date(
+    p_curve_id in varchar2,
+    p_as_of    in timestamp
+  ) return date is
+    l_valid_date date;
+  begin
+    select max(valid_date)
+      into l_valid_date
+      from observation
+     where curve_id = p_curve_id
+       and origin = 'published'
+       and known_from <= p_as_of
+       and p_as_of < known_to;
+    return l_valid_date;
+  end latest_valid_date;
+
+  function current_knowledge_time return timestamp is
+  begin
+    return sys_extract_utc(systimestamp);
+  end current_knowledge_time;
 
 end core_observation;
 /
