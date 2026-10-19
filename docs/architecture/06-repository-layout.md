@@ -23,6 +23,7 @@ src/
   scripts/                 # Bash scripts called by tasks
     tests/                 # bats tests for the scripts
 docs/                      # Obsidian vault
+  project/<NN-domain>/     # domain notes per domain (e.g. data sources, metrics, alerts)
 .github/                   # thin CI workflows (provision devbox, call tasks); Dependabot
 Taskfile.yml               # root task entry point; only includes component Taskfiles
 devbox.json                # pinned toolchain
