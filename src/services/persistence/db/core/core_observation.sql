@@ -103,10 +103,33 @@ create or replace package core_observation authid definer as
     p_as_of      in timestamp
   ) return sys_refcursor;
 
+  -- The published values that differ between two knowledge states of one curve,
+  -- for valid dates in a range (inclusive). Compares the state known at p_since
+  -- with the state known at p_as_of; both are as-of reads, so a value is in
+  -- either state when its knowledge interval contains the time.
+  -- Insert-only means every value known at p_since still has a visible version
+  -- at a later p_as_of; a value changed and changed back shows old = new with its
+  -- latest reason. Values known only at p_as_of come with old_value null.
+  -- Columns valid_date, maturity, old_value, new_value, change_reason, source_id,
+  -- known_from (of the version visible at p_as_of); ordered by valid_date and the
+  -- grid order of the maturity. Derived values and undefined curves are not included.
+  function get_changes(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_since    in timestamp,
+    p_as_of    in timestamp
+  ) return sys_refcursor;
+
   -- 1 if the maturity is on the grid of the curve, else 0 (also 0 for an undefined curve).
   function has_maturity(
     p_curve_id in varchar2,
     p_maturity in varchar2
+  ) return number;
+
+  -- 1 if the curve is defined, else 0.
+  function has_curve(
+    p_curve_id in varchar2
   ) return number;
 
   -- The latest valid date with a published value visible at p_as_of; null if none.
@@ -414,6 +437,35 @@ create or replace package body core_observation as
     return l_versions;
   end get_value_versions;
 
+  function get_changes(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_since    in timestamp,
+    p_as_of    in timestamp
+  ) return sys_refcursor is
+    l_changes sys_refcursor;
+  begin
+    open l_changes for
+      with old_v as (
+        select maturity, valid_date, version_id, value from observation
+         where curve_id = p_curve_id and origin = 'published' and valid_date between p_from and p_to
+           and known_from <= p_since and p_since < known_to),
+      new_v as (
+        select maturity, valid_date, version_id, value, change_reason, source_id, known_from from observation
+         where curve_id = p_curve_id and origin = 'published' and valid_date between p_from and p_to
+           and known_from <= p_as_of and p_as_of < known_to)
+      select n.valid_date, n.maturity, o.value old_value, n.value new_value,
+             n.change_reason, n.source_id, n.known_from
+        from new_v n
+        join curve c on c.curve_id = p_curve_id
+        join grid_maturity g on g.grid_version = c.grid_version and g.maturity = n.maturity
+        left join old_v o on o.maturity = n.maturity and o.valid_date = n.valid_date
+       where o.version_id is null or o.version_id <> n.version_id
+       order by n.valid_date, g.months;
+    return l_changes;
+  end get_changes;
+
   function has_maturity(
     p_curve_id in varchar2,
     p_maturity in varchar2
@@ -428,6 +480,18 @@ create or replace package body core_observation as
        and g.maturity = p_maturity;
     return case when l_count > 0 then 1 else 0 end;
   end has_maturity;
+
+  function has_curve(
+    p_curve_id in varchar2
+  ) return number is
+    l_count pls_integer;
+  begin
+    select count(*)
+      into l_count
+      from curve
+     where curve_id = p_curve_id;
+    return case when l_count > 0 then 1 else 0 end;
+  end has_curve;
 
   function latest_valid_date(
     p_curve_id in varchar2,

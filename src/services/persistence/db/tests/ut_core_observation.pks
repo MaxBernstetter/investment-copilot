@@ -140,5 +140,26 @@ create or replace package ut_core_observation as
 
   --%test(A failed call keeps the knowledge horizon)
   procedure a_failed_call_keeps_the_horizon;
+
+  --%test(Changes list the values whose version changed between two knowledge states)
+  procedure changes_list_values_whose_version_changed;
+
+  --%test(Changes include a value first known in the later state with no old value)
+  procedure changes_include_values_first_known_later;
+
+  --%test(Changes compare the two states, not the versions in between)
+  procedure changes_compare_two_states_not_intermediate_versions;
+
+  --%test(Changes between equal knowledge times are empty)
+  procedure changes_between_equal_times_are_empty;
+
+  --%test(Changes respect the valid-date range)
+  procedure changes_respect_the_valid_date_range;
+
+  --%test(Changes ignore derived values)
+  procedure changes_ignore_derived_values;
+
+  --%test(Has curve checks the definition of the curve)
+  procedure has_curve_checks_the_definition;
 end ut_core_observation;
 /

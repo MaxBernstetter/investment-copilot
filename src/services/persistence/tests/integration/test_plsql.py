@@ -104,4 +104,4 @@ def test_core_observation_package_suite_passes(utplsql: OracleDatabase) -> None:
     summary = SUMMARY.search(report)
     assert summary, report
     tests, failed, errored = (int(count) for count in summary.groups())
-    assert (tests, failed, errored) == (44, 0, 0), report
+    assert (tests, failed, errored) == (51, 0, 0), report
