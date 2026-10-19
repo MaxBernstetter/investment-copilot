@@ -1,6 +1,6 @@
 # Persistence Service
 
-The `persistence` service (`src/services/persistence/`) owns the `CORE` schema and exposes the bitemporal store through REST. The REST facade and the use case are in place; the Oracle adapter and the composition root of the `api` process follow. Data model: [[01-bitemporal-model]]. Design rules: [[11-service-design]].
+The `persistence` service (`src/services/persistence/`) owns the `CORE` schema and exposes the bitemporal store through REST. Data model: [[01-bitemporal-model]]. Design rules: [[11-service-design]].
 
 ## Interface (`api` process)
 
@@ -23,16 +23,44 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 |---|---|
 | `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; domain errors |
 | `persistence.application` | `RecordVersions` use case and the `ObservationRepository` port |
+| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions` through python-oracledb (thin mode, async pool) |
 | `persistence.facade` | FastAPI app, contract ↔ domain mapping, problem responses |
+| `persistence.api` | Composition root of the `api` process |
 
 import-linter enforces that dependencies point inward and that domain and application import no frameworks, database drivers or contracts.
+
+## Configuration
+
+Environment variables, validated at startup (pydantic-settings):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PERSISTENCE_DB_DSN` | – (required) | Oracle DSN, e.g. `localhost:1521/FREEPDB1` |
+| `PERSISTENCE_DB_USER` | `core_app` | Runtime database user |
+| `PERSISTENCE_DB_PASSWORD` | – (required) | Its password |
+| `PERSISTENCE_DB_POOL_MIN` / `PERSISTENCE_DB_POOL_MAX` | `1` / `4` | Connection pool size |
+| `PERSISTENCE_DB_ACQUIRE_TIMEOUT_MS` | `5000` | Maximum wait for a pooled connection |
+| `PERSISTENCE_DB_CALL_TIMEOUT_MS` | `30000` | Maximum duration of one database round trip |
+
+Migrations additionally read `PERSISTENCE_DB_ADMIN_PASSWORD` (`SYSTEM`) and `PERSISTENCE_DB_OWNER_PASSWORD` (`CORE`). `PERSISTENCE_DB_PASSWORD` sets the `CORE_APP` password.
+
+## Running locally
+
+```sh
+devbox run -- task persistence:setup        # virtual environment
+devbox run -- task persistence:db:start     # Oracle Free on localhost:1521, waits until healthy
+devbox run -- task persistence:db:migrate   # admin changelog as SYSTEM, then CORE as its owner
+devbox run -- task persistence:run          # api process on http://localhost:8001
+```
+
+The Taskfile sets local-only default passwords for this database; override them through the environment. `task persistence:db:stop` stops the database, and `task persistence:db:reset` removes it with its data.
 
 ## Tests
 
 | Task | Runs |
 |---|---|
-| `task persistence:test:unit` | Domain, use case and REST facade; no I/O |
-| `task persistence:test:integration` | Oracle Free via Testcontainers (Docker required): migrations and the utPLSQL suites |
+| `task persistence:test:unit` | Domain, use case, REST facade and configuration; no I/O |
+| `task persistence:test:integration` | Oracle Free via Testcontainers (Docker required): migrations, Oracle adapter, REST end to end and the utPLSQL suites |
 
 CI: `.github/workflows/persistence.yml` (also triggered by `src/contracts/**`).
 

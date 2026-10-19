@@ -81,7 +81,7 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:typecheck` | mypy strict on sources and tests |
 | `ingestion:test:unit` | Unit tests (no I/O, no live sources) |
 
-Python components (`contracts`, `persistence`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[01-bitemporal-model#Migrations]]).
+Python components (`contracts`, `persistence`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]).
 
 ## Pre-commit hooks
 

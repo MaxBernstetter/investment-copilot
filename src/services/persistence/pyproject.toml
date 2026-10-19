@@ -6,6 +6,8 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115",
     "oracledb>=3.0",
+    "pydantic-settings>=2.8",
+    "uvicorn>=0.34",
     "yieldlens-contracts",
 ]
 
@@ -59,7 +61,8 @@ include_external_packages = true
 name = "Hexagonal layers point inward"
 type = "layers"
 layers = [
-    "persistence.facade",
+    "persistence.api",
+    "persistence.facade | persistence.infrastructure",
     "persistence.application",
     "persistence.domain",
 ]
@@ -68,4 +71,4 @@ layers = [
 name = "The domain has no I/O, frameworks or contracts"
 type = "forbidden"
 source_modules = ["persistence.domain", "persistence.application"]
-forbidden_modules = ["contracts", "fastapi", "oracledb", "pydantic"]
+forbidden_modules = ["contracts", "fastapi", "oracledb", "pydantic", "pydantic_settings"]

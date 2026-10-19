@@ -7,7 +7,9 @@ same Liquibase image and changelogs as ``task persistence:db:migrate``.
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import docker
 import oracledb
@@ -99,3 +101,21 @@ def oracle() -> Iterator[OracleDatabase]:
             )
             database.migrate()
             yield database
+
+
+@pytest.fixture
+def curve_id(request: pytest.FixtureRequest) -> str:
+    """A curve per test, so tests sharing the session database don't see each other."""
+    return f"it-{request.node.name}"[:64]
+
+
+def stored_versions(database: OracleDatabase, curve_id: str) -> list[dict[str, Any]]:
+    """Every stored version of a curve, read through the package as the service user."""
+    with database.connect_as_app() as connection, connection.cursor() as cursor:
+        versions = cursor.callfunc(
+            "core.core_observation.get_versions",
+            oracledb.DB_TYPE_CURSOR,
+            [curve_id, date(1990, 1, 1), date(2100, 12, 31)],
+        )
+        columns = [column.name.lower() for column in versions.description]
+        return [dict(zip(columns, row, strict=True)) for row in versions]

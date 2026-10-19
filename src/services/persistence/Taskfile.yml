@@ -10,6 +10,9 @@ env:
   PERSISTENCE_DB_PASSWORD: '{{.PERSISTENCE_DB_PASSWORD | default "LocalApp_1"}}'
   PERSISTENCE_DB_DSN: '{{.PERSISTENCE_DB_DSN | default "localhost:1521/FREEPDB1"}}'
 
+vars:
+  PORT: '{{.PORT | default "8001"}}'
+
 tasks:
   setup:
     desc: Create the virtual environment from the lockfile
@@ -63,3 +66,8 @@ tasks:
     desc: Remove the local database and its data
     cmds:
       - docker compose --profile migrate down --volumes
+
+  run:
+    desc: Run the api process locally on PORT (default 8001) against the local database
+    cmds:
+      - uv run --locked uvicorn --factory persistence.api:create_app_from_environment --port {{.PORT}}
