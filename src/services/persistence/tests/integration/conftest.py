@@ -104,9 +104,20 @@ def oracle() -> Iterator[OracleDatabase]:
 
 
 @pytest.fixture
-def curve_id(request: pytest.FixtureRequest) -> str:
-    """A curve per test, so tests sharing the session database don't see each other."""
-    return f"it-{request.node.name}"[:64]
+def curve_id(request: pytest.FixtureRequest, oracle: OracleDatabase) -> str:
+    """A curve per test, so tests sharing the session database don't see each other.
+
+    It is defined on grid version 1, as record_versions accepts defined curves only.
+    """
+    curve_id = f"it-{request.node.name}"[:64]
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "insert into curve (curve_id, grid_version, rate_type, compounding, unit)"
+            " values (:curve_id, 1, 'spot', 'continuous', 'percent')",
+            curve_id=curve_id,
+        )
+        connection.commit()
+    return curve_id
 
 
 def stored_versions(database: OracleDatabase, curve_id: str) -> list[dict[str, Any]]:

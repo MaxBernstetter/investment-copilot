@@ -15,10 +15,16 @@ create or replace package core_observation authid definer as
   -- Nothing of the batch is stored.
   duplicate_observation constant pls_integer := -20002;
 
+  -- Raised when an observation names a curve without a definition, or a
+  -- maturity that is not on its curve's grid. Nothing of the batch is stored.
+  off_grid_observation constant pls_integer := -20003;
+
   -- known_to of the open (current) version.
   open_known_to constant timestamp := timestamp '9999-12-31 00:00:00';
 
-  -- Records the observations of the batch as versions, never overwriting:
+  -- Records the observations of the batch as versions, never overwriting.
+  -- Every observation must name a defined curve and a maturity on that
+  -- curve's grid (tables curve and grid_maturity). Then, per observation:
   -- * no open version yet: the observation becomes a new open version;
   -- * open version with another value or source_id: it is closed at the call's
   --   knowledge time and the observation becomes the new open version;
@@ -69,6 +75,28 @@ create or replace package body core_observation as
     end if;
   end ensure_unique_observations;
 
+  -- Fails when the batch names an undefined curve or a maturity off its grid.
+  procedure ensure_on_grid(p_versions in observation_version_list_t) is
+    l_off_grid pls_integer;
+  begin
+    select count(*)
+      into l_off_grid
+      from table(p_versions) v
+     where not exists (
+       select 1
+         from curve c
+         join grid_maturity g on g.grid_version = c.grid_version
+        where c.curve_id = v.curve_id
+          and g.maturity = v.maturity
+     );
+    if l_off_grid > 0 then
+      raise_application_error(
+        off_grid_observation,
+        l_off_grid || ' observation(s) name an undefined curve or a maturity off the curve''s grid'
+      );
+    end if;
+  end ensure_on_grid;
+
   procedure record_versions(
     p_versions       in  observation_version_list_t,
     o_known_from     out timestamp,
@@ -100,6 +128,7 @@ create or replace package body core_observation as
     dbms_application_info.set_module('core_observation', 'record_versions');
     savepoint record_versions_start;
     ensure_unique_observations(p_versions);
+    ensure_on_grid(p_versions);
 
     select min(valid_date), max(valid_date)
       into l_valid_date_from, l_valid_date_to

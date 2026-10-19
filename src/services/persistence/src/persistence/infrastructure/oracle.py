@@ -22,6 +22,9 @@ OPEN_VERSION_EXISTS = 20001
 DUPLICATE_OBSERVATION = 20002
 """Application error code of core_observation.duplicate_observation (raised as ORA-20002)."""
 
+OFF_GRID_OBSERVATION = 20003
+"""Application error code of core_observation.off_grid_observation (raised as ORA-20003)."""
+
 
 def create_pool(
     *, dsn: str, user: str, password: str, min_size: int, max_size: int, acquire_timeout_ms: int
@@ -60,7 +63,7 @@ class OracleObservationRepository:
                 code = _error_code(error)
                 if code == OPEN_VERSION_EXISTS:
                     raise OpenVersionExistsError(str(error)) from error
-                if code == DUPLICATE_OBSERVATION:
+                if code in (DUPLICATE_OBSERVATION, OFF_GRID_OBSERVATION):
                     raise InvalidObservationsError(str(error)) from error
                 raise
             await connection.commit()
