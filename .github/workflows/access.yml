@@ -1,5 +1,5 @@
-# Access service: lint, types and unit tests. Runs when the service, the contracts it
-# consumes, or the toolchain change.
+# Access service: lint, types and unit tests. Runs on every pull request, and on pushes to
+# main when the service, the contracts it consumes, or the toolchain change.
 # Thin by design: provision the devbox toolchain, then run the same tasks as locally.
 # See docs/architecture/13-build-and-ci.md.
 #
@@ -9,7 +9,7 @@ name: Access
 on:
   push:
     branches: [main]
-    paths: &paths
+    paths:
       - src/services/access/**
       - src/contracts/**
       - .github/workflows/access.yml
@@ -17,7 +17,6 @@ on:
       - devbox.json
       - devbox.lock
   pull_request:
-    paths: *paths
   workflow_dispatch:
 
 permissions:
@@ -29,7 +28,7 @@ concurrency:
 
 jobs:
   checks:
-    name: lint, types, unit tests
+    name: "access: lint, types, unit tests"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
