@@ -15,14 +15,10 @@ Today it loads the ECB euro area AAA spot curve (3M–30Y) daily, stores it bite
 Prerequisites: Docker with Compose, and [devbox](https://www.jetify.com/devbox) (it provides `task`, Node and the other tools in pinned versions).
 
 1. Open the toolchain shell: `devbox shell`
-2. Start the stack: `task dev:up`
-   Starts Oracle, applies the migrations and the `persistence` and `access` APIs, and waits until they are healthy. The first run pulls and builds images and takes a few minutes.
-3. Load real data: `task dev:seed`
-   Loads ECB history since 2024-01-01 in two loads at two knowledge times and prints an `as_of` link between them. This calls the ECB API (a few requests). Use `task dev:seed START=2026-01-01` for less history.
-4. Start the explorer: `task frontend:dev`, then open <http://localhost:5173>
-   You see the latest curve. Pick another valid date, overlay dates, or switch to the time series of one maturity.
-5. Travel in time: open the printed `?as_of=` link
-   The explorer shows only what the platform knew at that time: the latest curve is about 20 business days older. "Now" returns to today.
+2. Start the stack: `task dev:up`. Starts Oracle, applies the migrations, starts the `persistence` and `access` APIs, and waits until they are healthy. The first run pulls and builds images and takes a few minutes.
+3. Load real data: `task dev:seed`. Loads ECB history since 2024-01-01 in two loads at two knowledge times and prints an `as_of` link between them. This calls the ECB API (a few requests). Use `task dev:seed START=2026-01-01` for less history.
+4. Start the explorer: `task frontend:dev`, then open <http://localhost:5173>. You see the latest curve. Pick another valid date, overlay dates, or switch to the time series of one maturity.
+5. Travel in time: open the printed `?as_of=` link. The explorer shows only what the platform knew at that time: the latest curve is about 20 business days older. "Now" returns to today.
 
 The API is at <http://localhost:8000>, e.g. `curl localhost:8000/v1/curves/ecb-aaa-spot/observations`.
 Stop with `task dev:down` (keeps the data) or `task dev:reset` (removes it). Ports used: 1521, 8000, 8001, 5173.
