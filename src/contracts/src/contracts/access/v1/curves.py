@@ -42,8 +42,8 @@ class CurveMeta(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     as_of: AwareDatetime = Field(
-        description="Knowledge time (UTC) the curve was read at; "
-        "the database clock if none was requested"
+        description="Effective knowledge time (UTC): the requested as_of, or the knowledge "
+        "horizon if that is later or no as_of was requested"
     )
 
 

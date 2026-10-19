@@ -6,7 +6,7 @@
         "description": "How the answer was determined.",
         "properties": {
           "as_of": {
-            "description": "Knowledge time (UTC) the curve was read at; the database clock if none was requested",
+            "description": "Effective knowledge time (UTC): the requested as_of, or the knowledge horizon if that is later or no as_of was requested",
             "format": "date-time",
             "title": "As Of",
             "type": "string"

@@ -420,3 +420,51 @@ def test_the_body_is_unchanged(client: TestClient) -> None:
         },
         "meta": {"as_of": "2026-03-13T08:00:00Z"},
     }
+
+
+IMMUTABLE = "public, max-age=31536000, immutable"
+
+
+def test_a_settled_as_of_is_immutable(client: TestClient) -> None:
+    curve = client.get(CURVE_PATH, params={"as_of": AS_OF.isoformat()})
+    series = client.get(SERIES_PATH, params={"as_of": AS_OF.isoformat()})
+
+    assert curve.headers["cache-control"] == IMMUTABLE
+    assert series.headers["cache-control"] == IMMUTABLE
+
+
+def test_no_as_of_must_be_revalidated(client: TestClient) -> None:
+    assert client.get(CURVE_PATH).headers["cache-control"] == "no-cache"
+    assert client.get(SERIES_PATH).headers["cache-control"] == "no-cache"
+
+
+def test_an_as_of_after_the_horizon_must_be_revalidated(
+    client: TestClient, services: FakeServices
+) -> None:
+    # The fake answers with AS_OF, which is earlier than the requested time: persistence
+    # clamped the request to its knowledge horizon, so the answer may still change.
+    later = AS_OF.replace(hour=12)
+
+    curve = client.get(CURVE_PATH, params={"as_of": later.isoformat()})
+    series = client.get(SERIES_PATH, params={"as_of": later.isoformat()})
+
+    assert curve.headers["cache-control"] == "no-cache"
+    assert series.headers["cache-control"] == "no-cache"
+
+
+def test_not_modified_keeps_cache_control(client: TestClient) -> None:
+    params = {"as_of": AS_OF.isoformat()}
+    etag = client.get(CURVE_PATH, params=params).headers["etag"]
+
+    response = client.get(CURVE_PATH, params=params, headers={"If-None-Match": etag})
+
+    assert response.status_code == 304
+    assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_the_same_instant_in_another_offset_is_settled(client: TestClient) -> None:
+    in_utc = AS_OF.astimezone(ZoneInfo("UTC")).isoformat()
+
+    response = client.get(CURVE_PATH, params={"as_of": in_utc})
+
+    assert response.headers["cache-control"] == IMMUTABLE

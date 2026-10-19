@@ -20,7 +20,7 @@ from access.domain.curve import (
     PersistenceUnavailableError,
 )
 from access.facade.mapping import to_response, to_series_response
-from access.facade.rest.caching import json_with_etag
+from access.facade.rest.caching import cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
 UNAVAILABLE_DETAIL = "The curve store is not reachable; try again later."
@@ -91,7 +91,11 @@ def _add_routes(app: FastAPI) -> None:
         reports the knowledge time it used in ``meta.as_of``.
         """
         curve = await services.curves.curve_as_of(curve_id, valid_date, as_of)
-        return json_with_etag(request, to_response(curve))
+        return json_with_etag(
+            request,
+            to_response(curve),
+            cache_control=cache_control(as_of, curve.as_of),
+        )
 
     @app.get(
         v1.SERIES_OBSERVATIONS_PATH,
@@ -118,7 +122,11 @@ def _add_routes(app: FastAPI) -> None:
         reports the knowledge time it used in ``meta.as_of``.
         """
         series = await services.curves.series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
-        return json_with_etag(request, to_series_response(series))
+        return json_with_etag(
+            request,
+            to_series_response(series),
+            cache_control=cache_control(as_of, series.as_of),
+        )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
