@@ -11,6 +11,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 | `POST /v1/observations/versions` | Record a batch of observations as versions, all or nothing; unchanged observations are no-ops | `200` `RecordVersionsResponse`; `409` a concurrent write recorded the first version of an observation of the batch first (retry); `422` contract violation, an observation appears twice in the batch, or it names an undefined curve or a maturity off its curve's grid |
 | `GET /v1/curves/{curve_id}/observations` | One published curve on one valid date as it was known at `as_of`; every grid maturity in grid order, `value` null where no published value was known | `200` `CurveObservationsResponse`; `404` no published value of the curve is known as of the time (or the curve is undefined); `422` invalid request, a naive `as_of`, or `as_of` after the database clock |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations` | One published maturity of a curve over a range of valid dates as it was known at `as_of`; points in valid-date order, valid dates without a visible published value left out (gaps) | `200` `SeriesObservationsResponse`; `404` the maturity is not on the curve's grid (or the curve is undefined), or no published value is known in the range as of the time; `422` invalid request, `from` after `to`, a range longer than 3660 days, a naive `as_of`, or `as_of` after the database clock |
+| `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions` | The version history of one published value on one valid date as it was known at `as_of`, oldest version first; `known_to` null while a version is still current at `as_of`; versions first known after `as_of` left out | `200` `ValueVersionsResponse`; `404` the maturity is not on the curve's grid (or the curve is undefined), or no published value of it for the valid date is known as of the time; `422` invalid request, a naive `as_of`, or `as_of` after the database clock |
 | `GET /health` | Liveness | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the database answers a ping | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` |
 
@@ -42,9 +43,9 @@ The response `SeriesObservationsResponse` carries `data` (`curve_id`, `maturity`
 
 | Package | Content |
 |---|---|
-| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; `CurveAsOf` and `CurvePoint`; `Series` and `SeriesPoint`; domain errors |
-| `persistence.application` | `RecordVersions`, `GetCurveAsOf` and `GetSeriesAsOf` use cases and their ports (`ObservationRepository`, `CurveReader`, `SeriesReader`) |
-| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions`, `get_as_of`, `get_series`, `has_maturity`, `latest_valid_date` and `current_knowledge_time` through python-oracledb (thin mode, async pool) |
+| `persistence.domain` | `Observation`, `ObservationKey`, `RecordedVersions`, the rule that a batch names each observation once; `CurveAsOf` and `CurvePoint`; `Series` and `SeriesPoint`; `ValueVersions` and `ValueVersion`; domain errors |
+| `persistence.application` | `RecordVersions`, `GetCurveAsOf`, `GetSeriesAsOf` and `GetValueVersions` use cases and their ports (`ObservationRepository`, `CurveReader`, `SeriesReader`, `ValueVersionReader`) |
+| `persistence.infrastructure` | `OracleObservationRepository`: calls `core.core_observation.record_versions`, `get_as_of`, `get_series`, `get_value_versions`, `has_maturity`, `latest_valid_date` and `current_knowledge_time` through python-oracledb (thin mode, async pool) |
 | `persistence.facade` | FastAPI app, contract ↔ domain mapping, problem responses |
 | `persistence.api` | Composition root of the `api` process |
 

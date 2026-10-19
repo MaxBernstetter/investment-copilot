@@ -10,6 +10,7 @@ from contracts.persistence.v1 import (
     CURVE_OBSERVATIONS_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
+    VALUE_VERSIONS_PATH,
 )
 from fastapi.testclient import TestClient
 
@@ -29,7 +30,10 @@ def client(oracle: OracleDatabase) -> Iterator[TestClient]:
 
 
 def batch(
-    curve_id: str, ten_year: str = "2.61", run_id: str = "ingestion-ecb-2026-03-12"
+    curve_id: str,
+    ten_year: str = "2.61",
+    run_id: str = "ingestion-ecb-2026-03-12",
+    change_reason: str = "initial",
 ) -> dict[str, Any]:
     return {
         "observations": [
@@ -41,7 +45,7 @@ def batch(
                 "origin": "published",
                 "source_id": "ecb",
                 "run_id": run_id,
-                "change_reason": "initial",
+                "change_reason": change_reason,
                 "normalization_version": "1",
                 "delivery_id": "delivery-1",
             }
@@ -253,3 +257,24 @@ def test_a_maturity_off_the_grid_is_not_found(client: TestClient, curve_id: str)
     )
 
     assert response.status_code == 404
+
+
+def test_lists_both_versions_of_a_corrected_value(client: TestClient, curve_id: str) -> None:
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id))
+    client.post(
+        RECORD_VERSIONS_PATH,
+        json=batch(curve_id, ten_year="2.70", change_reason="correction"),
+    )
+
+    response = client.get(
+        VALUE_VERSIONS_PATH.format(curve_id=curve_id, maturity="10Y", valid_date="2026-03-12")
+    )
+
+    assert response.status_code == 200
+    versions = response.json()["data"]["versions"]
+    assert [(v["value"], v["change_reason"]) for v in versions] == [
+        (2.61, "initial"),
+        (2.7, "correction"),
+    ]
+    assert versions[0]["known_to"] == versions[1]["known_from"]
+    assert versions[1]["known_to"] is None
