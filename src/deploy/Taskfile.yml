@@ -38,6 +38,11 @@ tasks:
     cmds:
       - docker compose --profile tools run --rm --build --entrypoint ingestion-scenario ingestion corrected-yield
 
+  e2e:
+    desc: End-to-end corrected-yield test against a fresh running stack (task dev:reset dev:up first)
+    cmds:
+      - uv run --project ../e2e --locked pytest ../e2e/tests
+
   seed:
     desc: Load ECB history at two knowledge times (live ECB calls)
     vars:

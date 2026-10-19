@@ -64,6 +64,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `orchestration.yml` | Pull requests; pushes to `main` changing `src/orchestration/`, the root Taskfile or devbox; manual | `orchestration:setup`, `orchestration:lint`, `orchestration:typecheck`, `orchestration:test:unit` | `devbox run -- task orchestration:<task>` |
 | `access.yml` | Pull requests; pushes to `main` changing `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
 | `frontend.yml` | Pull requests; pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build` | `devbox run -- task frontend:<task>` |
+| `e2e.yml` | Pull requests; pushes to `main` changing `src/`, the workflow, the root Taskfile or devbox; manual | `dev:reset`, `dev:up`, `dev:e2e` (the corrected-yield test on a fresh stack), `dev:reset` again at the end | `devbox run -- task dev:e2e` after `dev:reset` and `dev:up` |
 
 ### Required checks
 
@@ -78,6 +79,7 @@ Branch protection needs stable check names. Each job below has a fixed `name:` t
 - `orchestration: lint, typecheck, unit tests`
 - `persistence: lint, types, unit tests`
 - `persistence: integration tests`
+- `e2e: corrected yield` (`e2e.yml`)
 
 Pull-request runs are not path-filtered, so every required check reports on every pull request, including PRs that touch only docs. Path filters apply only to pushes to `main`. A job skipped by a filter would otherwise leave a required check pending forever.
 
@@ -101,6 +103,7 @@ The local development stack (Oracle, the `CORE` and `ING` migrations, persistenc
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
+| `dev:e2e` | End-to-end corrected-yield test (`src/e2e`) against the running stack; run `dev:reset` and `dev:up` first |
 
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 

@@ -1,0 +1,69 @@
+# End-to-end test: the corrected-yield scenario on a fresh local stack (Oracle Free, persistence,
+# access and the scenario job in Docker Compose), read back through the access api. Runs on every
+# pull request, and on pushes to main when the code, the workflow, the root Taskfile or the
+# toolchain change; also on demand.
+# Thin by design: provision the devbox toolchain, then run the same tasks as locally.
+# See docs/architecture/13-build-and-ci.md.
+#
+# Local equivalent: devbox run -- task dev:reset && devbox run -- task dev:up && devbox run -- task dev:e2e
+name: E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - .github/workflows/e2e.yml
+      - Taskfile.yml
+      - devbox.*
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: "e2e: corrected yield"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Cache uv packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('src/e2e/uv.lock') }}
+
+      - name: Start the stack
+        run: devbox run -- task dev:up
+
+      - name: Corrected-yield end-to-end test
+        run: devbox run -- task dev:e2e
+
+      - name: Container logs on failure
+        if: failure()
+        env:
+          PERSISTENCE_DB_ADMIN_PASSWORD: LocalAdmin_1
+          PERSISTENCE_DB_OWNER_PASSWORD: LocalOwner_1
+          PERSISTENCE_DB_PASSWORD: LocalApp_1
+          INGESTION_DB_OWNER_PASSWORD: LocalIngOwner_1
+          INGESTION_DB__PASSWORD: LocalIngApp_1
+        run: docker compose -f src/deploy/compose.yaml -p yieldlens-dev logs --no-color
+
+      - name: Tear down the stack
+        if: always()
+        run: devbox run -- task dev:reset
