@@ -2,6 +2,8 @@
 
 **Status:** Accepted · 2026-10-18 · Supersedes the earlier choice of Dash
 
+Charts superseded by [[0018-mantine-ui-and-charts]].
+
 ## Context
 The final target is a live web app at no cost, with the UI on GitHub Pages. Pages serves static files only. Dash (and other server-rendered Python UIs) need a running Python server.
 

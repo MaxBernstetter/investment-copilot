@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { render } from './test/render'
 
 vi.mock('./curve/CurveView', () => ({
   default: () => <p>Curve view</p>,
@@ -21,7 +22,9 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Backend offline: the YieldLens API is not reachable. Try again later.',
+    )
   })
 
   it('shows the curve view when access is healthy', async () => {
@@ -39,12 +42,24 @@ describe('App', () => {
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Time series' }))
-    expect(screen.getByText('Time series view')).toBeInTheDocument()
-    expect(screen.queryByText('Curve view')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Time series' }))
+    expect(screen.getByText('Time series view')).toBeVisible()
+    expect(screen.getByText('Curve view')).not.toBeVisible()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Curve' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Curve' }))
+    expect(screen.getByText('Curve view')).toBeVisible()
+    expect(screen.getByText('Time series view')).not.toBeVisible()
+  })
+
+  it('keeps the curve view mounted when switching tabs', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Time series' }))
+
     expect(screen.getByText('Curve view')).toBeInTheDocument()
-    expect(screen.queryByText('Time series view')).not.toBeInTheDocument()
+    expect(screen.getByText('Curve view')).not.toBeVisible()
   })
 })

@@ -38,3 +38,4 @@ Overview: `ARCHITECTURE.md` at the repository root.
 | [[0015-pre-commit-hooks]] | pre-commit framework for git hooks |
 | [[0016-ecb-aaa-curve-as-first-source]] | ECB euro area AAA spot curve as the first source |
 | [[0017-commit-safe-knowledge-time]] | Knowledge clock: one locked row makes knowledge times increase in commit order |
+| [[0018-mantine-ui-and-charts]] | Mantine 9 for the frontend UI and `@mantine/charts` (Recharts) for charts, replacing Plotly.js |
