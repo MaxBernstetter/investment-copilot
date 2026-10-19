@@ -11,6 +11,7 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
+from access.domain.series import Series, SeriesPoint
 from access.infrastructure.persistence import PersistenceClient
 
 pytestmark = pytest.mark.anyio
@@ -151,3 +152,107 @@ async def test_connection_error_is_unavailable() -> None:
     async with client_answering(httpx.MockTransport(refuse)) as client:
         with pytest.raises(PersistenceUnavailableError):
             await client.curve_as_of("ecb-aaa-spot", None, None)
+
+
+SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
+SERIES_BODY = {
+    "data": {
+        "curve_id": "ecb-aaa-spot",
+        "maturity": "10Y",
+        "points": [
+            {"valid_date": "2026-03-12", "value": 2.61},
+            {"valid_date": "2026-03-14", "value": 2.7},
+        ],
+    },
+    "meta": {"as_of": "2026-03-13T08:00:00Z"},
+}
+
+
+async def test_reads_a_series_from_persistence() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=SERIES_BODY)
+
+    as_of = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        series = await client.series_as_of(
+            "ecb-aaa-spot", "10Y", date(2026, 3, 1), date(2026, 3, 14), as_of
+        )
+
+    assert seen[0].url.path == SERIES_PATH
+    assert dict(seen[0].url.params) == {
+        "from": "2026-03-01",
+        "to": "2026-03-14",
+        "as_of": "2026-03-13T09:00:00+01:00",
+    }
+    assert series == Series(
+        curve_id="ecb-aaa-spot",
+        maturity="10Y",
+        as_of=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+        points=(
+            SeriesPoint(valid_date=date(2026, 3, 12), value=2.61),
+            SeriesPoint(valid_date=date(2026, 3, 14), value=2.7),
+        ),
+    )
+
+
+async def test_omits_absent_series_parameters() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=SERIES_BODY)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        await client.series_as_of("ecb-aaa-spot", "10Y", None, None, None)
+
+    assert seen[0].url.query == b""
+
+
+async def test_series_not_found_problem_becomes_curve_not_found() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"type": "about:blank", "title": "Not found", "status": 404, "detail": "no 4Y"},
+            headers={"content-type": "application/problem+json"},
+        )
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(CurveNotFoundError) as raised:
+            await client.series_as_of("ecb-aaa-spot", "4Y", None, None, None)
+
+    assert raised.value.detail == "no 4Y"
+
+
+async def test_series_invalid_range_problem_becomes_invalid_query() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422,
+            json={"type": "about:blank", "title": "Invalid range", "status": 422, "detail": "bad"},
+        )
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(InvalidCurveQueryError) as raised:
+            await client.series_as_of("ecb-aaa-spot", "10Y", None, None, None)
+
+    assert raised.value.detail == "bad"
+
+
+async def test_series_server_error_is_unavailable() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.series_as_of("ecb-aaa-spot", "10Y", None, None, None)
+
+
+async def test_series_connection_error_is_unavailable() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async with client_answering(httpx.MockTransport(refuse)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.series_as_of("ecb-aaa-spot", "10Y", None, None, None)

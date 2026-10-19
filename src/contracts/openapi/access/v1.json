@@ -142,6 +142,88 @@
         ],
         "title": "Problem",
         "type": "object"
+      },
+      "SeriesObservations": {
+        "additionalProperties": false,
+        "description": "One maturity of a curve, with its points in valid-date order.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "curve_id",
+          "maturity",
+          "points"
+        ],
+        "title": "SeriesObservations",
+        "type": "object"
+      },
+      "SeriesObservationsResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/maturities/{maturity}/observations``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SeriesObservations"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CurveMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "SeriesObservationsResponse",
+        "type": "object"
+      },
+      "SeriesPoint": {
+        "additionalProperties": false,
+        "description": "One valid date with a published value known as of ``meta.as_of``.",
+        "properties": {
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          },
+          "value": {
+            "description": "Yield in percent",
+            "examples": [
+              2.61
+            ],
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "valid_date",
+          "value"
+        ],
+        "title": "SeriesPoint",
+        "type": "object"
       }
     }
   },
@@ -192,6 +274,130 @@
           }
         },
         "summary": "Ready"
+      }
+    },
+    "/v1/curves/{curve_id}/maturities/{maturity}/observations": {
+      "get": {
+        "description": "One maturity of a curve over valid dates, as it was known at ``meta.as_of``.\n\nWithout ``from``, ``to`` or ``as_of`` the store picks its defaults; the answer\nreports the knowledge time it used in ``meta.as_of``.",
+        "operationId": "series_observations_v1_curves__curve_id__maturities__maturity__observations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "maturity",
+            "required": true,
+            "schema": {
+              "maxLength": 16,
+              "minLength": 1,
+              "title": "Maturity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesObservationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Series Observations"
       }
     },
     "/v1/curves/{curve_id}/observations": {

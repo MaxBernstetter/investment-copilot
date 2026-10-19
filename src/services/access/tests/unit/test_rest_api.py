@@ -14,17 +14,38 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
+from access.domain.series import Series, SeriesPoint
 from access.facade.rest.app import Services, create_app
 
 FRONTEND_ORIGIN = "http://localhost:5173"
 CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
+SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 class FakeCurveReader:
     def __init__(self) -> None:
         self.calls: list[tuple[str, date | None, datetime | None]] = []
+        self.series_calls: list[tuple[str, str, date | None, date | None, datetime | None]] = []
         self.error: Exception | None = None
+
+    async def series_as_of(
+        self,
+        curve_id: str,
+        maturity: str,
+        valid_from: date | None,
+        valid_to: date | None,
+        as_of: datetime | None,
+    ) -> Series:
+        self.series_calls.append((curve_id, maturity, valid_from, valid_to, as_of))
+        if self.error is not None:
+            raise self.error
+        return Series(
+            curve_id=curve_id,
+            maturity=maturity,
+            as_of=AS_OF,
+            points=(SeriesPoint(valid_date=date(2026, 3, 12), value=2.61),),
+        )
 
     async def curve_as_of(
         self, curve_id: str, valid_date: date | None, as_of: datetime | None
@@ -213,3 +234,96 @@ def test_only_get_is_allowed(client: TestClient) -> None:
     response = client.post(CURVE_PATH)
 
     assert response.status_code == 405
+
+
+def test_returns_the_series_in_the_public_envelope(client: TestClient) -> None:
+    response = client.get(SERIES_PATH)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "points": [{"valid_date": "2026-03-12", "value": 2.61}],
+        },
+        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+    }
+
+
+def test_passes_the_range_and_as_of_of_a_series_to_persistence(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(
+        SERIES_PATH,
+        params={"from": "2026-03-01", "to": "2026-03-12", "as_of": AS_OF.isoformat()},
+    )
+
+    assert services.curves.series_calls == [
+        ("ecb-aaa-spot", "10Y", date(2026, 3, 1), date(2026, 3, 12), AS_OF)
+    ]
+
+
+def test_series_without_parameters_persistence_gets_none(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(SERIES_PATH)
+
+    assert services.curves.series_calls == [("ecb-aaa-spot", "10Y", None, None, None)]
+
+
+def test_series_not_found_is_passed_through_as_a_problem(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.curves.error = CurveNotFoundError("maturity 4Y is not on the grid")
+
+    response = client.get(SERIES_PATH)
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+    assert response.json()["detail"] == "maturity 4Y is not on the grid"
+
+
+def test_series_invalid_range_is_passed_through_as_a_problem(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.curves.error = InvalidCurveQueryError("from is after to")
+
+    response = client.get(SERIES_PATH)
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid request"
+    assert response.json()["detail"] == "from is after to"
+
+
+def test_series_unavailable_persistence_is_a_503_problem(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.curves.error = PersistenceUnavailableError()
+
+    response = client.get(SERIES_PATH)
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Service unavailable"
+
+
+def test_series_bad_parameters_are_rejected_without_calling_persistence(
+    client: TestClient, services: FakeServices
+) -> None:
+    response = client.get(SERIES_PATH, params={"from": "abc"})
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid request"
+    assert services.curves.series_calls == []
+
+
+def test_series_naive_as_of_is_rejected_without_calling_persistence(
+    client: TestClient, services: FakeServices
+) -> None:
+    response = client.get(SERIES_PATH, params={"as_of": "2026-03-13T09:00:00"})
+
+    assert response.status_code == 422
+    assert services.curves.series_calls == []
