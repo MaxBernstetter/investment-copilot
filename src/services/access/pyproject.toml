@@ -12,6 +12,9 @@ dependencies = [
     "yieldlens-contracts",
 ]
 
+[project.scripts]
+access-openapi = "access.facade.rest.openapi:main"
+
 [dependency-groups]
 dev = [
     "httpx2>=2.13",

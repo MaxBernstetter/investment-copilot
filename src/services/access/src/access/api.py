@@ -26,4 +26,4 @@ async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
     async with PersistenceClient(
         str(settings.persistence_url), settings.persistence_timeout_seconds
     ) as client:
-        yield Services(client.is_ready)
+        yield Services(client.is_ready, client)
