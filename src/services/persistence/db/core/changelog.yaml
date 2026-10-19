@@ -1,0 +1,7 @@
+# CORE changelog: the bitemporal observation store.
+# Runs as the schema owner CORE. Never edit an applied changeset; add a new one
+# (expand/contract). Packages are re-applied when they change (runOnChange).
+databaseChangeLog:
+  - include:
+      file: observation.sql
+      relativeToChangelogFile: true
