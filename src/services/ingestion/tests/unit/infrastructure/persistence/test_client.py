@@ -8,8 +8,11 @@ import pytest
 from contracts.persistence import v1
 
 from ingestion.application.load_published_curve import RecordedBatch
+from ingestion.application.run_scenario import RunScenario
 from ingestion.config import PersistenceSettings
 from ingestion.domain.observation import PublishedObservation
+from ingestion.domain.scenario import SCENARIO_SOURCE_ID
+from ingestion.domain.scenarios import CORRECTED_YIELD, SIMULATED_CURVE_ID
 from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
 from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
 
@@ -120,3 +123,38 @@ async def test_other_rejections_fail_the_write_without_retry(status_code: int) -
 
     assert raised.value.status_code == status_code
     assert stub.attempts == 1
+
+
+async def test_records_a_scenario_event_as_published_scenario_values() -> None:
+    stub = StubPersistence()
+    event = CORRECTED_YIELD.event("correction")
+
+    async with PersistenceClient(SETTINGS, transport=stub.transport, sleep=FakeSleep()) as client:
+        result = await client.record_event(SIMULATED_CURVE_ID, event, "scenario-run-1")
+
+    assert result == RecordedBatch(1, 0, KNOWN_FROM)
+    assert stub.observations == [
+        v1.ObservationVersion(
+            curve_id=SIMULATED_CURVE_ID,
+            maturity="10Y",
+            valid_date=date(2026, 10, 8),
+            value=Decimal("2.64"),
+            origin=v1.Origin.PUBLISHED,
+            source_id=SCENARIO_SOURCE_ID,
+            run_id="scenario-run-1",
+            change_reason=v1.ChangeReason.CORRECTION,
+        )
+    ]
+
+
+async def test_every_scenario_write_targets_only_the_simulated_curve() -> None:
+    stub = StubPersistence()
+    sleep = FakeSleep()
+
+    async with PersistenceClient(SETTINGS, transport=stub.transport, sleep=sleep) as client:
+        result = await RunScenario(client, sleep)(CORRECTED_YIELD)
+
+    assert len(result.events) == 5
+    assert stub.observations
+    assert {observation.curve_id for observation in stub.observations} == {SIMULATED_CURVE_ID}
+    assert {observation.source_id for observation in stub.observations} == {SCENARIO_SOURCE_ID}
