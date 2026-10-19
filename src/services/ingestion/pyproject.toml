@@ -6,6 +6,8 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "httpx>=0.28",
     "opentelemetry-api>=1.30",
+    "pandera[polars]>=0.34",
+    "polars>=2.0",
     "pydantic-settings>=2.8",
 ]
 

@@ -11,9 +11,13 @@ repos:
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        # Recorded source payloads stay byte for byte as delivered (CRLF included).
+        exclude: &recorded-fixtures ^src/services/[^/]+/tests/fixtures/
       - id: end-of-file-fixer
+        exclude: *recorded-fixtures
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: *recorded-fixtures
       - id: check-yaml
       - id: check-json
       - id: check-toml
