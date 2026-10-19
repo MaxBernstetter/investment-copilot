@@ -6,6 +6,7 @@ from contracts.access import v1
 
 from access.domain.curve import CurveAsOf
 from access.domain.series import Series
+from access.domain.versions import ValueVersions
 
 
 def to_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
@@ -33,4 +34,29 @@ def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
             ],
         ),
         meta=v1.CurveMeta(as_of=series.as_of.astimezone(UTC)),
+    )
+
+
+def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
+    return v1.ValueVersionsResponse(
+        data=v1.ValueVersions(
+            curve_id=versions.curve_id,
+            maturity=versions.maturity,
+            valid_date=versions.valid_date,
+            versions=[
+                v1.ValueVersion(
+                    version_id=version.version_id,
+                    value=version.value,
+                    known_from=version.known_from,
+                    known_to=version.known_to,
+                    source_id=version.source_id,
+                    run_id=version.run_id,
+                    change_reason=v1.ChangeReason(version.change_reason.value),
+                    normalization_version=version.normalization_version,
+                    delivery_id=version.delivery_id,
+                )
+                for version in versions.versions
+            ],
+        ),
+        meta=v1.CurveMeta(as_of=versions.as_of.astimezone(UTC)),
     )

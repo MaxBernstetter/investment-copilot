@@ -1,6 +1,18 @@
 {
   "components": {
     "schemas": {
+      "ChangeReason": {
+        "description": "Why a version exists.",
+        "enum": [
+          "initial",
+          "revision",
+          "correction",
+          "recalculation",
+          "simulated"
+        ],
+        "title": "ChangeReason",
+        "type": "string"
+      },
       "CurveMeta": {
         "additionalProperties": false,
         "description": "How the answer was determined.",
@@ -224,6 +236,183 @@
         ],
         "title": "SeriesPoint",
         "type": "object"
+      },
+      "ValueVersion": {
+        "additionalProperties": false,
+        "description": "One stored version of a value, with its knowledge interval and provenance.",
+        "properties": {
+          "change_reason": {
+            "$ref": "#/components/schemas/ChangeReason"
+          },
+          "delivery_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Raw source delivery the value came from",
+            "examples": [
+              "4711"
+            ],
+            "title": "Delivery Id"
+          },
+          "known_from": {
+            "description": "Knowledge time (UTC) the version became known",
+            "format": "date-time",
+            "title": "Known From",
+            "type": "string"
+          },
+          "known_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Knowledge time (UTC) the version stopped being current; null while it is still current as of meta.as_of",
+            "title": "Known To"
+          },
+          "normalization_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Version of the source mapping that produced the value",
+            "examples": [
+              "1"
+            ],
+            "title": "Normalization Version"
+          },
+          "run_id": {
+            "description": "Run that wrote the version",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "ecb"
+            ],
+            "title": "Source Id"
+          },
+          "value": {
+            "description": "Yield in percent",
+            "examples": [
+              2.61
+            ],
+            "title": "Value",
+            "type": "number"
+          },
+          "version_id": {
+            "description": "Surrogate key of the version",
+            "examples": [
+              4711
+            ],
+            "title": "Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_id",
+          "value",
+          "known_from",
+          "known_to",
+          "source_id",
+          "run_id",
+          "change_reason",
+          "normalization_version",
+          "delivery_id"
+        ],
+        "title": "ValueVersion",
+        "type": "object"
+      },
+      "ValueVersions": {
+        "additionalProperties": false,
+        "description": "The version history of one value, oldest version first.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ValueVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "curve_id",
+          "maturity",
+          "valid_date",
+          "versions"
+        ],
+        "title": "ValueVersions",
+        "type": "object"
+      },
+      "ValueVersionsResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET`` on the :data:`VALUE_VERSIONS_PATH` endpoint.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ValueVersions"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CurveMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ValueVersionsResponse",
+        "type": "object"
       }
     }
   },
@@ -401,6 +590,109 @@
           }
         },
         "summary": "Series Observations"
+      }
+    },
+    "/v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions": {
+      "get": {
+        "description": "The version history of one value as it was known at ``meta.as_of``.\n\nVersions are listed oldest first; ``known_to`` is null while a version is current.\nWithout ``as_of`` the store picks its default; the answer reports the knowledge\ntime it used in ``meta.as_of``.",
+        "operationId": "value_versions_v1_curves__curve_id__maturities__maturity__observations__valid_date__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "maturity",
+            "required": true,
+            "schema": {
+              "maxLength": 16,
+              "minLength": 1,
+              "title": "Maturity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "valid_date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Valid Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValueVersionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Value Versions"
       }
     },
     "/v1/curves/{curve_id}/observations": {

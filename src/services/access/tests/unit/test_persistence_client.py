@@ -12,6 +12,7 @@ from access.domain.curve import (
     PersistenceUnavailableError,
 )
 from access.domain.series import Series, SeriesPoint
+from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 from access.infrastructure.persistence import PersistenceClient
 
 pytestmark = pytest.mark.anyio
@@ -256,3 +257,138 @@ async def test_series_connection_error_is_unavailable() -> None:
     async with client_answering(httpx.MockTransport(refuse)) as client:
         with pytest.raises(PersistenceUnavailableError):
             await client.series_as_of("ecb-aaa-spot", "10Y", None, None, None)
+
+
+VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
+VERSIONS_BODY = {
+    "data": {
+        "curve_id": "ecb-aaa-spot",
+        "maturity": "10Y",
+        "valid_date": "2026-03-12",
+        "versions": [
+            {
+                "version_id": 4711,
+                "value": 2.61,
+                "known_from": "2026-03-13T08:00:00Z",
+                "known_to": "2026-03-14T08:00:00Z",
+                "source_id": "ecb",
+                "run_id": "run-1",
+                "change_reason": "initial",
+                "normalization_version": "1",
+                "delivery_id": "4711",
+            },
+            {
+                "version_id": 4712,
+                "value": 2.7,
+                "known_from": "2026-03-14T08:00:00Z",
+                "known_to": None,
+                "source_id": "ecb",
+                "run_id": "run-2",
+                "change_reason": "correction",
+                "normalization_version": "1",
+                "delivery_id": None,
+            },
+        ],
+    },
+    "meta": {"as_of": "2026-03-15T08:00:00Z"},
+}
+
+
+async def test_reads_value_versions() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=VERSIONS_BODY)
+
+    as_of = datetime(2026, 3, 15, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        versions = await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), as_of)
+
+    assert seen[0].url.path == VERSIONS_PATH
+    assert dict(seen[0].url.params) == {"as_of": "2026-03-15T09:00:00+01:00"}
+    assert versions == ValueVersions(
+        curve_id="ecb-aaa-spot",
+        maturity="10Y",
+        valid_date=date(2026, 3, 12),
+        as_of=datetime(2026, 3, 15, 8, 0, tzinfo=UTC),
+        versions=(
+            ValueVersion(
+                version_id=4711,
+                value=2.61,
+                known_from=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+                known_to=datetime(2026, 3, 14, 8, 0, tzinfo=UTC),
+                source_id="ecb",
+                run_id="run-1",
+                change_reason=ChangeReason.INITIAL,
+                normalization_version="1",
+                delivery_id="4711",
+            ),
+            ValueVersion(
+                version_id=4712,
+                value=2.7,
+                known_from=datetime(2026, 3, 14, 8, 0, tzinfo=UTC),
+                known_to=None,
+                source_id="ecb",
+                run_id="run-2",
+                change_reason=ChangeReason.CORRECTION,
+                normalization_version="1",
+                delivery_id=None,
+            ),
+        ),
+    )
+
+
+async def test_value_versions_not_found() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"type": "about:blank", "title": "Not found", "status": 404, "detail": "no 4Y"},
+            headers={"content-type": "application/problem+json"},
+        )
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(CurveNotFoundError) as raised:
+            await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)
+
+    assert raised.value.detail == "no 4Y"
+
+
+async def test_value_versions_invalid_query_is_invalid_query() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422,
+            json={
+                "type": "about:blank",
+                "title": "Invalid request",
+                "status": 422,
+                "detail": "bad",
+            },
+        )
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(InvalidCurveQueryError):
+            await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)
+
+
+async def test_value_versions_unavailable() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)
+
+    async with client_answering(httpx.MockTransport(refuse)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)
+
+    def garbage(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"unexpected": True})
+
+    async with client_answering(httpx.MockTransport(garbage)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.value_versions("ecb-aaa-spot", "10Y", date(2026, 3, 12), None)

@@ -8,6 +8,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 |---|---|---|
 | `GET /v1/curves/{curve_id}/observations?valid_date=&as_of=` | One curve on one valid date, as it was known at `meta.as_of` (both query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
+| `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions?as_of=` | The version history of one value, as it was known at `meta.as_of`: versions oldest first, with `known_to` null while current; versions first known after `as_of` left out (`as_of` optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /health` | Liveness: the process is up | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
@@ -19,7 +20,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 
 ### Caching
 
-- Both data endpoints return an `ETag` for the exact response body: a quoted digest of the body, so the same answer always carries the same tag.
+- All data endpoints return an `ETag` for the exact response body: a quoted digest of the body, so the same answer always carries the same tag.
 - A settled answer is immutable: when the request has an `as_of` and `meta.as_of` equals it (as instants, so any UTC offset matches), both send `Cache-Control: public, max-age=31536000, immutable`. The answer never changes, so caches may reuse it without asking.
 - Every other answer sends `Cache-Control: no-cache`: no `as_of` was requested, or persistence answered at its knowledge horizon because the requested `as_of` was later. Caches must revalidate with the `ETag` before reuse.
 - A `304` carries the same `Cache-Control` as the `200` it stands for.

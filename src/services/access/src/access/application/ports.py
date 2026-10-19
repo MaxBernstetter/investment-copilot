@@ -5,6 +5,7 @@ from typing import Protocol
 
 from access.domain.curve import CurveAsOf
 from access.domain.series import Series
+from access.domain.versions import ValueVersions
 
 
 class CurveReader(Protocol):
@@ -23,4 +24,10 @@ class CurveReader(Protocol):
         as_of: datetime | None,
     ) -> Series:
         """Read one maturity over valid dates; ``None`` means the store's default."""
+        ...
+
+    async def value_versions(
+        self, curve_id: str, maturity: str, valid_date: date, as_of: datetime | None
+    ) -> ValueVersions:
+        """Read the version history of one value; ``None`` means the store's default."""
         ...

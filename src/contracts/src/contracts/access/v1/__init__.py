@@ -14,10 +14,19 @@ from contracts.access.v1.series import (
     SeriesObservationsResponse,
     SeriesPoint,
 )
+from contracts.access.v1.versions import (
+    VALUE_VERSIONS_PATH,
+    ChangeReason,
+    ValueVersion,
+    ValueVersions,
+    ValueVersionsResponse,
+)
 
 __all__ = [
     "CURVE_OBSERVATIONS_PATH",
     "SERIES_OBSERVATIONS_PATH",
+    "VALUE_VERSIONS_PATH",
+    "ChangeReason",
     "CurveMeta",
     "CurveObservations",
     "CurveObservationsResponse",
@@ -26,4 +35,7 @@ __all__ = [
     "SeriesObservations",
     "SeriesObservationsResponse",
     "SeriesPoint",
+    "ValueVersion",
+    "ValueVersions",
+    "ValueVersionsResponse",
 ]
