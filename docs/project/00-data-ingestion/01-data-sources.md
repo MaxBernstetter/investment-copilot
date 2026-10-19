@@ -89,7 +89,8 @@ GET https://data-api.ecb.europa.eu/service/data/YC/
 | Response | Meaning | Handling |
 |---|---|---|
 | `200` with rows | Data delivered | Store raw, validate, normalize |
-| `404` "No results found" | Nothing in the window, or nothing updated since `updatedAfter` | Empty delivery, a successful run with zero rows. **Not an error, not retried.** |
+| `200` with an empty body | No observation in the date window (weekend, holiday, before 2004, not yet published); observed with `format=csvdata` on 2026-10-18 | Empty delivery, a successful run with zero rows |
+| `404` problem details "No Series was returned for the query" (also documented as "No results found") | The query matches nothing, e.g. nothing updated since `updatedAfter` | Empty delivery, a successful run with zero rows. **Not an error, not retried.** |
 | `200` without the expected date | Not yet published (normal before ~12:00, or a delayed publication) | Late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), not a failure of the request |
 | `304` | Unchanged since `If-Modified-Since` | No-op run |
 | `429`, `502`, `503`, `504`, timeout | Throttled or unavailable | Retry with backoff per the access policy |

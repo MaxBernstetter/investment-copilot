@@ -37,7 +37,7 @@ Public sources are shared infrastructure, and most publish no rate limit. A bloc
   - Retry only on network errors, timeouts, `429` and `502`/`503`/`504`.
   - Exponential backoff with jitter; `Retry-After` is honoured.
   - At most 3 attempts per request inside the client and at most 2 Airflow task retries. One failing load therefore costs at most 9 requests.
-  - Any other `4xx` fails fast. Source-specific "no data" answers (e.g. the ECB's `404` for an empty window) are mapped to an empty delivery and never retried.
+  - Any other `4xx` fails fast. Source-specific "no data" answers (e.g. the ECB's `404` for a query without data) are mapped to an empty delivery and never retried.
 - **Small requests:** request only the series, fields and date window that are needed, and batch series into one request where the source supports it.
 - **Conditional requests:** send `If-Modified-Since` / `If-None-Match` where supported, and use incremental parameters (e.g. `updatedAfter`).
 - **Fetch once:** raw payloads are stored, so replay and reprocessing read from raw and never download again.
