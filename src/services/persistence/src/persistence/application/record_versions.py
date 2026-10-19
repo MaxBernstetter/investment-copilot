@@ -1,4 +1,4 @@
-"""Use case: record a batch of observations as new versions (one transaction)."""
+"""Use case: record a batch of observations as versions (one transaction, never overwriting)."""
 
 from collections.abc import Sequence
 from typing import Protocol
@@ -10,9 +10,11 @@ class ObservationRepository(Protocol):
     """Port to the bitemporal store."""
 
     async def record_versions(self, observations: Sequence[Observation]) -> RecordedVersions:
-        """Store every observation as a new open version in one transaction.
+        """Record every observation in one transaction, all or nothing.
 
-        Raises OpenVersionExistsError if one of them already has an open version.
+        A new or changed observation (value or source) becomes the open version;
+        a changed one closes the previous open version. An unchanged one is a no-op.
+        Raises OpenVersionExistsError if a concurrent write got in first.
         """
         ...
 

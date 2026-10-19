@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -7,6 +7,7 @@ from contracts.persistence.v1 import RECORD_VERSIONS_PATH
 from fastapi.testclient import TestClient
 
 from persistence.application.record_versions import RecordVersions
+from persistence.domain.observation import Observation, OpenVersionExistsError, RecordedVersions
 from persistence.facade.rest.app import Services, create_app
 from tests.unit.fakes import InMemoryObservationRepository
 
@@ -57,7 +58,11 @@ def test_records_a_batch_and_returns_its_knowledge_time(
     response = client.post(RECORD_VERSIONS_PATH, json=batch)
 
     assert response.status_code == 200
-    assert response.json() == {"recorded_count": 2, "known_from": "2026-03-12T18:00:00Z"}
+    assert response.json() == {
+        "recorded_count": 2,
+        "unchanged_count": 0,
+        "known_from": "2026-03-12T18:00:00Z",
+    }
     assert [stored.maturity for stored, _ in backend.repository.versions] == ["2Y", "10Y"]
 
 
@@ -83,15 +88,38 @@ def test_a_batch_with_duplicate_observations_is_rejected(client: TestClient) -> 
     assert response.json()["title"] == "Invalid observations"
 
 
-def test_an_observation_with_an_open_version_is_a_conflict(client: TestClient) -> None:
-    batch = {"observations": [observation()]}
-    client.post(RECORD_VERSIONS_PATH, json=batch)
+def test_reports_unchanged_observations_of_a_reload(client: TestClient) -> None:
+    client.post(RECORD_VERSIONS_PATH, json={"observations": [observation(maturity="2Y")]})
+    reload = {"observations": [observation(maturity="2Y"), observation(maturity="10Y")]}
 
-    response = client.post(RECORD_VERSIONS_PATH, json=batch)
+    response = client.post(RECORD_VERSIONS_PATH, json=reload)
+
+    assert response.status_code == 200
+    assert response.json()["recorded_count"] == 1
+    assert response.json()["unchanged_count"] == 1
+
+
+class LosesTheRace:
+    """A store where a concurrent write always opened the version first."""
+
+    async def record_versions(self, observations: Sequence[Observation]) -> RecordedVersions:
+        raise OpenVersionExistsError("a concurrent call opened a version first")
+
+
+def test_a_concurrent_write_is_a_conflict() -> None:
+    @asynccontextmanager
+    async def services() -> AsyncIterator[Services]:
+        async def is_ready() -> bool:
+            return True
+
+        yield Services(RecordVersions(LosesTheRace()), is_ready)
+
+    with TestClient(create_app(services)) as client:
+        response = client.post(RECORD_VERSIONS_PATH, json={"observations": [observation()]})
 
     assert response.status_code == 409
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["status"] == 409
+    assert response.json()["title"] == "Concurrent write"
 
 
 def test_health_reports_the_process_is_up(client: TestClient) -> None:
