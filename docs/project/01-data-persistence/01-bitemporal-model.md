@@ -64,7 +64,10 @@ The service only calls the package; it never touches the table (see [[#Users and
 | Member | Purpose |
 |---|---|
 | `record_versions(p_versions, o_known_from, o_recorded_count, p_known_from default null)` | Records the elements of `p_versions` (`observation_version_list_t`) as versions, set-based (see [[#Versioning]]). `known_from` is `p_known_from` if given (deterministic tests, replays), otherwise the database clock. Returns the knowledge time and the number of **new** versions. |
-| `get_versions(p_curve_id, p_valid_date_from, p_valid_date_to)` | All stored versions of one curve in a valid-date range, as a cursor ordered by `valid_date`, `maturity`, `origin`, `method_version`, `known_from`. Used by tests; as-of retrieval comes with [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22). |
+| `get_versions(p_curve_id, p_valid_date_from, p_valid_date_to)` | All stored versions of one curve in a valid-date range, as a cursor ordered by `valid_date`, `maturity`, `origin`, `method_version`, `known_from`. Used by tests and the history of a curve. |
+| `get_as_of(p_curve_id, p_valid_date, p_as_of)` | The published value of every maturity of the curve's grid as known at `p_as_of` for one valid date, as a cursor with columns `maturity`, `months`, `value`, ordered by `months`. `value` is null where no version is visible; no rows for an undefined curve. See [[#As-of retrieval]]. |
+| `latest_valid_date(p_curve_id, p_as_of)` | The latest valid date with a published value visible at `p_as_of`; null if none. |
+| `current_knowledge_time()` | The knowledge time now: the database clock in UTC (`sys_extract_utc(systimestamp)`). |
 | `open_version_exists` (`-20001`) | Raised when a concurrent call opened the first version of an observation of the batch before this one. Nothing of the batch is stored; the caller retries. |
 | `duplicate_observation` (`-20002`) | Raised when an observation appears more than once in the batch. Nothing of the batch is stored. |
 | `off_grid_observation` (`-20003`) | Raised when an observation names a curve without a definition in `curve`, or a maturity that is not on its curve's grid. Nothing of the batch is stored. |
@@ -85,13 +88,24 @@ Values are never overwritten. For each observation of a batch, identified by its
 | same `value` and `source_id` | **No-op**: nothing is written; the open version keeps its `run_id`, `change_reason` and `known_from` | unchanged |
 
 - **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id`, `change_reason`, `normalization_version` and `delivery_id` describe the write, so a reload by another run, another normalization version or from another delivery with the same value and source is unchanged; the open version keeps them as they were.
-- Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`; as-of retrieval follows in [#22](https://github.com/MaxBernstetter/investment-copilot/issues/22).
+- Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`, and the version visible at a given time through [[#As-of retrieval]].
 - Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/investment-copilot/issues/23).
 - Set-based: one locking `SELECT … FOR UPDATE`, one `UPDATE` (close changed versions) and one `INSERT … SELECT` (open versions for keys without one), each restricted to the batch's valid-date range, so partitions are pruned.
 
 ### Concurrency
 
 `record_versions` first locks the open versions of the batch's keys (row locks, no extra privileges) and only then reads the clock. Concurrent writers of the same observations therefore serialize and get increasing knowledge times, and the later writer compares against the earlier one's committed version. Two calls that both record the **first** version of a key can't lock a row; the unique index serializes them and the later one fails with `open_version_exists` (REST `409`); sending the batch again resolves it. The DAG mutex of [[12-data-pipeline#Concurrency control]] keeps such races rare.
+
+## As-of retrieval
+
+A consumer asks *what did the curve look like on valid date `d` as it was known at time `t`?* The answer is read with `get_as_of`:
+
+- **Visibility:** a version is visible at `t` if `known_from <= t < known_to`. Revisions therefore never change an answer for an earlier time: a value that was revised at `t2` is still returned for any `t` before `t2`.
+- **Published only:** `origin = 'published'`. Derived values are not part of the as-of answer; they have their own method versions.
+- **Grid order:** every maturity of the curve's grid is returned, ordered by `months`. A maturity without a visible value comes back with a null `value`, so the shape of the curve never depends on which values were known.
+- **Undefined curve:** no rows. The service turns that into not found.
+
+The service reads the latest valid date known at `t` with `latest_valid_date` when no valid date is given. `current_knowledge_time` supplies the default knowledge time.
 
 ## Users and privileges
 

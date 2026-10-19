@@ -65,5 +65,23 @@ create or replace package ut_core_observation as
 
   --%test(Returns only the versions of the requested curve and valid-date range)
   procedure gets_versions_of_curve_and_range;
+
+  --%test(As-of returns every maturity of the grid in order, with the published values)
+  procedure as_of_returns_the_grid_in_order;
+
+  --%test(As-of returns the version that was known at the given time)
+  procedure as_of_returns_the_version_known_then;
+
+  --%test(As-of before the first knowledge time has no values)
+  procedure as_of_before_first_knowledge_is_empty;
+
+  --%test(As-of ignores derived values)
+  procedure as_of_ignores_derived_values;
+
+  --%test(As-of of an undefined curve has no rows)
+  procedure as_of_of_an_undefined_curve_has_no_rows;
+
+  --%test(Latest valid date is the latest published valid date known at the given time)
+  procedure latest_valid_date_as_of;
 end ut_core_observation;
 /

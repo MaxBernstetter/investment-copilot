@@ -8,6 +8,12 @@ create or replace package body ut_core_observation as
 
   type observation_rows is table of observation%rowtype;
 
+  type point_t is record (maturity varchar2(16), months number, value number);
+  type point_rows is table of point_t;
+
+  c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
+    || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
+
   -- The test curves live on grid version 1; utPLSQL rolls them back after the suite.
   procedure define_test_curves is
   begin
@@ -74,6 +80,26 @@ create or replace package body ut_core_observation as
        and p_as_of < known_to;
     return l_values;
   end values_as_of;
+
+  -- The grid points of the curve as of p_as_of, as maturity=value pairs in
+  -- grid order; null when the curve is undefined.
+  function points_as_of(
+    p_valid_date in date,
+    p_as_of      in timestamp,
+    p_curve_id   in varchar2 default c_curve
+  ) return varchar2 is
+    l_cursor sys_refcursor := core_observation.get_as_of(p_curve_id, p_valid_date, p_as_of);
+    l_points point_rows;
+    l_text   varchar2(4000);
+  begin
+    fetch l_cursor bulk collect into l_points;
+    close l_cursor;
+    for i in 1 .. l_points.count loop
+      l_text := l_text || case when i > 1 then ',' end || l_points(i).maturity || '='
+        || case when l_points(i).value is null then 'null' else to_char(l_points(i).value, 'TM9') end;
+    end loop;
+    return l_text;
+  end points_as_of;
 
   function stored(p_curve_id in varchar2 default c_curve) return observation_rows is
     l_cursor sys_refcursor := core_observation.get_versions(
@@ -425,6 +451,76 @@ create or replace package body ut_core_observation as
     ut.expect(l_rows(2).valid_date).to_equal(date '2026-04-01');
     ut.expect(l_rows(1).curve_id).to_equal(c_curve);
   end gets_versions_of_curve_and_range;
+
+  procedure as_of_returns_the_grid_in_order is
+  begin
+    record(observation_version_list_t(
+      version('2Y', p_valid_date => date '2026-04-01', p_value => 2.10),
+      version('10Y', p_valid_date => date '2026-04-01', p_value => 2.61)
+    ));
+
+    ut.expect(points_as_of(date '2026-04-01', c_known_from)).to_equal(
+      '3M=null,6M=null,1Y=null,2Y=2.1,3Y=null,5Y=null,7Y=null,10Y=2.61,15Y=null,20Y=null,30Y=null'
+    );
+  end as_of_returns_the_grid_in_order;
+
+  procedure as_of_returns_the_version_known_then is
+  begin
+    record(observation_version_list_t(
+      version('10Y', p_valid_date => date '2026-04-01', p_value => 2.61)
+    ));
+    record(observation_version_list_t(
+      version('10Y', p_valid_date => date '2026-04-01', p_value => 2.70, p_change_reason => 'revision')
+    ), c_revised_at);
+
+    ut.expect(points_as_of(date '2026-04-01', c_known_from)).to_be_like('%10Y=2.61,%');
+    ut.expect(points_as_of(date '2026-04-01', c_revised_at - interval '1' second))
+      .to_be_like('%10Y=2.61,%');
+    ut.expect(points_as_of(date '2026-04-01', c_revised_at)).to_be_like('%10Y=2.7,%');
+    ut.expect(points_as_of(date '2026-04-01', c_later)).to_be_like('%10Y=2.7,%');
+  end as_of_returns_the_version_known_then;
+
+  procedure as_of_before_first_knowledge_is_empty is
+  begin
+    record(observation_version_list_t(
+      version('10Y', p_valid_date => date '2026-04-01', p_value => 2.61)
+    ));
+
+    ut.expect(points_as_of(date '2026-04-01', c_known_from - interval '1' second))
+      .to_equal(c_all_null);
+  end as_of_before_first_knowledge_is_empty;
+
+  procedure as_of_ignores_derived_values is
+  begin
+    record(observation_version_list_t(
+      version('10Y', p_valid_date => date '2026-04-01', p_origin => 'derived',
+              p_method_version => 'm1', p_value => 2.50)
+    ));
+
+    ut.expect(points_as_of(date '2026-04-01', c_later)).to_equal(c_all_null);
+  end as_of_ignores_derived_values;
+
+  procedure as_of_of_an_undefined_curve_has_no_rows is
+  begin
+    ut.expect(points_as_of(date '2026-04-01', c_known_from, p_curve_id => 'ut-undefined')).to_be_null();
+  end as_of_of_an_undefined_curve_has_no_rows;
+
+  procedure latest_valid_date_as_of is
+  begin
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-01', p_value => 2.61)
+    ), c_known_from);
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-02', p_value => 2.70)
+    ), c_revised_at);
+
+    ut.expect(core_observation.latest_valid_date(c_curve, c_known_from - interval '1' second))
+      .to_be_null();
+    ut.expect(core_observation.latest_valid_date(c_curve, c_known_from))
+      .to_equal(date '2026-04-01');
+    ut.expect(core_observation.latest_valid_date(c_curve, c_revised_at))
+      .to_equal(date '2026-04-02');
+  end latest_valid_date_as_of;
 
 end ut_core_observation;
 /
