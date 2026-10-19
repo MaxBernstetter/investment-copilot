@@ -101,6 +101,7 @@ async def _version_list(
         version.RUN_ID = observation.run_id
         version.CHANGE_REASON = observation.change_reason.value
         version.NORMALIZATION_VERSION = observation.normalization_version
+        version.DELIVERY_ID = observation.delivery_id
         versions.append(version)
     return versions
 

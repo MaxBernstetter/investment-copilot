@@ -39,6 +39,7 @@ def batch(
                 "run_id": run_id,
                 "change_reason": "initial",
                 "normalization_version": "1",
+                "delivery_id": "delivery-1",
             }
             for maturity, value in [("2Y", "2.10"), ("10Y", ten_year)]
         ]
@@ -55,9 +56,11 @@ def test_records_a_batch_end_to_end(
     assert (body["recorded_count"], body["unchanged_count"]) == (2, 0)
     known_from = datetime.fromisoformat(body["known_from"])
     versions = stored_versions(oracle, curve_id)
-    assert [(v["maturity"], v["value"], v["normalization_version"]) for v in versions] == [
-        ("10Y", 2.61, "1"),
-        ("2Y", 2.1, "1"),
+    assert [
+        (v["maturity"], v["value"], v["normalization_version"], v["delivery_id"]) for v in versions
+    ] == [
+        ("10Y", 2.61, "1", "delivery-1"),
+        ("2Y", 2.1, "1", "delivery-1"),
     ]
     assert {v["known_from"].replace(tzinfo=UTC) for v in versions} == {known_from}
 

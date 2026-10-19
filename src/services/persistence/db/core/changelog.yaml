@@ -16,6 +16,9 @@ databaseChangeLog:
       file: 19_normalization_version.sql
       relativeToChangelogFile: true
   - include:
+      file: 20_delivery_id.sql
+      relativeToChangelogFile: true
+  - include:
       file: core_observation.sql
       relativeToChangelogFile: true
   - include:
