@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { localInputToUtc } from '../asOf'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 
@@ -36,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  window.history.replaceState(null, '', '/')
 })
 
 describe('CurveView', () => {
@@ -43,7 +45,7 @@ describe('CurveView', () => {
     render(<CurveView />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
-    expect(mockedFetch).toHaveBeenCalledWith({ validDate: undefined })
+    expect(mockedFetch).toHaveBeenCalledWith({ validDate: undefined, asOf: undefined })
     expect(screen.getByRole('link', { name: 'ECB statistics' })).toHaveAttribute(
       'href',
       'https://data.ecb.europa.eu/',
@@ -62,7 +64,7 @@ describe('CurveView', () => {
 
     fireEvent.change(input, { target: { value: '2026-10-01' } })
 
-    expect(mockedFetch).toHaveBeenLastCalledWith({ validDate: '2026-10-01' })
+    expect(mockedFetch).toHaveBeenLastCalledWith({ validDate: '2026-10-01', asOf: undefined })
   })
 
   it('shows the offline state', async () => {
@@ -71,5 +73,50 @@ describe('CurveView', () => {
     render(<CurveView />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+  })
+
+  it('passes as_of to the API and shows the banner', async () => {
+    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
+
+    render(<CurveView />)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      `Showing the curve as known on ${new Date('2026-10-01T12:00:00Z').toUTCString()}`,
+    )
+    expect(mockedFetch).toHaveBeenCalledWith({
+      validDate: undefined,
+      asOf: '2026-10-01T12:00:00Z',
+    })
+  })
+
+  it('Now clears as_of', async () => {
+    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
+    render(<CurveView />)
+    await screen.findByRole('status')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Now' }))
+
+    expect(mockedFetch).toHaveBeenLastCalledWith({ validDate: undefined, asOf: undefined })
+    expect(new URLSearchParams(window.location.search).has('as_of')).toBe(false)
+    expect(screen.queryByText(/Showing the curve as known on/)).not.toBeInTheDocument()
+  })
+
+  it('shows no data known as of the chosen time', async () => {
+    const chosen = '2026-10-01T12:00:00'
+    mockedFetch.mockImplementation(async ({ asOf }) =>
+      asOf
+        ? { kind: 'not-found', detail: 'no curve as of then' }
+        : curveResult('2026-10-16', [2.1, 2.4, 2.6, null, null]),
+    )
+    render(<CurveView />)
+    const input = await screen.findByLabelText(/Known as of/)
+
+    fireEvent.change(input, { target: { value: chosen } })
+
+    const expected = new Date(localInputToUtc(chosen)).toUTCString()
+    expect(await screen.findByText(`No data known as of ${expected}`)).toBeInTheDocument()
+    expect(new URLSearchParams(window.location.search).get('as_of')).toBe(
+      localInputToUtc(chosen),
+    )
   })
 })
