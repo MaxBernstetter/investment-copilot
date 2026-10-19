@@ -9,7 +9,8 @@ src/
   services/
     ingestion/
     persistence/
-      db/                  # Liquibase changelogs, PL/SQL packages, utPLSQL tests
+      db/                  # Liquibase changelogs (admin/, core/), PL/SQL packages, utPLSQL tests (tests/)
+      compose.yaml         # local Oracle Free + migrations for development
     processing/
       native/              # C++ kernel (pybind11)
     access/
