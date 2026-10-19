@@ -731,7 +731,8 @@ create or replace package body ut_core_observation as
     l_rows := value_versions(c_later);
     ut.expect(l_rows.count).to_equal(0);
 
-    record(observation_version_list_t(version('10Y', p_value => 2.61)));
+    -- Knowledge time increases strictly (knowledge clock), so the second call is later.
+    record(observation_version_list_t(version('10Y', p_value => 2.61)), c_revised_at);
     l_rows := value_versions(c_later);
     ut.expect(l_rows.count).to_equal(1);
     ut.expect(l_rows(1).value).to_equal(2.61);
