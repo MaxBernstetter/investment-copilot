@@ -1,6 +1,6 @@
 # Local development stack: the services of the VM, started by `task dev:*` (see
 # docs/architecture/09-deployment.md). Oracle is extended from its service compose file;
-# migrations and the persistence api are defined here.
+# migrations, the persistence and access apis and the ingestion job are defined here.
 # Passwords come from the environment (the Taskfile sets local-only defaults).
 name: yieldlens-dev
 
@@ -91,6 +91,37 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=2)"]
       interval: 5s
       retries: 30
+
+  access:
+    build:
+      context: ..
+      dockerfile: services/access/Dockerfile
+    environment:
+      ACCESS_PERSISTENCE_URL: http://persistence:8001
+      ACCESS_CORS_ORIGINS: http://localhost:5173
+    ports:
+      - 127.0.0.1:8000:8000
+    depends_on:
+      persistence:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"]
+      interval: 5s
+      retries: 30
+
+  # One-shot ECB load job, started by `task dev:seed` (not a server).
+  ingestion:
+    profiles: [tools]
+    build:
+      context: ..
+      dockerfile: services/ingestion/Dockerfile
+    environment:
+      INGESTION_PERSISTENCE__URL: http://persistence:8001
+      INGESTION_DB__DSN: oracle:1521/FREEPDB1
+      INGESTION_DB__PASSWORD: ${INGESTION_DB__PASSWORD:?set INGESTION_DB__PASSWORD}
+    depends_on:
+      persistence:
+        condition: service_healthy
 
 volumes:
   oracle-data:

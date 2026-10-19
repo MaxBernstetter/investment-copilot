@@ -21,7 +21,7 @@ tasks:
       - docker compose up --detach --wait oracle
       - docker compose --profile tools run --rm core-migrate
       - docker compose --profile tools run --rm ing-migrate
-      - docker compose up --detach --wait --build persistence
+      - docker compose up --detach --wait --build persistence access
 
   down:
     desc: Stop the local stack (keeps its data)
@@ -32,3 +32,10 @@ tasks:
     desc: Remove the local stack and its data
     cmds:
       - docker compose --profile tools down --volumes --remove-orphans
+
+  seed:
+    desc: Load ECB history at two knowledge times (live ECB calls)
+    vars:
+      START: '2024-01-01'
+    cmds:
+      - ../scripts/dev-seed.sh {{.START}}
