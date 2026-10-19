@@ -16,6 +16,8 @@ from contracts.persistence.v1 import (
     RecordVersionsResponse,
     SeriesObservationsResponse,
     SeriesPoint,
+    ValueVersion,
+    ValueVersionsResponse,
 )
 
 
@@ -203,3 +205,56 @@ def test_series_response_round_trips_with_gaps_between_dates() -> None:
 def test_series_point_rejects_a_non_finite_value() -> None:
     with pytest.raises(ValidationError, match="value"):
         SeriesPoint.model_validate({"valid_date": "2026-03-12", "value": "NaN"})
+
+
+def value_versions_response(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "valid_date": "2026-03-12",
+            "versions": [
+                {
+                    "version_id": 1,
+                    "value": 2.61,
+                    "known_from": "2026-03-12T18:00:00Z",
+                    "known_to": "2026-03-13T18:00:00Z",
+                    "source_id": "ecb",
+                    "run_id": "ingestion-ecb-2026-03-12",
+                    "change_reason": "initial",
+                    "normalization_version": "1",
+                    "delivery_id": None,
+                },
+                {
+                    "version_id": 2,
+                    "value": 2.7,
+                    "known_from": "2026-03-13T18:00:00Z",
+                    "known_to": None,
+                    "source_id": "ecb",
+                    "run_id": "ingestion-ecb-2026-03-13",
+                    "change_reason": "revision",
+                    "normalization_version": None,
+                    "delivery_id": "4711",
+                },
+            ],
+        },
+        "meta": {"as_of": "2026-03-14T09:00:00Z"},
+    }
+    return body | overrides
+
+
+def test_value_versions_response_round_trips() -> None:
+    response = ValueVersionsResponse.model_validate(value_versions_response())
+
+    assert [version.value for version in response.data.versions] == [2.61, 2.7]
+    assert response.data.versions[0].known_to == response.data.versions[1].known_from
+    assert response.data.versions[1].known_to is None
+    assert response.data.versions[1].change_reason is ChangeReason.REVISION
+    assert ValueVersionsResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_value_version_rejects_a_naive_known_from() -> None:
+    with pytest.raises(ValidationError, match="known_from"):
+        ValueVersion.model_validate(
+            value_versions_response()["data"]["versions"][0] | {"known_from": "2026-03-12T18:00:00"}
+        )

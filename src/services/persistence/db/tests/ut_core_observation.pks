@@ -104,5 +104,17 @@ create or replace package ut_core_observation as
 
   --%test(Has maturity checks the grid of the curve)
   procedure has_maturity_checks_the_grid;
+
+  --%test(Value versions list the versions known then, oldest first)
+  procedure value_versions_lists_versions_known_then_oldest_first;
+
+  --%test(Value versions hide knowledge later than the requested time)
+  procedure value_versions_hide_later_knowledge;
+
+  --%test(Value versions ignore derived values)
+  procedure value_versions_ignore_derived_values;
+
+  --%test(Value versions of an unknown value are empty)
+  procedure value_versions_of_an_unknown_value_are_empty;
 end ut_core_observation;
 /

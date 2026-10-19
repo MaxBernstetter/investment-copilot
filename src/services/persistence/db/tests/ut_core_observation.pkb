@@ -14,6 +14,19 @@ create or replace package body ut_core_observation as
   type series_point_t is record (valid_date date, value number);
   type series_point_rows is table of series_point_t;
 
+  type value_version_t is record (
+    version_id            number,
+    value                 number,
+    known_from            timestamp,
+    known_to              timestamp,
+    source_id             varchar2(64 char),
+    run_id                varchar2(128 char),
+    change_reason         varchar2(16 char),
+    normalization_version varchar2(64 char),
+    delivery_id           varchar2(64 char)
+  );
+  type value_version_rows is table of value_version_t;
+
   c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
     || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
 
@@ -643,6 +656,96 @@ create or replace package body ut_core_observation as
     ut.expect(core_observation.has_maturity(c_curve, '4Y')).to_equal(0);
     ut.expect(core_observation.has_maturity('ut-undefined', '10Y')).to_equal(0);
   end has_maturity_checks_the_grid;
+
+  -- The versions of the 10Y value of 2026-03-12 on the test curve, as known at p_as_of.
+  function value_versions(
+    p_as_of      in timestamp,
+    p_maturity   in varchar2 default '10Y',
+    p_curve_id   in varchar2 default c_curve
+  ) return value_version_rows is
+    l_cursor sys_refcursor := core_observation.get_value_versions(
+      p_curve_id, p_maturity, date '2026-03-12', p_as_of
+    );
+    l_rows value_version_rows;
+  begin
+    fetch l_cursor bulk collect into l_rows;
+    close l_cursor;
+    return l_rows;
+  end value_versions;
+
+  procedure value_versions_lists_versions_known_then_oldest_first is
+    l_rows value_version_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+    record(observation_version_list_t(version(p_value => 2.70, p_change_reason => 'revision')), c_revised_at);
+    record(observation_version_list_t(version(p_value => 2.65, p_change_reason => 'correction')), c_later);
+
+    l_rows := value_versions(c_later);
+
+    ut.expect(l_rows.count).to_equal(3);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+    ut.expect(l_rows(1).known_from).to_equal(c_known_from);
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).value).to_equal(2.70);
+    ut.expect(l_rows(2).known_from).to_equal(c_revised_at);
+    ut.expect(l_rows(2).change_reason).to_equal('revision');
+    ut.expect(l_rows(3).value).to_equal(2.65);
+    ut.expect(l_rows(3).change_reason).to_equal('correction');
+    ut.expect(l_rows(3).known_to).to_be_null();
+  end value_versions_lists_versions_known_then_oldest_first;
+
+  procedure value_versions_hide_later_knowledge is
+    l_rows value_version_rows;
+  begin
+    record(observation_version_list_t(version(p_value => 2.61)));
+    record(observation_version_list_t(version(p_value => 2.70, p_change_reason => 'revision')), c_revised_at);
+    record(observation_version_list_t(version(p_value => 2.65, p_change_reason => 'correction')), c_later);
+
+    -- Before the revision: only the first version, still current, so known_to is null.
+    l_rows := value_versions(c_revised_at - interval '1' second);
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+    ut.expect(l_rows(1).known_to).to_be_null();
+
+    -- At the revision: the first version is closed at as_of and is shown with it.
+    l_rows := value_versions(c_revised_at);
+    ut.expect(l_rows.count).to_equal(2);
+    ut.expect(l_rows(1).known_to).to_equal(c_revised_at);
+    ut.expect(l_rows(2).value).to_equal(2.70);
+    ut.expect(l_rows(2).known_to).to_be_null();
+
+    -- Before the first knowledge time: nothing is known.
+    l_rows := value_versions(c_known_from - interval '1' second);
+    ut.expect(l_rows.count).to_equal(0);
+  end value_versions_hide_later_knowledge;
+
+  procedure value_versions_ignore_derived_values is
+    l_rows value_version_rows;
+  begin
+    record(observation_version_list_t(
+      version('10Y', p_value => 2.50, p_origin => 'derived', p_method_version => 'm1')
+    ));
+    l_rows := value_versions(c_later);
+    ut.expect(l_rows.count).to_equal(0);
+
+    record(observation_version_list_t(version('10Y', p_value => 2.61)));
+    l_rows := value_versions(c_later);
+    ut.expect(l_rows.count).to_equal(1);
+    ut.expect(l_rows(1).value).to_equal(2.61);
+  end value_versions_ignore_derived_values;
+
+  procedure value_versions_of_an_unknown_value_are_empty is
+    l_rows value_version_rows;
+  begin
+    l_rows := value_versions(c_later);
+    ut.expect(l_rows.count).to_equal(0);
+
+    record(observation_version_list_t(version('2Y', p_value => 2.10)));
+    l_rows := value_versions(c_later, p_maturity => '10Y');
+    ut.expect(l_rows.count).to_equal(0);
+    l_rows := value_versions(c_later, p_maturity => '2Y');
+    ut.expect(l_rows.count).to_equal(1);
+  end value_versions_of_an_unknown_value_are_empty;
 
 end ut_core_observation;
 /
