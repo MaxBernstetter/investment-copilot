@@ -18,12 +18,30 @@ def reader_with(values: dict[date, float], maturity: str = "10Y") -> FakeCurveRe
     )
 
 
-async def test_defaults_as_of_to_the_database_clock() -> None:
-    series = await GetSeriesAsOf(reader_with({date(2026, 3, 12): 2.61}))(
-        CURVE, "10Y", None, None, None
-    )
+async def test_defaults_as_of_to_the_knowledge_horizon() -> None:
+    reader = FakeCurveReader(horizon=KNOWN_FROM, values={(CURVE, date(2026, 3, 12)): {"10Y": 2.61}})
 
-    assert series.as_of == NOW
+    series = await GetSeriesAsOf(reader)(CURVE, "10Y", None, None, None)
+
+    assert series.as_of == KNOWN_FROM
+
+
+async def test_answers_an_as_of_after_the_horizon_at_the_horizon() -> None:
+    reader = FakeCurveReader(horizon=KNOWN_FROM, values={(CURVE, date(2026, 3, 12)): {"10Y": 2.61}})
+
+    series = await GetSeriesAsOf(reader)(CURVE, "10Y", None, None, NOW)
+
+    assert series.as_of == KNOWN_FROM
+
+
+async def test_keeps_an_as_of_at_or_before_the_horizon() -> None:
+    reader = FakeCurveReader(horizon=NOW, values={(CURVE, date(2026, 3, 12)): {"10Y": 2.61}})
+
+    earlier = await GetSeriesAsOf(reader)(CURVE, "10Y", None, None, KNOWN_FROM)
+    at_horizon = await GetSeriesAsOf(reader)(CURVE, "10Y", None, None, NOW)
+
+    assert earlier.as_of == KNOWN_FROM
+    assert at_horizon.as_of == NOW
 
 
 async def test_defaults_to_the_latest_known_date_and_the_year_before_it() -> None:

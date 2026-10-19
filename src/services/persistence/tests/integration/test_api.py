@@ -182,6 +182,18 @@ def test_reads_the_latest_curve_without_parameters(client: TestClient, curve_id:
     assert response.json()["meta"]["as_of"]
 
 
+def test_the_default_as_of_is_the_last_committed_knowledge_time(
+    client: TestClient, curve_id: str
+) -> None:
+    known_from = client.post(RECORD_VERSIONS_PATH, json=batch(curve_id)).json()["known_from"]
+
+    response = client.get(curve_path(curve_id), params={"valid_date": "2026-03-12"})
+
+    assert datetime.fromisoformat(response.json()["meta"]["as_of"]) == datetime.fromisoformat(
+        known_from
+    )
+
+
 def test_unknown_curve_is_not_found(client: TestClient, curve_id: str) -> None:
     response = client.get(curve_path(f"{curve_id}-undefined"))
 

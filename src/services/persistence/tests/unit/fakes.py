@@ -80,12 +80,16 @@ class FakeCurveReader:
     """Reads published curves like core_observation: values are known from KNOWN_FROM on."""
 
     now: datetime = NOW
+    horizon: datetime = NOW
     known_from: datetime = KNOWN_FROM
     curves: set[str] = field(default_factory=lambda: {"ecb-aaa-spot"})
     values: dict[tuple[str, date], dict[str, float]] = field(default_factory=dict)
 
     async def current_knowledge_time(self) -> datetime:
         return self.now
+
+    async def knowledge_horizon(self) -> datetime:
+        return self.horizon
 
     async def latest_valid_date(self, curve_id: str, as_of: datetime) -> date | None:
         if as_of < self.known_from:

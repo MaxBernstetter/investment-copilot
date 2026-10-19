@@ -203,7 +203,9 @@ def test_returns_the_curve_as_of_the_given_time(client: TestClient, backend: Fak
     }
 
 
-def test_without_as_of_echoes_the_database_clock(client: TestClient, backend: FakeBackend) -> None:
+def test_without_as_of_echoes_the_knowledge_horizon(
+    client: TestClient, backend: FakeBackend
+) -> None:
     seed_curve(backend)
 
     response = client.get(CURVE_PATH, params={"valid_date": "2026-03-12"})
