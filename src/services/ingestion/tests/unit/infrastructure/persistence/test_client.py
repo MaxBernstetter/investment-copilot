@@ -1,0 +1,120 @@
+"""PersistenceClient against a stub of the write interface. No network."""
+
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
+from contracts.persistence import v1
+
+from ingestion.application.load_published_curve import RecordedBatch
+from ingestion.config import PersistenceSettings
+from ingestion.domain.observation import PublishedObservation
+from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
+from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
+
+pytestmark = pytest.mark.anyio
+
+SETTINGS = PersistenceSettings.model_validate({"url": URL})
+
+
+def observations(count: int) -> list[PublishedObservation]:
+    return [
+        PublishedObservation(
+            "ecb-aaa-spot", "10Y", date(2000, 1, 1) + timedelta(days=i), Decimal(i)
+        )
+        for i in range(count)
+    ]
+
+
+@dataclass
+class FakeSleep:
+    waits: list[float] = field(default_factory=list)
+
+    async def __call__(self, seconds: float) -> None:
+        self.waits.append(seconds)
+
+
+async def record(
+    stub: StubPersistence, rows: list[PublishedObservation], sleep: FakeSleep | None = None
+) -> list[RecordedBatch]:
+    async with PersistenceClient(
+        SETTINGS, transport=stub.transport, sleep=sleep or FakeSleep()
+    ) as client:
+        return await client.record("ecb", rows, "run-1")
+
+
+async def test_observations_are_sent_as_published_versions_of_the_run() -> None:
+    stub = StubPersistence()
+
+    result = await record(stub, observations(1))
+
+    assert result == [RecordedBatch(1, 0, KNOWN_FROM)]
+    assert stub.observations == [
+        v1.ObservationVersion(
+            curve_id="ecb-aaa-spot",
+            maturity="10Y",
+            valid_date=date(2000, 1, 1),
+            value=Decimal(0),
+            origin=v1.Origin.PUBLISHED,
+            method_version=None,
+            source_id="ecb",
+            run_id="run-1",
+            change_reason=v1.ChangeReason.INITIAL,
+        )
+    ]
+
+
+async def test_large_loads_are_split_into_batches_of_the_contract_maximum() -> None:
+    stub = StubPersistence()
+
+    result = await record(stub, observations(v1.MAX_BATCH_SIZE + 1))
+
+    assert [len(batch.observations) for batch in stub.batches] == [v1.MAX_BATCH_SIZE, 1]
+    assert [batch.recorded_count for batch in result] == [v1.MAX_BATCH_SIZE, 1]
+
+
+async def test_unchanged_values_are_reported_as_no_ops() -> None:
+    # Versioning (#15): an unchanged reload stores nothing and is still a success.
+    stub = StubPersistence(unchanged_count=3)
+
+    assert await record(stub, observations(3)) == [RecordedBatch(0, 3, KNOWN_FROM)]
+
+
+async def test_a_response_without_unchanged_count_means_none_unchanged() -> None:
+    # Persistence before versioning (#12) has no unchanged_count.
+    stub = StubPersistence(include_unchanged_count=False)
+
+    assert await record(stub, observations(3)) == [RecordedBatch(3, 0, KNOWN_FROM)]
+
+
+async def test_a_concurrent_write_conflict_is_retried_with_backoff() -> None:
+    stub = StubPersistence(statuses=[409, 409])
+    sleep = FakeSleep()
+
+    result = await record(stub, observations(2), sleep)
+
+    assert result == [RecordedBatch(2, 0, KNOWN_FROM)]
+    assert stub.attempts == 3
+    assert sleep.waits == [0.5, 1.0]
+
+
+async def test_conflicts_are_retried_at_most_three_times_in_all() -> None:
+    stub = StubPersistence(statuses=[409, 409, 409, 200])
+
+    with pytest.raises(PersistenceWriteError) as raised:
+        await record(stub, observations(1))
+
+    assert raised.value.status_code == 409
+    assert stub.attempts == 3
+
+
+@pytest.mark.parametrize("status_code", [422, 500, 503])
+async def test_other_rejections_fail_the_write_without_retry(status_code: int) -> None:
+    stub = StubPersistence(statuses=[status_code])
+
+    with pytest.raises(PersistenceWriteError) as raised:
+        await record(stub, observations(1))
+
+    assert raised.value.status_code == status_code
+    assert stub.attempts == 1
