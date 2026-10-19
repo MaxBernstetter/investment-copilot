@@ -22,12 +22,19 @@ from contracts.persistence.v1.series import (
     SeriesObservationsResponse,
     SeriesPoint,
 )
+from contracts.persistence.v1.versions import (
+    VALUE_VERSIONS_PATH,
+    ValueVersion,
+    ValueVersions,
+    ValueVersionsResponse,
+)
 
 __all__ = [
     "CURVE_OBSERVATIONS_PATH",
     "MAX_BATCH_SIZE",
     "RECORD_VERSIONS_PATH",
     "SERIES_OBSERVATIONS_PATH",
+    "VALUE_VERSIONS_PATH",
     "ChangeReason",
     "CurveMeta",
     "CurveObservations",
@@ -40,4 +47,7 @@ __all__ = [
     "SeriesObservations",
     "SeriesObservationsResponse",
     "SeriesPoint",
+    "ValueVersion",
+    "ValueVersions",
+    "ValueVersionsResponse",
 ]

@@ -77,6 +77,17 @@ create or replace package core_observation authid definer as
     p_as_of      in timestamp
   ) return sys_refcursor;
 
+  -- The published versions of one value (curve, maturity, valid date) known at
+  -- p_as_of, oldest first by known_from. Versions known after p_as_of are left
+  -- out; known_to is null for a version still current at p_as_of (closed later).
+  -- Derived values are not included. No rows for an unknown value.
+  function get_value_versions(
+    p_curve_id   in varchar2,
+    p_maturity   in varchar2,
+    p_valid_date in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor;
+
   -- 1 if the maturity is on the grid of the curve, else 0 (also 0 for an undefined curve).
   function has_maturity(
     p_curve_id in varchar2,
@@ -309,6 +320,28 @@ create or replace package body core_observation as
        order by o.valid_date;
     return l_points;
   end get_series;
+
+  function get_value_versions(
+    p_curve_id   in varchar2,
+    p_maturity   in varchar2,
+    p_valid_date in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor is
+    l_versions sys_refcursor;
+  begin
+    open l_versions for
+      select version_id, value, known_from,
+             case when known_to > p_as_of then null else known_to end known_to,
+             source_id, run_id, change_reason, normalization_version, delivery_id
+        from observation
+       where curve_id = p_curve_id
+         and maturity = p_maturity
+         and valid_date = p_valid_date
+         and origin = 'published'
+         and known_from <= p_as_of
+       order by known_from;
+    return l_versions;
+  end get_value_versions;
 
   function has_maturity(
     p_curve_id in varchar2,
