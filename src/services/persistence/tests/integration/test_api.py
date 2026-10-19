@@ -89,6 +89,25 @@ def test_a_revised_value_becomes_a_new_version_and_keeps_the_previous_one(
     ]
 
 
+@pytest.mark.parametrize(
+    ("maturity", "defined"), [("4Y", True), ("10Y", False)], ids=["off-grid", "undefined-curve"]
+)
+def test_rejects_an_observation_off_the_grid_and_stores_nothing(
+    client: TestClient, oracle: OracleDatabase, curve_id: str, maturity: str, defined: bool
+) -> None:
+    request = batch(curve_id)
+    off_grid = request["observations"][0] | {"maturity": maturity}
+    if not defined:
+        off_grid["curve_id"] = f"{curve_id}-undefined"[:64]
+    request["observations"].append(off_grid)
+
+    response = client.post(RECORD_VERSIONS_PATH, json=request)
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid observations"
+    assert stored_versions(oracle, curve_id) == []
+
+
 def test_is_live_and_ready(client: TestClient) -> None:
     assert client.get("/health").status_code == 200
     assert client.get("/ready").json() == {"status": "ready"}

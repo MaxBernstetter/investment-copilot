@@ -8,6 +8,10 @@ databaseChangeLog:
   - include:
       file: observation_version_types.sql
       relativeToChangelogFile: true
+  # Before the package: record_versions validates against the grid.
+  - include:
+      file: 19_curve_reference_data.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

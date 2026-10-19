@@ -8,7 +8,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 
 | Method and path | Purpose | Responses |
 |---|---|---|
-| `POST /v1/observations/versions` | Record a batch of observations as versions, all or nothing; unchanged observations are no-ops | `200` `RecordVersionsResponse`; `409` a concurrent write recorded the first version of an observation of the batch first (retry); `422` contract violation or an observation appears twice in the batch |
+| `POST /v1/observations/versions` | Record a batch of observations as versions, all or nothing; unchanged observations are no-ops | `200` `RecordVersionsResponse`; `409` a concurrent write recorded the first version of an observation of the batch first (retry); `422` contract violation, an observation appears twice in the batch, or it names an undefined curve or a maturity off its curve's grid |
 | `GET /health` | Liveness | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the database answers a ping | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` |
 

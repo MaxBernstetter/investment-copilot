@@ -28,6 +28,23 @@ def test_compiles_the_core_observation_package(oracle: OracleDatabase) -> None:
         assert cursor.fetchall() == [("PACKAGE", "VALID"), ("PACKAGE BODY", "VALID")]
 
 
+def test_seeds_the_common_maturity_grid_as_version_1(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute("select maturity from grid_maturity where grid_version = 1 order by months")
+        assert [maturity for (maturity,) in cursor] == [
+            "3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"
+        ]  # fmt: skip
+
+
+def test_records_the_ecb_curve_conventions_as_published(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select grid_version, rate_type, compounding, unit, source_model"
+            " from curve where curve_id = 'ecb-aaa-spot'"
+        )
+        assert cursor.fetchall() == [(1, "spot", "continuous", "percent", "Svensson (ECB)")]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 
