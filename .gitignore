@@ -242,3 +242,6 @@ job-posting.md
 
 # Devbox local state
 .devbox/
+
+# go-task checksum state (written by incremental tasks)
+.task/

@@ -62,6 +62,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `ingestion.yml` | Push to `main` and pull requests touching `src/services/ingestion/`, `src/contracts/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
 | `orchestration.yml` | Push to `main` and pull requests touching `src/orchestration/`, the root Taskfile or devbox; manual | `orchestration:setup`, `orchestration:lint`, `orchestration:typecheck`, `orchestration:test:unit` | `devbox run -- task orchestration:<task>` |
 | `access.yml` | Changes in `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
+| `frontend.yml` | Changes in `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `lint`, `typecheck`, `test:unit`, `build` | `devbox run -- task frontend:<task>` |
 
 ### Current tasks
 
@@ -74,6 +75,8 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:update` | Update pinned hook versions |
 
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
+
+The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `fmt`, `lint`, `typecheck`, `test:unit`, `build` and `dev` (see [[01-frontend]]).
 
 Each service has its own Taskfile, included as `<service>:<task>` and run from the service directory (Python services use `uv run --locked`):
 

@@ -21,6 +21,9 @@ includes:
   orchestration:
     taskfile: ./src/orchestration
     dir: ./src/orchestration
+  frontend:
+    taskfile: ./src/frontend
+    dir: ./src/frontend
 
 tasks:
   default:
