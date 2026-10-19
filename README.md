@@ -1,4 +1,4 @@
-# investment-copilot
+# yield-lens
 
 **YieldLens** — an explorable, auditable and historically reproducible government bond yield dataset.
 
