@@ -22,6 +22,10 @@ databaseChangeLog:
   - include:
       file: 21_knowledge_clock.sql
       relativeToChangelogFile: true
+  # Simulated curves are flagged on the curve table before the package validates them.
+  - include:
+      file: 22_simulated_curve.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

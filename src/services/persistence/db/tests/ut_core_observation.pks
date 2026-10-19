@@ -65,6 +65,15 @@ create or replace package ut_core_observation as
   --%test(Rejects a maturity off the curve's grid and stores nothing of the batch)
   procedure rejects_a_maturity_off_the_grid;
 
+  --%test(Records scenario values on a simulated curve)
+  procedure records_scenario_values_on_a_simulated_curve;
+
+  --%test(Rejects a scenario value on a real curve and stores nothing of the batch)
+  procedure rejects_a_scenario_value_on_a_real_curve;
+
+  --%test(Rejects a source value on a simulated curve and stores nothing of the batch)
+  procedure rejects_a_source_value_on_a_simulated_curve;
+
   --%test(Records nothing for an empty batch)
   procedure records_nothing_for_empty_batch;
 

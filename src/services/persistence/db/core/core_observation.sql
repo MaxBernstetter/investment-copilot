@@ -23,6 +23,11 @@ create or replace package core_observation authid definer as
   -- horizon. Nothing of the batch is stored.
   knowledge_time_not_increasing constant pls_integer := -20004;
 
+  -- Raised when an observation of a simulated curve has a source other than
+  -- 'scenario', or an observation with source 'scenario' names a real curve.
+  -- Nothing of the batch is stored.
+  simulated_mismatch constant pls_integer := -20005;
+
   -- known_to of the open (current) version.
   open_known_to constant timestamp := timestamp '9999-12-31 00:00:00';
 
@@ -38,6 +43,7 @@ create or replace package core_observation authid definer as
   -- A new version keeps its change_reason, except that an 'initial' version of
   -- an observation that already has a version is stored as 'revision'.
   -- correction, recalculation and simulated are stored as sent.
+  -- Simulated curves take only source 'scenario' and vice versa (-20005).
   -- o_recorded_count counts the new versions only.
   -- All versions of one call share one knowledge time. Every call first locks
   -- the single row of table knowledge_clock, which serializes all writers, and
@@ -145,6 +151,25 @@ create or replace package body core_observation as
     end if;
   end ensure_unique_observations;
 
+  -- Fails when the batch mixes simulated and real data: a simulated curve takes
+  -- only source 'scenario', and source 'scenario' only simulated curves.
+  procedure ensure_isolated(p_versions in observation_version_list_t) is
+    l_mixed pls_integer;
+  begin
+    select count(*)
+      into l_mixed
+      from table(p_versions) v
+      join curve c on c.curve_id = v.curve_id
+     where case when c.simulated = 'Y' then 1 else 0 end
+           <> case when nvl(v.source_id, '-') = 'scenario' then 1 else 0 end;
+    if l_mixed > 0 then
+      raise_application_error(
+        simulated_mismatch,
+        l_mixed || ' observation(s) mix simulated and real data (simulated curves take only source scenario)'
+      );
+    end if;
+  end ensure_isolated;
+
   -- Fails when the batch names an undefined curve or a maturity off its grid.
   procedure ensure_on_grid(p_versions in observation_version_list_t) is
     l_off_grid pls_integer;
@@ -200,6 +225,7 @@ create or replace package body core_observation as
     savepoint record_versions_start;
     ensure_unique_observations(p_versions);
     ensure_on_grid(p_versions);
+    ensure_isolated(p_versions);
 
     -- Every writer locks the clock first, so knowledge times follow commit order.
     select known_until

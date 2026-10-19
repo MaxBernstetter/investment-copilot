@@ -120,6 +120,19 @@ def test_a_revised_value_is_stored_as_revision(
     ]
 
 
+def test_rejects_a_scenario_value_on_a_real_curve_and_stores_nothing(
+    client: TestClient, oracle: OracleDatabase, curve_id: str
+) -> None:
+    request = batch(curve_id)
+    request["observations"][0]["source_id"] = "scenario"
+
+    response = client.post(RECORD_VERSIONS_PATH, json=request)
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid observations"
+    assert stored_versions(oracle, curve_id) == []
+
+
 @pytest.mark.parametrize(
     ("maturity", "defined"), [("4Y", True), ("10Y", False)], ids=["off-grid", "undefined-curve"]
 )

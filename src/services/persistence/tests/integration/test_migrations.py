@@ -45,6 +45,15 @@ def test_records_the_ecb_curve_conventions_as_published(oracle: OracleDatabase) 
         assert cursor.fetchall() == [(1, "spot", "continuous", "percent", "Svensson (ECB)")]
 
 
+def test_defines_the_simulated_curve_apart_from_the_real_one(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select curve_id, simulated from curve"
+            " where curve_id in ('ecb-aaa-spot', 'ecb-aaa-spot-sim') order by curve_id"
+        )
+        assert cursor.fetchall() == [("ecb-aaa-spot", "N"), ("ecb-aaa-spot-sim", "Y")]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 

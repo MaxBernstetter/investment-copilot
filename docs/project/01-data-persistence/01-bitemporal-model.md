@@ -48,10 +48,11 @@ The common maturity grid and the curve definitions are versioned reference data 
 |---|---|---|
 | `maturity_grid` | `grid_version` | A grid version and its description. A version is never changed once applied; a different grid is a new version |
 | `grid_maturity` | (`grid_version`, `maturity`) | The tenors of a grid version, with their length in `months` for ordering (unique per version) |
-| `curve` | `curve_id` | The grid version a curve is stored on, and its conventions **as published**: `rate_type` (`spot`, `par`, `forward`), `compounding` (`continuous`, `annual`, `semi-annual`), `unit` (`percent`) and `source_model` (the source's fitting model, optional) |
+| `curve` | `curve_id` | The grid version a curve is stored on, and its conventions **as published**: `rate_type` (`spot`, `par`, `forward`), `compounding` (`continuous`, `annual`, `semi-annual`), `unit` (`percent`) and `source_model` (the source's fitting model, optional). `simulated` (`Y`/`N`, default `N`) flags a curve of simulated data, written only by the scenario mechanism |
 
 - **Grid version 1** holds the 11 tenors of phase 1: `3M`, `6M`, `1Y`, `2Y`, `3Y`, `5Y`, `7Y`, `10Y`, `15Y`, `20Y`, `30Y` ([[01-data-sources]]).
 - **`ecb-aaa-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)`.
+- **`ecb-aaa-spot-sim`** is the simulated twin of `ecb-aaa-spot` on grid 1 (`simulated` = `Y`, no source model). Simulated and real data never share a curve: a simulated curve takes only source `scenario`, and source `scenario` only simulated curves (`-20005`).
 - Conventions are **recorded, not converted**: values are stored as the source publishes them. Converting between conventions (for example semi-annual par yields to continuous spot rates) is a calculation and produces *derived* values in processing.
 - Both are seeded by Liquibase changesets (`db/core/19_curve_reference_data.sql`). A new curve or grid version is a new changeset.
 
@@ -87,6 +88,7 @@ The service only calls the package; it never touches the table (see [[#Users and
 | `duplicate_observation` (`-20002`) | Raised when an observation appears more than once in the batch. Nothing of the batch is stored. |
 | `off_grid_observation` (`-20003`) | Raised when an observation names a curve without a definition in `curve`, or a maturity that is not on its curve's grid. Nothing of the batch is stored. |
 | `knowledge_time_not_increasing` (`-20004`) | Raised when a given `p_known_from` is not after the knowledge horizon. Nothing of the batch is stored. |
+| `simulated_mismatch` (`-20005`) | Raised when an observation of a simulated curve has a source other than `scenario`, or an observation with source `scenario` names a real curve. Nothing of the batch is stored. |
 | `open_known_to` | The `known_to` sentinel of open versions. |
 
 `observation_version_t` holds the input row: every column of `observation` except `version_id`, `known_from` and `known_to`.
@@ -155,7 +157,7 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 
 | Level | What | Where |
 |---|---|---|
-| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, series reads per maturity, grid membership, the knowledge clock (horizon, clock lag, rejected and failed calls), unchanged reloads (also with another normalization version or delivery), mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
+| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, series reads per maturity, grid membership, the knowledge clock (horizon, clock lag, rejected and failed calls), unchanged reloads (also with another normalization version or delivery), mixed batches, simulated curves (scenario source only, mixing rejected), origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
 | Integration | Migrations (partitioning, package valid, seeded grid, curve conventions and knowledge clock, idempotent rerun, no table access for `CORE_APP`), knowledge clock (an as-of read at the horizon is unchanged by a write committed later), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
 | Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 
