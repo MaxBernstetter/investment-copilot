@@ -31,7 +31,7 @@ YieldLens is a monorepo of independently deployable services, one per domain (bo
 | `persistence` | Bitemporal core: versions, as-of retrieval, curve definitions, value lineage, knowledge-state diffs | `CORE` | Oracle, PL/SQL, Python |
 | `processing` | Quality rules and validation gates, derived curves and measures, recalculation and impact, marts (write–audit–publish), anomalies | `PROC` | Python, QuantLib, C++ (pybind11), scikit-learn |
 | `access` | Public read-only REST API, cross-service lineage, response caching, grounded Q&A | – | FastAPI |
-| `frontend` | Explorer and operations UI, talks only to `access` | – | React, TypeScript, Plotly.js |
+| `frontend` | Explorer and operations UI, talks only to `access` | – | React, TypeScript, Mantine, Recharts |
 
 All code lives under `src/`: the services (`src/services/<name>/`), the frontend, and these platform parts, which hold no domain logic:
 

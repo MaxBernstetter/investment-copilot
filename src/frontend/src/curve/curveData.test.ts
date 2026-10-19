@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chartSeries, missingMaturities, overlayTraces, type CurvePoint } from './curveData'
+import { missingMaturities, overlayRows, overlaySeries, type CurvePoint } from './curveData'
 
 const points: CurvePoint[] = [
   { maturity: '3M', months: 3, value: 2.1 },
@@ -8,24 +8,33 @@ const points: CurvePoint[] = [
 ]
 
 describe('curveData', () => {
-  it('keeps grid order and null gaps', () => {
-    expect(chartSeries(points)).toEqual({ x: ['3M', '1Y', '10Y'], y: [2.1, null, 2.6] })
-  })
-
   it('lists missing maturities', () => {
     expect(missingMaturities(points)).toEqual(['1Y'])
     expect(missingMaturities([points[0]])).toEqual([])
   })
 
-  it('overlayTraces labels each curve by its valid date', () => {
+  it('overlay rows keep grid order and nulls as gaps', () => {
     expect(
-      overlayTraces([
+      overlayRows([
         { label: '2026-10-16', points },
         { label: '2026-10-01', points: [points[0]] },
       ]),
     ).toEqual([
-      { x: ['3M', '1Y', '10Y'], y: [2.1, null, 2.6], name: '2026-10-16' },
-      { x: ['3M'], y: [2.1], name: '2026-10-01' },
+      { maturity: '3M', '2026-10-16': 2.1, '2026-10-01': 2.1 },
+      { maturity: '1Y', '2026-10-16': null, '2026-10-01': null },
+      { maturity: '10Y', '2026-10-16': 2.6, '2026-10-01': null },
+    ])
+  })
+
+  it('one series per curve named by valid date', () => {
+    expect(
+      overlaySeries([
+        { label: '2026-10-16', points },
+        { label: '2026-10-01', points: [points[0]] },
+      ]),
+    ).toEqual([
+      { name: '2026-10-16', color: 'indigo.6' },
+      { name: '2026-10-01', color: 'teal.6' },
     ])
   })
 })

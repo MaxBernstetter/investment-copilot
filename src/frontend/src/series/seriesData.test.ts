@@ -14,16 +14,17 @@ describe('seriesData', () => {
     expect((Date.parse(to) - Date.parse(from)) / (24 * 60 * 60 * 1000)).toBe(365)
   })
 
-  it('keeps date order', () => {
+  it('series rows in valid-date order', () => {
     const points: SeriesPoint[] = [
       { valid_date: '2026-10-15', value: 2.5 },
       { valid_date: '2026-10-16', value: 2.6 },
       { valid_date: '2026-10-19', value: 2.7 },
     ]
 
-    expect(seriesChart(points)).toEqual({
-      x: ['2026-10-15', '2026-10-16', '2026-10-19'],
-      y: [2.5, 2.6, 2.7],
-    })
+    expect(seriesChart(points)).toEqual([
+      { valid_date: '2026-10-15', value: 2.5 },
+      { valid_date: '2026-10-16', value: 2.6 },
+      { valid_date: '2026-10-19', value: 2.7 },
+    ])
   })
 })

@@ -64,3 +64,6 @@ jobs:
 
       - name: Build
         run: devbox run -- task frontend:build
+
+      - name: Bundle size
+        run: devbox run -- task frontend:size

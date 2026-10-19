@@ -8,22 +8,44 @@
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "size-limit"
   },
+  "size-limit": [
+    {
+      "name": "initial JS",
+      "path": "dist/assets/index-*.js",
+      "limit": "170 kB",
+      "gzip": true
+    },
+    {
+      "name": "all JS",
+      "path": "dist/assets/*.js",
+      "limit": "300 kB",
+      "gzip": true
+    },
+    {
+      "name": "CSS",
+      "path": "dist/assets/*.css",
+      "limit": "45 kB",
+      "gzip": true
+    }
+  ],
   "dependencies": {
+    "@mantine/charts": "9.7.2",
     "@mantine/core": "9.7.2",
     "@mantine/hooks": "9.7.2",
     "openapi-fetch": "0.14.1",
-    "plotly.js-dist-min": "3.7.0",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "recharts": "3.10.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@size-limit/file": "14.2.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.8",
-    "@types/plotly.js-dist-min": "2.3.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.2.0",
@@ -32,6 +54,7 @@
     "globals": "16.5.0",
     "jsdom": "26.1.0",
     "openapi-typescript": "7.13.0",
+    "size-limit": "14.2.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.2",
     "vite": "7.3.7",

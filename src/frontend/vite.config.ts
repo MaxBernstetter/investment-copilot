@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: { port, strictPort: true },
+    build: {
+      // Lazy chunks (the charts) must not match the entry's `index-*.js` in the bundle budget.
+      rollupOptions: { output: { chunkFileNames: 'assets/chunk-[hash].js' } },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
