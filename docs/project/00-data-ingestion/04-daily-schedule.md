@@ -35,6 +35,21 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 
 The ingestion service has no image and no `job` container yet, so the task runs the job's command line `ingestion-load-ecb daily --valid-date … --run-id …` as a subprocess on the Airflow worker. The command must be on the worker's `PATH` and the worker needs the job's environment (`INGESTION_PERSISTENCE__URL`, `INGESTION_SOURCES__ECB__*`). Once the ingestion image exists, the task starts it as a `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
 
+## Backfill
+
+The DAG `backfill_ecb` loads a date range by hand. Code: `src/orchestration/dags/backfill_ecb.py`, with the year split and the command in `src/orchestration/src/orchestration/ecb_backfill.py`.
+
+Trigger it from the Airflow UI with the parameters `start` and `end` (inclusive dates), or from the CLI:
+
+```sh
+airflow dags trigger backfill_ecb --conf '{"start":"2004-09-06","end":"2024-12-31"}'
+```
+
+- The range is split into one chunk per calendar year. The first and last chunk are clipped to `start` and `end`. Each chunk is one `ingestion-load-ecb history --start … --end … --run-id backfill_ecb-<start>-<end>` run.
+- The chunks run one after another in the `ecb` pool, so a backfill never runs next to the daily load. The retry and failure rules of the daily load apply to each chunk.
+- Rerunning a range is safe: a value that is already stored and unchanged is a no-op, thanks to versioning ([[03-ecb-load#Not yet in place]], [#15](https://github.com/MaxBernstetter/yield-lens/issues/15)).
+- `start` after `end` is rejected by the planning task before any chunk runs.
+
 ## Pools
 
 Pools are created from `src/orchestration/pools.json` with `task orchestration:pools:import` (needs a migrated metadata DB in `AIRFLOW_HOME`). A task in a pool that does not exist is never scheduled, so the DAG tests check that every pool a DAG uses is in `pools.json`.
@@ -45,7 +60,8 @@ Pools are created from `src/orchestration/pools.json` with `task orchestration:p
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1 |
+| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; the backfill is manual (no schedule) with one run and one year at a time in the same pool |
+| `tests/unit/test_ecb_backfill.py` | The year split (clipped first and last chunk, one chunk within a year, `start` after `end` rejected) and the `history` command |
 | `tests/unit/test_ecb_daily_load.py` | Valid date per run day, skip on TARGET holidays, the job command, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
 | `tests/unit/test_target_calendar.py` | TARGET closing days, moving Easter, previous business day across weekends, holidays and the year end |
 
