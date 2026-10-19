@@ -66,6 +66,8 @@ The service only calls the package; it never touches the table (see [[#Users and
 | `record_versions(p_versions, o_known_from, o_recorded_count, p_known_from default null)` | Records the elements of `p_versions` (`observation_version_list_t`) as versions, set-based (see [[#Versioning]]). `known_from` is `p_known_from` if given (deterministic tests, replays), otherwise the database clock. Returns the knowledge time and the number of **new** versions. |
 | `get_versions(p_curve_id, p_valid_date_from, p_valid_date_to)` | All stored versions of one curve in a valid-date range, as a cursor ordered by `valid_date`, `maturity`, `origin`, `method_version`, `known_from`. Used by tests and the history of a curve. |
 | `get_as_of(p_curve_id, p_valid_date, p_as_of)` | The published value of every maturity of the curve's grid as known at `p_as_of` for one valid date, as a cursor with columns `maturity`, `months`, `value`, ordered by `months`. `value` is null where no version is visible; no rows for an undefined curve. See [[#As-of retrieval]]. |
+| `get_series(p_curve_id, p_maturity, p_from, p_to, p_as_of)` | The published value of one maturity for each valid date in the inclusive range `p_from`..`p_to` as known at `p_as_of`, as a cursor with columns `valid_date`, `value`, ordered by `valid_date`. Only dates with a visible version have a row, so dates without one leave gaps. See [[#As-of retrieval]]. |
+| `has_maturity(p_curve_id, p_maturity)` | `1` if the maturity is on the curve's grid, else `0` (also `0` for an undefined curve). |
 | `latest_valid_date(p_curve_id, p_as_of)` | The latest valid date with a published value visible at `p_as_of`; null if none. |
 | `current_knowledge_time()` | The knowledge time now: the database clock in UTC (`sys_extract_utc(systimestamp)`). |
 | `open_version_exists` (`-20001`) | Raised when a concurrent call opened the first version of an observation of the batch before this one. Nothing of the batch is stored; the caller retries. |
@@ -105,7 +107,9 @@ A consumer asks *what did the curve look like on valid date `d` as it was known 
 - **Grid order:** every maturity of the curve's grid is returned, ordered by `months`. A maturity without a visible value comes back with a null `value`, so the shape of the curve never depends on which values were known.
 - **Undefined curve:** no rows. The service turns that into not found.
 
-The service reads the latest valid date known at `t` with `latest_valid_date` when no valid date is given. `current_knowledge_time` supplies the default knowledge time.
+The service reads the latest valid date known at `t` with `latest_valid_date` when no valid date is given.
+
+A series reads one maturity over a range of valid dates with `get_series`. It applies the same visibility and published-only rules per valid date, so a valid date revised after `t` still shows its value as of `t`, and a valid date with no version visible at `t` is absent from the result rather than null. `current_knowledge_time` supplies the default knowledge time.
 
 ## Users and privileges
 
@@ -132,7 +136,7 @@ Liquibase runs from the official `liquibase/liquibase:4.33.0` image, which bundl
 
 | Level | What | Where |
 |---|---|---|
-| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, unchanged reloads (also with another normalization version or delivery), mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
+| utPLSQL | `core_observation`: valid and knowledge time, database clock, open versions, provenance, versioning of changed values and sources, contiguous intervals, as-of visibility, series reads per maturity, grid membership, unchanged reloads (also with another normalization version or delivery), mixed batches, origins and method versions, duplicates, undefined curves and maturities off the grid, empty batch, constraints, range reads | `db/tests/ut_core_observation.pk[sb]`, run by `tests/integration/test_plsql.py` |
 | Integration | Migrations (partitioning, package valid, seeded grid and curve conventions, idempotent rerun, no table access for `CORE_APP`), Oracle adapter, REST end to end | `tests/integration/` (Testcontainers, Oracle Free) |
 | Unit | Domain rules, use case, REST facade, configuration | `tests/unit/` |
 

@@ -83,5 +83,17 @@ create or replace package ut_core_observation as
 
   --%test(Latest valid date is the latest published valid date known at the given time)
   procedure latest_valid_date_as_of;
+
+  --%test(Series returns the known dates of the maturity in valid-date order)
+  procedure series_returns_known_dates_in_order;
+
+  --%test(Series returns the version that was known at the given time)
+  procedure series_returns_the_version_known_then;
+
+  --%test(Series omits dates without a visible published version)
+  procedure series_omits_dates_without_a_visible_version;
+
+  --%test(Has maturity checks the grid of the curve)
+  procedure has_maturity_checks_the_grid;
 end ut_core_observation;
 /

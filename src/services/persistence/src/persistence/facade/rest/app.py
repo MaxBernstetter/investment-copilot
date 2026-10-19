@@ -7,16 +7,23 @@ from datetime import date
 from typing import Annotated, Any
 
 from contracts.persistence import v1
-from fastapi import Depends, FastAPI, Path, Request, status
+from fastapi import Depends, FastAPI, Path, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
+from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.record_versions import RecordVersions
 from persistence.domain.curve import FutureAsOfError, NothingKnownError
 from persistence.domain.observation import InvalidObservationsError, OpenVersionExistsError
-from persistence.facade.mapping import to_curve_response, to_observation, to_response
+from persistence.domain.series import InvalidRangeError
+from persistence.facade.mapping import (
+    to_curve_response,
+    to_observation,
+    to_response,
+    to_series_response,
+)
 
 PROBLEM_JSON = "application/problem+json"
 
@@ -28,6 +35,7 @@ class Services:
     record_versions: RecordVersions
     is_ready: Callable[[], Awaitable[bool]]
     get_curve_as_of: GetCurveAsOf
+    get_series_as_of: GetSeriesAsOf
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -100,6 +108,33 @@ def _add_routes(app: FastAPI) -> None:
         curve = await services.get_curve_as_of(curve_id, valid_date, as_of)
         return to_curve_response(curve)
 
+    @app.get(
+        v1.SERIES_OBSERVATIONS_PATH,
+        response_model=v1.SeriesObservationsResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {
+                "description": "The maturity is not on the curve's grid, or no published value "
+                "of it is known in the range as of the time"
+            },
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
+        },
+    )
+    async def series_observations(
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        maturity: Annotated[str, Path(min_length=1, max_length=16)],
+        services: ServicesDependency,
+        valid_from: Annotated[date | None, Query(alias="from")] = None,
+        valid_to: Annotated[date | None, Query(alias="to")] = None,
+        as_of: AwareDatetime | None = None,
+    ) -> v1.SeriesObservationsResponse:
+        """One maturity of a published curve over valid dates, as it was known at ``as_of``.
+
+        ``to`` defaults to the latest valid date known at ``as_of``; ``from`` defaults to
+        365 days before ``to``.
+        """
+        series = await services.get_series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
+        return to_series_response(series)
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         """Liveness: the process is up."""
@@ -141,6 +176,10 @@ def _add_problem_handlers(app: FastAPI) -> None:
     @app.exception_handler(FutureAsOfError)
     async def future_as_of(_: Request, error: FutureAsOfError) -> JSONResponse:
         return _problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "Invalid as_of", str(error))
+
+    @app.exception_handler(InvalidRangeError)
+    async def invalid_range(_: Request, error: InvalidRangeError) -> JSONResponse:
+        return _problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "Invalid range", str(error))
 
     @app.exception_handler(OpenVersionExistsError)
     async def open_version_exists(_: Request, error: OpenVersionExistsError) -> JSONResponse:

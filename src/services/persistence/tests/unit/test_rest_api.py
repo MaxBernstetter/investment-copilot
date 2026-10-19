@@ -4,10 +4,15 @@ from datetime import date
 from typing import Any
 
 import pytest
-from contracts.persistence.v1 import CURVE_OBSERVATIONS_PATH, RECORD_VERSIONS_PATH
+from contracts.persistence.v1 import (
+    CURVE_OBSERVATIONS_PATH,
+    RECORD_VERSIONS_PATH,
+    SERIES_OBSERVATIONS_PATH,
+)
 from fastapi.testclient import TestClient
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
+from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.record_versions import RecordVersions
 from persistence.domain.observation import Observation, OpenVersionExistsError, RecordedVersions
 from persistence.facade.rest.app import Services, create_app
@@ -39,7 +44,12 @@ class FakeBackend:
 
     @asynccontextmanager
     async def services(self) -> AsyncIterator[Services]:
-        yield Services(RecordVersions(self.repository), self.is_ready, GetCurveAsOf(self.curves))
+        yield Services(
+            RecordVersions(self.repository),
+            self.is_ready,
+            GetCurveAsOf(self.curves),
+            GetSeriesAsOf(self.curves),
+        )
 
 
 @pytest.fixture
@@ -123,7 +133,13 @@ def test_a_concurrent_write_is_a_conflict() -> None:
         async def is_ready() -> bool:
             return True
 
-        yield Services(RecordVersions(LosesTheRace()), is_ready, GetCurveAsOf(FakeCurveReader()))
+        curves = FakeCurveReader()
+        yield Services(
+            RecordVersions(LosesTheRace()),
+            is_ready,
+            GetCurveAsOf(curves),
+            GetSeriesAsOf(curves),
+        )
 
     with TestClient(create_app(services)) as client:
         response = client.post(RECORD_VERSIONS_PATH, json={"observations": [observation()]})
@@ -244,4 +260,86 @@ def test_naive_as_of_is_an_invalid_request_problem(
 
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid request"
+
+
+SERIES_PATH = SERIES_OBSERVATIONS_PATH.format(curve_id="ecb-aaa-spot", maturity="10Y")
+
+
+def test_returns_the_series_of_a_maturity_in_the_envelope(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+
+    response = client.get(
+        SERIES_PATH,
+        params={"from": "2026-03-01", "to": "2026-03-12", "as_of": "2026-03-13T08:00:00Z"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "points": [{"valid_date": "2026-03-12", "value": 2.61}],
+        },
+        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+    }
+
+
+def test_unknown_maturity_is_a_not_found_problem(client: TestClient, backend: FakeBackend) -> None:
+    seed_curve(backend)
+
+    response = client.get(
+        SERIES_OBSERVATIONS_PATH.format(curve_id="ecb-aaa-spot", maturity="4Y"),
+        params={"to": "2026-03-12"},
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+
+
+def test_no_point_in_the_range_is_a_not_found_problem(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+
+    response = client.get(SERIES_PATH, params={"from": "2020-01-01", "to": "2020-12-31"})
+
+    assert response.status_code == 404
+    assert response.json()["title"] == "Not found"
+
+
+def test_from_after_to_is_an_invalid_range_problem(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+
+    response = client.get(SERIES_PATH, params={"from": "2026-03-13", "to": "2026-03-12"})
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid range"
+
+
+def test_future_as_of_on_a_series_is_an_invalid_as_of_problem(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+
+    response = client.get(SERIES_PATH, params={"as_of": "2026-03-13T10:00:00Z"})
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid as_of"
+
+
+def test_a_malformed_range_date_is_an_invalid_request_problem(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+
+    response = client.get(SERIES_PATH, params={"from": "2026-13-01"})
+
+    assert response.status_code == 422
     assert response.json()["title"] == "Invalid request"

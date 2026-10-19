@@ -13,6 +13,7 @@ from persistence.domain.observation import (
     Origin,
     RecordedVersions,
 )
+from persistence.domain.series import SeriesPoint
 
 KNOWN_FROM = datetime(2026, 3, 12, 18, 0, tzinfo=UTC)
 NOW = datetime(2026, 3, 13, 9, 0, tzinfo=UTC)
@@ -102,3 +103,18 @@ class FakeCurveReader:
             CurvePoint(maturity=maturity, months=months, value=known.get(maturity))
             for maturity, months in GRID
         ]
+
+    async def has_maturity(self, curve_id: str, maturity: str) -> bool:
+        return curve_id in self.curves and maturity in {name for name, _ in GRID}
+
+    async def series_as_of(
+        self, curve_id: str, maturity: str, valid_from: date, valid_to: date, as_of: datetime
+    ) -> list[SeriesPoint]:
+        if as_of < self.known_from:
+            return []
+        dated = sorted(
+            (valid_date, known[maturity])
+            for (key, valid_date), known in self.values.items()
+            if key == curve_id and maturity in known and valid_from <= valid_date <= valid_to
+        )
+        return [SeriesPoint(valid_date=valid_date, value=value) for valid_date, value in dated]

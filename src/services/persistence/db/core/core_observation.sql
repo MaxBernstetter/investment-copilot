@@ -62,6 +62,24 @@ create or replace package core_observation authid definer as
     p_as_of      in timestamp
   ) return sys_refcursor;
 
+  -- The published values of one maturity over a range of valid dates (inclusive),
+  -- as known at p_as_of. Columns valid_date, value; one row per valid date that
+  -- has a visible published version, ordered by valid_date. Dates without one
+  -- have no row.
+  function get_series(
+    p_curve_id   in varchar2,
+    p_maturity   in varchar2,
+    p_from       in date,
+    p_to         in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor;
+
+  -- 1 if the maturity is on the grid of the curve, else 0 (also 0 for an undefined curve).
+  function has_maturity(
+    p_curve_id in varchar2,
+    p_maturity in varchar2
+  ) return number;
+
   -- The latest valid date with a published value visible at p_as_of; null if none.
   function latest_valid_date(
     p_curve_id in varchar2,
@@ -253,6 +271,42 @@ create or replace package body core_observation as
        order by g.months;
     return l_points;
   end get_as_of;
+
+  function get_series(
+    p_curve_id   in varchar2,
+    p_maturity   in varchar2,
+    p_from       in date,
+    p_to         in date,
+    p_as_of      in timestamp
+  ) return sys_refcursor is
+    l_points sys_refcursor;
+  begin
+    open l_points for
+      select o.valid_date, o.value
+        from observation o
+       where o.curve_id = p_curve_id
+         and o.maturity = p_maturity
+         and o.origin = 'published'
+         and o.valid_date between p_from and p_to
+         and o.known_from <= p_as_of and p_as_of < o.known_to
+       order by o.valid_date;
+    return l_points;
+  end get_series;
+
+  function has_maturity(
+    p_curve_id in varchar2,
+    p_maturity in varchar2
+  ) return number is
+    l_count pls_integer;
+  begin
+    select count(*)
+      into l_count
+      from curve c
+      join grid_maturity g on g.grid_version = c.grid_version
+     where c.curve_id = p_curve_id
+       and g.maturity = p_maturity;
+    return case when l_count > 0 then 1 else 0 end;
+  end has_maturity;
 
   function latest_valid_date(
     p_curve_id in varchar2,

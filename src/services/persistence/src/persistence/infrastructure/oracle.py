@@ -16,6 +16,7 @@ from persistence.domain.observation import (
     OpenVersionExistsError,
     RecordedVersions,
 )
+from persistence.domain.series import SeriesPoint
 
 OPEN_VERSION_EXISTS = 20001
 """Application error code of core_observation.open_version_exists (raised as ORA-20001)."""
@@ -121,6 +122,33 @@ class OracleObservationRepository:
                 value=float(value) if value is not None else None,
             )
             for maturity, months, value in rows
+        ]
+
+    async def has_maturity(self, curve_id: str, maturity: str) -> bool:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            found = await connection.cursor().callfunc(
+                "core.core_observation.has_maturity",
+                oracledb.DB_TYPE_NUMBER,
+                [curve_id, maturity],
+            )
+        return bool(found)
+
+    async def series_as_of(
+        self, curve_id: str, maturity: str, valid_from: date, valid_to: date, as_of: datetime
+    ) -> list[SeriesPoint]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            points = await cursor.callfunc(
+                "core.core_observation.get_series",
+                oracledb.DB_TYPE_CURSOR,
+                [curve_id, maturity, valid_from, valid_to, _bind_timestamp(cursor, as_of)],
+            )
+            rows = await points.fetchall()
+        return [
+            SeriesPoint(valid_date=valid_date.date(), value=float(value))
+            for valid_date, value in rows
         ]
 
 
