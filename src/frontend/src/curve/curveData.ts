@@ -5,19 +5,26 @@ export type CurvePoint = components['schemas']['CurvePoint']
 /** A curve on the chart, labelled by its valid date. */
 export type LabelledCurve = { label: string; points: CurvePoint[] }
 
-/** Chart series in grid order (the order the API returns); a null value becomes a gap. */
-export function chartSeries(points: CurvePoint[]): { x: string[]; y: (number | null)[] } {
-  return {
-    x: points.map((point) => point.maturity),
-    y: points.map((point) => point.value),
-  }
+const PALETTE = ['indigo.6', 'teal.6', 'orange.6', 'grape.6', 'cyan.6', 'pink.6']
+
+/**
+ * One row per maturity in grid order, with one key per curve label.
+ * A maturity a curve does not publish is null, so the chart leaves a gap.
+ */
+export function overlayRows(curves: LabelledCurve[]): Record<string, string | number | null>[] {
+  const maturities = [...new Set(curves.flatMap(({ points }) => points.map((p) => p.maturity)))]
+  return maturities.map((maturity) => {
+    const row: Record<string, string | number | null> = { maturity }
+    for (const { label, points } of curves) {
+      row[label] = points.find((point) => point.maturity === maturity)?.value ?? null
+    }
+    return row
+  })
 }
 
 /** One series per curve, named by its label so the legend shows the valid date. */
-export function overlayTraces(
-  curves: LabelledCurve[],
-): { x: string[]; y: (number | null)[]; name: string }[] {
-  return curves.map(({ label, points }) => ({ ...chartSeries(points), name: label }))
+export function overlaySeries(curves: LabelledCurve[]): { name: string; color: string }[] {
+  return curves.map(({ label }, i) => ({ name: label, color: PALETTE[i % PALETTE.length] }))
 }
 
 /** Maturities on the grid without a published value as of the answer's knowledge time. */

@@ -19,12 +19,9 @@ export const MATURITIES = [
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Chart series in the order the API returns it, which is valid-date order. */
-export function seriesChart(points: SeriesPoint[]): { x: string[]; y: number[] } {
-  return {
-    x: points.map((point) => point.valid_date),
-    y: points.map((point) => point.value),
-  }
+/** Chart rows in valid-date order, as the API returns them. */
+export function seriesChart(points: SeriesPoint[]): { valid_date: string; value: number }[] {
+  return points.map(({ valid_date, value }) => ({ valid_date, value }))
 }
 
 /** The last 365 days up to `today`, as ISO dates (UTC). */

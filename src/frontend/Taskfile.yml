@@ -58,6 +58,12 @@ tasks:
     cmds:
       - npm run build
 
+  size:
+    desc: Check the bundle budget
+    deps: [build]
+    cmds:
+      - npm run size
+
   dev:
     desc: Start the Vite dev server
     deps: [generate]
