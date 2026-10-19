@@ -7,14 +7,19 @@ validation later is kept for diagnosis and replay.
 """
 
 import hashlib
-from datetime import UTC, datetime
+from collections.abc import AsyncIterator
+from datetime import UTC, date, datetime, time, timedelta
 from types import TracebackType
 from typing import Self
 
 import oracledb
 
 from ingestion.config import DatabaseSettings
-from ingestion.domain.delivery import RawDelivery
+from ingestion.domain.delivery import RawDelivery, StoredDelivery
+
+
+class CorruptDeliveryError(Exception):
+    """A stored payload no longer matches its hash; it is not replayed."""
 
 
 class OracleDeliveryStore:
@@ -43,9 +48,7 @@ class OracleDeliveryStore:
             await self._connection.close()
 
     async def store(self, delivery: RawDelivery, run_id: str) -> str:
-        if self._connection is None:
-            raise RuntimeError("OracleDeliveryStore is used outside its context")
-        connection = self._connection
+        connection = self._connected()
         cursor = connection.cursor()
         # Typed binds: a null must still bind as BLOB, a payload may exceed the 32 KB
         # limit of a PL/SQL RAW (so it goes in as a LOB), and a datetime would otherwise
@@ -76,6 +79,60 @@ class OracleDeliveryStore:
         )
         await connection.commit()
         return str(delivery_id)
+
+    async def stored(
+        self, source_id: str, fetched_from: date, fetched_to: date
+    ) -> AsyncIterator[StoredDelivery]:
+        """Streams the deliveries one at a time, so memory stays bounded by one payload.
+
+        Raises ``CorruptDeliveryError`` when a payload does not match its stored hash.
+        """
+        cursor = self._connected().cursor()
+        rows = await cursor.callfunc(
+            "ing.ing_delivery.get_deliveries",
+            oracledb.DB_TYPE_CURSOR,
+            [
+                source_id,
+                datetime.combine(fetched_from, time()),
+                datetime.combine(fetched_to + timedelta(days=1), time()),
+            ],
+        )
+        async for row in rows:
+            yield await _stored_delivery(*row)
+
+    def _connected(self) -> oracledb.AsyncConnection:
+        if self._connection is None:
+            raise RuntimeError("OracleDeliveryStore is used outside its context")
+        return self._connection
+
+
+async def _stored_delivery(
+    delivery_id: int,
+    source_id: str,
+    _run_id: str,
+    request_url: str,
+    response_status: int,
+    fetched_at: datetime,
+    last_modified: datetime | None,
+    etag: str | None,
+    payload_lob: oracledb.AsyncLOB | None,
+    payload_sha256: str | None,
+) -> StoredDelivery:
+    payload: bytes | None = None
+    if payload_lob is not None:
+        payload = await payload_lob.read()
+        if hashlib.sha256(payload).hexdigest() != payload_sha256:
+            raise CorruptDeliveryError(f"delivery {delivery_id}: payload does not match its hash")
+    delivery = RawDelivery(
+        source_id=source_id,
+        request_url=request_url,
+        response_status=response_status,
+        fetched_at=fetched_at.replace(tzinfo=UTC),
+        last_modified=last_modified.replace(tzinfo=UTC) if last_modified else None,
+        etag=etag,
+        payload=payload,
+    )
+    return StoredDelivery(str(delivery_id), delivery)
 
 
 def _as_utc(moment: datetime | None) -> datetime | None:

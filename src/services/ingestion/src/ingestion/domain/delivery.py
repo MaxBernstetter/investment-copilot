@@ -25,3 +25,11 @@ class RawDelivery:
     payload: bytes | None
     """The response body byte for byte; ``None`` for an empty delivery (the source's
     "no data" answer, ``304``, or an empty body)."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredDelivery:
+    """A raw delivery as kept in ``ING``, with the id every value parsed from it names."""
+
+    delivery_id: str
+    delivery: RawDelivery
