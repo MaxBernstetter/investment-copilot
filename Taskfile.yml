@@ -24,6 +24,9 @@ includes:
   frontend:
     taskfile: ./src/frontend
     dir: ./src/frontend
+  dev:
+    taskfile: ./src/deploy
+    dir: ./src/deploy
 
 tasks:
   default:

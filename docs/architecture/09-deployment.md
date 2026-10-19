@@ -24,7 +24,11 @@ Browser ──▶ GitHub Pages (React SPA)
 
 ## Environments
 
-- **Local:** the same Docker Compose stack as the VM (dev/prod parity). The frontend runs on the Vite dev server against local `access`.
+- **Local:** the same Docker Compose stack as the VM (dev/prod parity), defined in `src/deploy/compose.yaml`. The frontend runs on the Vite dev server against local `access`.
+  - `task dev:up` starts Oracle Free and the spool's Garage node, applies the Liquibase migrations, sets up the spool (`src/services/ingestion/spool/setup.sh`) and builds and starts the persistence api. It is idempotent and waits until the services are healthy.
+  - `task dev:down` stops the stack and keeps its data; `task dev:reset` also removes the volumes.
+  - Ports on localhost: 1521 (Oracle), 3900 (Garage S3 API), 8001 (persistence api).
+  - The stack uses the same ports as `persistence:db:start` and `ingestion:spool:start`. Stop those stacks first (`persistence:db:stop`, `ingestion:spool:stop`).
 - **Live:** the Compose stack on the VM, plus the frontend on Pages.
 
 ## Delivery

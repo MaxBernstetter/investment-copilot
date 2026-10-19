@@ -74,6 +74,14 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
+The local development stack (Oracle, migrations, spool, persistence api) lives in `src/deploy/` (namespace `dev`, run from that directory):
+
+| Task | Does |
+|---|---|
+| `dev:up` | Start Oracle and the spool, apply the migrations, set up the spool and start the persistence api; waits until healthy (idempotent) |
+| `dev:down` | Stop the local stack (keeps its data) |
+| `dev:reset` | Remove the local stack and its data |
+
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 
 The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `fmt`, `lint`, `typecheck`, `test:unit`, `build` and `dev` (see [[01-frontend]]).
