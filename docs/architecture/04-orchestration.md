@@ -13,6 +13,10 @@ Apache Airflow (3.x) schedules and sequences the pipeline. It is a platform comp
 | `scenario` | Manual (demo/tests) | Inject simulated events → downstream steps |
 | `backup` | Daily | Data Pump export per schema → upload to object storage → verify (see [[0012-backup-and-restore]]) |
 
+`daily_load` is one DAG per source, named `daily_load_<source>`, because each source has its own schedule.
+
+**In place today:** `daily_load_ecb` runs the ingest step only, Monday to Friday at 13:15 Europe/Berlin, for the previous TARGET business day (see [[04-daily-schedule]]). Until the ingestion image exists, its task runs the job's command line as a subprocess instead of a `job` container. DAGs and pools live in `src/orchestration/` (`dags/`, `pools.json`).
+
 ## Airflow standards
 
 - **Thin DAGs:**
