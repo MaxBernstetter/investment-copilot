@@ -1,6 +1,6 @@
 # GitHub MCP Connection
 
-Coding agents manage GitHub Issues and the GitHub Project [Investment-Copilot](https://github.com/users/MaxBernstetter/projects/2) (owner `MaxBernstetter`, number `2`) through the hosted GitHub MCP server. The connection is configured at project scope in `.mcp.json` at the repository root.
+Coding agents manage GitHub Issues and the GitHub Project [yield-lens](https://github.com/users/MaxBernstetter/projects/2) (owner `MaxBernstetter`, number `2`) through the hosted GitHub MCP server. The connection is configured at project scope in `.mcp.json` at the repository root.
 
 ## Configuration
 
