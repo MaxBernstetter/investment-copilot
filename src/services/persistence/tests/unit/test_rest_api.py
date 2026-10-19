@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
@@ -8,13 +8,21 @@ from contracts.persistence.v1 import (
     CURVE_OBSERVATIONS_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
+    VALUE_VERSIONS_PATH,
 )
 from fastapi.testclient import TestClient
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
 from persistence.application.get_series_as_of import GetSeriesAsOf
+from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
-from persistence.domain.observation import Observation, OpenVersionExistsError, RecordedVersions
+from persistence.domain.observation import (
+    ChangeReason,
+    Observation,
+    OpenVersionExistsError,
+    RecordedVersions,
+)
+from persistence.domain.versions import ValueVersion
 from persistence.facade.rest.app import Services, create_app
 from tests.unit.fakes import GRID, FakeCurveReader, InMemoryObservationRepository
 
@@ -49,6 +57,7 @@ class FakeBackend:
             self.is_ready,
             GetCurveAsOf(self.curves),
             GetSeriesAsOf(self.curves),
+            GetValueVersions(self.curves),
         )
 
 
@@ -139,6 +148,7 @@ def test_a_concurrent_write_is_a_conflict() -> None:
             is_ready,
             GetCurveAsOf(curves),
             GetSeriesAsOf(curves),
+            GetValueVersions(curves),
         )
 
     with TestClient(create_app(services)) as client:
@@ -344,4 +354,74 @@ def test_a_malformed_range_date_is_an_invalid_request_problem(
     response = client.get(SERIES_PATH, params={"from": "2026-13-01"})
 
     assert response.status_code == 422
+    assert response.json()["title"] == "Invalid request"
+
+
+VERSIONS_PATH = VALUE_VERSIONS_PATH.format(
+    curve_id="ecb-aaa-spot", maturity="10Y", valid_date="2026-03-12"
+)
+
+
+def test_value_versions_route_returns_the_envelope(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    backend.curves.versions[("ecb-aaa-spot", "10Y", date(2026, 3, 12))] = [
+        ValueVersion(
+            version_id=1,
+            value=2.61,
+            known_from=datetime(2026, 3, 12, 18, 0, tzinfo=UTC),
+            known_to=None,
+            source_id="ecb",
+            run_id="ingestion-ecb-2026-03-12",
+            change_reason=ChangeReason.INITIAL,
+            normalization_version="1",
+            delivery_id="delivery-1",
+        )
+    ]
+
+    response = client.get(VERSIONS_PATH, params={"as_of": "2026-03-13T08:00:00Z"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "valid_date": "2026-03-12",
+            "versions": [
+                {
+                    "version_id": 1,
+                    "value": 2.61,
+                    "known_from": "2026-03-12T18:00:00Z",
+                    "known_to": None,
+                    "source_id": "ecb",
+                    "run_id": "ingestion-ecb-2026-03-12",
+                    "change_reason": "initial",
+                    "normalization_version": "1",
+                    "delivery_id": "delivery-1",
+                }
+            ],
+        },
+        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+    }
+
+
+def test_value_versions_route_not_found_is_404(client: TestClient, backend: FakeBackend) -> None:
+    seed_curve(backend)
+
+    response = client.get(
+        VALUE_VERSIONS_PATH.format(curve_id="ecb-aaa-spot", maturity="4Y", valid_date="2026-03-12")
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+
+
+def test_value_versions_route_bad_date_is_422(client: TestClient) -> None:
+    response = client.get(
+        VALUE_VERSIONS_PATH.format(curve_id="ecb-aaa-spot", maturity="10Y", valid_date="2026-13-01")
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Invalid request"

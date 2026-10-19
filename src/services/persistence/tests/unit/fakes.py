@@ -14,6 +14,7 @@ from persistence.domain.observation import (
     RecordedVersions,
 )
 from persistence.domain.series import SeriesPoint
+from persistence.domain.versions import ValueVersion
 
 KNOWN_FROM = datetime(2026, 3, 12, 18, 0, tzinfo=UTC)
 NOW = datetime(2026, 3, 13, 9, 0, tzinfo=UTC)
@@ -84,6 +85,7 @@ class FakeCurveReader:
     known_from: datetime = KNOWN_FROM
     curves: set[str] = field(default_factory=lambda: {"ecb-aaa-spot"})
     values: dict[tuple[str, date], dict[str, float]] = field(default_factory=dict)
+    versions: dict[tuple[str, str, date], list[ValueVersion]] = field(default_factory=dict)
 
     async def current_knowledge_time(self) -> datetime:
         return self.now
@@ -110,6 +112,26 @@ class FakeCurveReader:
 
     async def has_maturity(self, curve_id: str, maturity: str) -> bool:
         return curve_id in self.curves and maturity in {name for name, _ in GRID}
+
+    async def value_versions(
+        self, curve_id: str, maturity: str, valid_date: date, as_of: datetime
+    ) -> list[ValueVersion]:
+        known = [
+            version
+            for version in self.versions.get((curve_id, maturity, valid_date), [])
+            if version.known_from <= as_of
+        ]
+        # Like core_observation.get_value_versions: known_to is hidden while still current.
+        shown = [
+            replace(
+                version,
+                known_to=None
+                if version.known_to is None or version.known_to > as_of
+                else version.known_to,
+            )
+            for version in known
+        ]
+        return sorted(shown, key=lambda version: version.known_from)
 
     async def series_as_of(
         self, curve_id: str, maturity: str, valid_from: date, valid_to: date, as_of: datetime

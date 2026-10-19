@@ -14,6 +14,7 @@ from pydantic import AwareDatetime
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
 from persistence.application.get_series_as_of import GetSeriesAsOf
+from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
 from persistence.domain.curve import FutureAsOfError, NothingKnownError
 from persistence.domain.observation import InvalidObservationsError, OpenVersionExistsError
@@ -23,6 +24,7 @@ from persistence.facade.mapping import (
     to_observation,
     to_response,
     to_series_response,
+    to_versions_response,
 )
 
 PROBLEM_JSON = "application/problem+json"
@@ -36,6 +38,7 @@ class Services:
     is_ready: Callable[[], Awaitable[bool]]
     get_curve_as_of: GetCurveAsOf
     get_series_as_of: GetSeriesAsOf
+    get_value_versions: GetValueVersions
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -134,6 +137,31 @@ def _add_routes(app: FastAPI) -> None:
         """
         series = await services.get_series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
         return to_series_response(series)
+
+    @app.get(
+        v1.VALUE_VERSIONS_PATH,
+        response_model=v1.ValueVersionsResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {
+                "description": "The maturity is not on the curve's grid, or no published value "
+                "of it for the valid date is known as of the time"
+            },
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
+        },
+    )
+    async def value_versions(
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        maturity: Annotated[str, Path(min_length=1, max_length=8)],
+        valid_date: date,
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> v1.ValueVersionsResponse:
+        """The version history of one published value as it was known at ``as_of`` (default: now).
+
+        Versions are listed oldest first; ``known_to`` is null while a version is current.
+        """
+        versions = await services.get_value_versions(curve_id, maturity, valid_date, as_of)
+        return to_versions_response(versions)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

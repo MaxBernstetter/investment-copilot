@@ -11,12 +11,14 @@ import oracledb
 
 from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
+    ChangeReason,
     InvalidObservationsError,
     Observation,
     OpenVersionExistsError,
     RecordedVersions,
 )
 from persistence.domain.series import SeriesPoint
+from persistence.domain.versions import ValueVersion
 
 OPEN_VERSION_EXISTS = 20001
 """Application error code of core_observation.open_version_exists (raised as ORA-20001)."""
@@ -157,6 +159,43 @@ class OracleObservationRepository:
         return [
             SeriesPoint(valid_date=valid_date.date(), value=float(value))
             for valid_date, value in rows
+        ]
+
+    async def value_versions(
+        self, curve_id: str, maturity: str, valid_date: date, as_of: datetime
+    ) -> list[ValueVersion]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            versions = await cursor.callfunc(
+                "core.core_observation.get_value_versions",
+                oracledb.DB_TYPE_CURSOR,
+                [curve_id, maturity, valid_date, _bind_timestamp(cursor, as_of)],
+            )
+            rows = await versions.fetchall()
+        return [
+            ValueVersion(
+                version_id=int(version_id),
+                value=float(value),
+                known_from=_as_utc(known_from),
+                known_to=_as_utc(known_to) if known_to is not None else None,
+                source_id=source_id,
+                run_id=run_id,
+                change_reason=ChangeReason(change_reason),
+                normalization_version=normalization_version,
+                delivery_id=delivery_id,
+            )
+            for (
+                version_id,
+                value,
+                known_from,
+                known_to,
+                source_id,
+                run_id,
+                change_reason,
+                normalization_version,
+                delivery_id,
+            ) in rows
         ]
 
 
