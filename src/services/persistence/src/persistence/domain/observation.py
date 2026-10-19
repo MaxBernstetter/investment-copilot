@@ -63,6 +63,8 @@ class Observation:
     source_id: str | None
     run_id: str
     change_reason: ChangeReason
+    normalization_version: str | None = None
+    """Version of the source mapping that produced a published value; provenance only."""
 
     def __post_init__(self) -> None:
         if (self.origin is Origin.DERIVED) != (self.method_version is not None):

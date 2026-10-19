@@ -1,5 +1,7 @@
 """The declared ECB source schema (Pandera on Polars) against recorded and broken payloads."""
 
+import csv as csv_module
+import io
 from collections import Counter
 from datetime import date
 from decimal import Decimal
@@ -7,8 +9,12 @@ from decimal import Decimal
 import pytest
 
 from ingestion.domain.observation import PublishedObservation
-from ingestion.infrastructure.ecb.payload import InvalidPayloadError, parse_payload
-from tests.recorded import DAILY, EMPTY_WINDOW, MALFORMED, payload
+from ingestion.infrastructure.ecb.payload import (
+    NORMALIZATION_VERSION,
+    InvalidPayloadError,
+    parse_payload,
+)
+from tests.recorded import DAILY, EMPTY_WINDOW, HISTORY_2025, HISTORY_2026, MALFORMED, payload
 
 GRID = {"3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"}
 HEADER = (
@@ -42,7 +48,30 @@ def test_values_keep_the_published_digits() -> None:
         maturity="10Y",
         valid_date=date(2026, 10, 1),
         value=Decimal("3.5921733451"),
+        normalization_version="1",
     )
+
+
+@pytest.mark.parametrize("recording", [DAILY, HISTORY_2025, HISTORY_2026])
+def test_mapping_rules_keep_obs_value_unchanged(recording: str) -> None:
+    # DATA_TYPE_FM SR_<tenor> -> tenor, TIME_PERIOD -> valid date, OBS_VALUE as published.
+    rows = list(csv_module.DictReader(io.StringIO(payload(recording).decode())))
+    published = {(row["DATA_TYPE_FM"], row["TIME_PERIOD"]): row["OBS_VALUE"] for row in rows}
+
+    observations = parse_payload(payload(recording))
+
+    mapped = {
+        (f"SR_{o.maturity}", o.valid_date.isoformat()): format(o.value, "f") for o in observations
+    }
+    assert len(observations) == len(rows)
+    assert mapped == published
+
+
+def test_observations_name_the_normalization_version_of_the_mapping() -> None:
+    observations = parse_payload(payload(DAILY))
+
+    assert NORMALIZATION_VERSION == "1"
+    assert {observation.normalization_version for observation in observations} == {"1"}
 
 
 def test_an_empty_delivery_has_no_observations() -> None:

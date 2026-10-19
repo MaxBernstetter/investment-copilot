@@ -53,7 +53,12 @@ def client(backend: FakeBackend) -> Iterator[TestClient]:
 def test_records_a_batch_and_returns_its_knowledge_time(
     client: TestClient, backend: FakeBackend
 ) -> None:
-    batch = {"observations": [observation(maturity="2Y"), observation(maturity="10Y")]}
+    batch = {
+        "observations": [
+            observation(maturity="2Y", normalization_version="1"),
+            observation(maturity="10Y"),
+        ]
+    }
 
     response = client.post(RECORD_VERSIONS_PATH, json=batch)
 
@@ -63,7 +68,9 @@ def test_records_a_batch_and_returns_its_knowledge_time(
         "unchanged_count": 0,
         "known_from": "2026-03-12T18:00:00Z",
     }
-    assert [stored.maturity for stored, _ in backend.repository.versions] == ["2Y", "10Y"]
+    assert [
+        (stored.maturity, stored.normalization_version) for stored, _ in backend.repository.versions
+    ] == [("2Y", "1"), ("10Y", None)]
 
 
 def test_a_contract_violation_is_a_problem_response(

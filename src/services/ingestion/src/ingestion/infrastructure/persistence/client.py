@@ -117,6 +117,7 @@ def _request(
                 source_id=source_id,
                 run_id=run_id,
                 change_reason=v1.ChangeReason.INITIAL,
+                normalization_version=observation.normalization_version,
             )
             for observation in observations
         ]

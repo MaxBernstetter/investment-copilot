@@ -37,6 +37,13 @@ def test_parses_a_published_observation_from_json_types() -> None:
     assert observation.origin is Origin.PUBLISHED
     assert observation.change_reason is ChangeReason.INITIAL
     assert observation.method_version is None
+    assert observation.normalization_version is None
+
+
+def test_carries_the_normalization_version_of_a_published_observation() -> None:
+    observation = ObservationVersion.model_validate(published(normalization_version="1"))
+
+    assert observation.normalization_version == "1"
 
 
 def test_derived_observation_requires_a_method_version() -> None:
