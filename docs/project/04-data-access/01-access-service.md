@@ -6,8 +6,8 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 
 | Method and path | Purpose | Responses |
 |---|---|---|
-| `GET /v1/curves/{curve_id}/observations?valid_date=&as_of=` | One curve on one valid date, as it was known at `meta.as_of` (both query parameters optional) | `200` envelope `{data, meta}`; errors below |
-| `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}`; errors below |
+| `GET /v1/curves/{curve_id}/observations?valid_date=&as_of=` | One curve on one valid date, as it was known at `meta.as_of` (both query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
+| `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /health` | Liveness: the process is up | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
@@ -16,6 +16,14 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
 - Only `GET` is allowed (`405` otherwise).
 - CORS: only `GET` is allowed, from the origins in `ACCESS_CORS_ORIGINS`. Other origins get no `Access-Control-Allow-Origin` header.
+
+### Caching
+
+- Both data endpoints return an `ETag` for the exact response body: a quoted digest of the body, so the same answer always carries the same tag.
+- Both send `Cache-Control: no-cache`: caches must revalidate with the `ETag` before reuse.
+- Conditional GET: a request with `If-None-Match` that lists the current tag (or `*`) gets `304 Not Modified` with the `ETag` and no body. Lists of tags and weak (`W/`) tags are accepted. Any other tag gets the full `200`.
+- Errors (problem details) carry no `ETag`.
+- Immutable caching for published data (`Cache-Control` with a long `max-age` and `immutable`) follows in a second step.
 
 ### Errors
 
@@ -71,7 +79,7 @@ devbox run -- task access:run       # access api on http://localhost:8000
 
 - Rate limiting
 - Other read endpoints (only the curve endpoint exists)
-- Caching and ETag support
+- Immutable `Cache-Control` for published data (ETag and conditional GET are in place)
 - Transparency (lineage and run status for the frontend)
 - Metrics
 - Traces

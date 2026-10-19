@@ -7,7 +7,7 @@ from datetime import date
 from typing import Annotated, Any
 
 from contracts.access import v1
-from fastapi import Depends, FastAPI, Path, Query, Request, status
+from fastapi import Depends, FastAPI, Path, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,9 +20,11 @@ from access.domain.curve import (
     PersistenceUnavailableError,
 )
 from access.facade.mapping import to_response, to_series_response
+from access.facade.rest.caching import json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
 UNAVAILABLE_DETAIL = "The curve store is not reachable; try again later."
+NOT_MODIFIED = "Not modified: the ETag matches If-None-Match"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,49 +72,53 @@ def _add_routes(app: FastAPI) -> None:
         v1.CURVE_OBSERVATIONS_PATH,
         response_model=v1.CurveObservationsResponse,
         responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
             status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
             status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
             status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
         },
     )
     async def curve_observations(
+        request: Request,
         curve_id: Annotated[str, Path(min_length=1, max_length=64)],
         services: ServicesDependency,
         valid_date: date | None = None,
         as_of: AwareDatetime | None = None,
-    ) -> v1.CurveObservationsResponse:
+    ) -> Response:
         """One curve on one valid date, as it was known at ``meta.as_of``.
 
         Without ``valid_date`` or ``as_of`` the store picks its defaults; the answer
         reports the knowledge time it used in ``meta.as_of``.
         """
         curve = await services.curves.curve_as_of(curve_id, valid_date, as_of)
-        return to_response(curve)
+        return json_with_etag(request, to_response(curve))
 
     @app.get(
         v1.SERIES_OBSERVATIONS_PATH,
         response_model=v1.SeriesObservationsResponse,
         responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
             status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
             status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
             status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
         },
     )
     async def series_observations(
+        request: Request,
         curve_id: Annotated[str, Path(min_length=1, max_length=64)],
         maturity: Annotated[str, Path(min_length=1, max_length=16)],
         services: ServicesDependency,
         valid_from: Annotated[date | None, Query(alias="from")] = None,
         valid_to: Annotated[date | None, Query(alias="to")] = None,
         as_of: AwareDatetime | None = None,
-    ) -> v1.SeriesObservationsResponse:
+    ) -> Response:
         """One maturity of a curve over valid dates, as it was known at ``meta.as_of``.
 
         Without ``from``, ``to`` or ``as_of`` the store picks its defaults; the answer
         reports the knowledge time it used in ``meta.as_of``.
         """
         series = await services.curves.series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
-        return to_series_response(series)
+        return json_with_etag(request, to_series_response(series))
 
     @app.get("/health")
     async def health() -> dict[str, str]:

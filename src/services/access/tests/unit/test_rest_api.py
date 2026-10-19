@@ -1,3 +1,4 @@
+import re
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -327,3 +328,95 @@ def test_series_naive_as_of_is_rejected_without_calling_persistence(
 
     assert response.status_code == 422
     assert services.curves.series_calls == []
+
+
+def test_curve_response_carries_an_etag(client: TestClient) -> None:
+    response = client.get(CURVE_PATH)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == "no-cache"
+    assert re.fullmatch(r'"[0-9a-f]{32}"', response.headers["etag"])
+
+
+def test_the_same_answer_has_the_same_etag(client: TestClient) -> None:
+    first = client.get(CURVE_PATH)
+    second = client.get(CURVE_PATH)
+
+    assert first.headers["etag"] == second.headers["etag"]
+
+
+def test_if_none_match_with_the_current_etag_is_not_modified(client: TestClient) -> None:
+    etag = client.get(CURVE_PATH).headers["etag"]
+
+    response = client.get(CURVE_PATH, headers={"If-None-Match": etag})
+
+    assert response.status_code == 304
+    assert response.content == b""
+    assert response.headers["etag"] == etag
+    assert response.headers["cache-control"] == "no-cache"
+
+
+@pytest.mark.parametrize(
+    "if_none_match",
+    ['"0123"', '"0123", "4567"', 'W/"0123"'],
+)
+def test_if_none_match_with_another_etag_returns_the_body(
+    client: TestClient, if_none_match: str
+) -> None:
+    response = client.get(CURVE_PATH, headers={"If-None-Match": if_none_match})
+
+    assert response.status_code == 200
+    assert response.json()["data"]["curve_id"] == "ecb-aaa-spot"
+
+
+def test_if_none_match_accepts_a_list_and_weak_tags(client: TestClient) -> None:
+    etag = client.get(CURVE_PATH).headers["etag"]
+
+    listed = client.get(CURVE_PATH, headers={"If-None-Match": f'"0123", {etag}'})
+    weak = client.get(CURVE_PATH, headers={"If-None-Match": f"W/{etag}"})
+    wildcard = client.get(CURVE_PATH, headers={"If-None-Match": "*"})
+
+    assert listed.status_code == 304
+    assert weak.status_code == 304
+    assert wildcard.status_code == 304
+
+
+def test_series_response_carries_an_etag(client: TestClient) -> None:
+    response = client.get(SERIES_PATH)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert re.fullmatch(r'"[0-9a-f]{32}"', response.headers["etag"])
+
+    etag = response.headers["etag"]
+    conditional = client.get(SERIES_PATH, headers={"If-None-Match": etag})
+    assert conditional.status_code == 304
+    assert conditional.content == b""
+
+
+def test_errors_carry_no_etag(client: TestClient, services: FakeServices) -> None:
+    services.curves.error = CurveNotFoundError("no curve named ecb-aaa-spot")
+    assert "etag" not in client.get(CURVE_PATH).headers
+
+    services.curves.error = PersistenceUnavailableError()
+    assert "etag" not in client.get(SERIES_PATH).headers
+
+    services.curves.error = None
+    assert "etag" not in client.get(CURVE_PATH, params={"valid_date": "abc"}).headers
+
+
+def test_the_body_is_unchanged(client: TestClient) -> None:
+    response = client.get(CURVE_PATH)
+
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_date": "2026-03-12",
+            "points": [
+                {"maturity": "3M", "months": 3, "value": None},
+                {"maturity": "10Y", "months": 120, "value": 2.61},
+            ],
+        },
+        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+    }
