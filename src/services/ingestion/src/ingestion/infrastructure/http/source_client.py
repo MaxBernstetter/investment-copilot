@@ -55,6 +55,10 @@ class SourceResponse:
     content: bytes
     headers: httpx.Headers
     """Response headers, e.g. ``Last-Modified`` and ``ETag`` as delivery metadata."""
+    url: str
+    """The full request URL, query string included."""
+    fetched_at: datetime
+    """When the answer arrived (UTC, from the client's clock)."""
 
 
 class SourceDisabledError(Exception):
@@ -253,7 +257,14 @@ class SourceClient:
         return max(delay, failure.retry_after_seconds)
 
     def _response(self, outcome: Outcome, response: httpx.Response) -> SourceResponse:
-        return SourceResponse(outcome, response.status_code, response.content, response.headers)
+        return SourceResponse(
+            outcome,
+            response.status_code,
+            response.content,
+            response.headers,
+            str(response.url),
+            self._clock.now(),
+        )
 
     def _count(self, status: str) -> None:
         self._requests.add(1, {"source": self._source, "status": status})

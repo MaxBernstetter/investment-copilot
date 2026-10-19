@@ -7,8 +7,10 @@ PERSISTENCE_URL = "http://persistence.test:8001"
 
 
 @pytest.fixture(autouse=True)
-def persistence_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def required_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_PERSISTENCE__URL", PERSISTENCE_URL)
+    monkeypatch.setenv("INGESTION_DB__DSN", "oracle.test:1521/FREEPDB1")
+    monkeypatch.setenv("INGESTION_DB__PASSWORD", "not-a-secret")
 
 
 def test_defaults_are_the_conservative_ecb_values() -> None:
@@ -57,6 +59,25 @@ def test_the_persistence_url_is_required(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.delenv("INGESTION_PERSISTENCE__URL")
 
     with pytest.raises(ValidationError, match="persistence"):
+        IngestionSettings()
+
+
+def test_the_ing_database_comes_from_environment_variables() -> None:
+    db = IngestionSettings().db
+
+    assert (db.dsn, db.user, db.password.get_secret_value()) == (
+        "oracle.test:1521/FREEPDB1",
+        "ing_app",
+        "not-a-secret",
+    )
+    assert "not-a-secret" not in repr(db)
+
+
+@pytest.mark.parametrize("name", ["INGESTION_DB__DSN", "INGESTION_DB__PASSWORD"])
+def test_the_ing_database_is_required(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    monkeypatch.delenv(name)
+
+    with pytest.raises(ValidationError, match="db"):
         IngestionSettings()
 
 
