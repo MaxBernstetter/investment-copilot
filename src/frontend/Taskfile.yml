@@ -28,6 +28,12 @@ tasks:
     cmds:
       - npx openapi-typescript ../contracts/openapi/access/v1.json -o src/api/schema.d.ts
 
+  audit:
+    desc: Fail on high or critical npm audit findings
+    deps: [setup]
+    cmds:
+      - npm audit --audit-level=high
+
   lint:
     desc: Lint the TypeScript code with ESLint
     deps: [generate]

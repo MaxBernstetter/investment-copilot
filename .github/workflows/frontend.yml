@@ -51,6 +51,9 @@ jobs:
       - name: Set up
         run: devbox run -- task frontend:setup
 
+      - name: Audit
+        run: devbox run -- task frontend:audit
+
       - name: Lint
         run: devbox run -- task frontend:lint
 
