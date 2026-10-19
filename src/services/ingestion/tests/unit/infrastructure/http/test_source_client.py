@@ -138,6 +138,8 @@ async def test_delivers_the_payload_with_its_headers(harness: Harness) -> None:
     assert response.outcome is Outcome.DELIVERED
     assert response.content == b"payload"
     assert response.headers["Last-Modified"] == "Thu, 15 Oct 2026 10:00:00 GMT"
+    assert response.url == URL + "?format=csvdata"
+    assert response.fetched_at == START
 
 
 async def test_identifies_as_yieldlens_without_personal_contact_data(harness: Harness) -> None:

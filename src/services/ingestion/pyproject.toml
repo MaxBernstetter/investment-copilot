@@ -6,6 +6,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "httpx>=0.28",
     "opentelemetry-api>=1.30",
+    "oracledb>=3.0",
     "pandera[polars]>=0.34",
     "polars>=2.0",
     "pydantic-settings>=2.8",
@@ -21,7 +22,6 @@ dev = [
     "import-linter>=2.3",
     "mypy>=1.15",
     "opentelemetry-sdk>=1.30",
-    "oracledb>=3.0",
     "pytest>=8.3",
     "ruff==0.17.1",
     "testcontainers>=4.10",
@@ -76,4 +76,12 @@ layers = [
 name = "The domain and use cases have no I/O, frameworks or contracts"
 type = "forbidden"
 source_modules = ["ingestion.domain", "ingestion.application"]
-forbidden_modules = ["contracts", "httpx", "pandera", "polars", "pydantic", "pydantic_settings"]
+forbidden_modules = [
+    "contracts",
+    "httpx",
+    "oracledb",
+    "pandera",
+    "polars",
+    "pydantic",
+    "pydantic_settings",
+]

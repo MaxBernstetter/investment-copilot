@@ -72,7 +72,11 @@ class PersistenceClient:
         await self._http.aclose()
 
     async def record(
-        self, source_id: str, observations: Sequence[PublishedObservation], run_id: str
+        self,
+        source_id: str,
+        observations: Sequence[PublishedObservation],
+        run_id: str,
+        delivery_id: str,
     ) -> list[RecordedBatch]:
         """Send the observations as ``published`` versions; one request per chunk.
 
@@ -82,7 +86,7 @@ class PersistenceClient:
         Batches never repeat an observation: the source schema rejects duplicates.
         """
         return [
-            await self._send(_request(source_id, chunk, run_id))
+            await self._send(_request(source_id, chunk, run_id, delivery_id))
             for chunk in batched(observations, v1.MAX_BATCH_SIZE, strict=False)
         ]
 
@@ -104,7 +108,7 @@ class PersistenceClient:
 
 
 def _request(
-    source_id: str, observations: Sequence[PublishedObservation], run_id: str
+    source_id: str, observations: Sequence[PublishedObservation], run_id: str, delivery_id: str
 ) -> v1.RecordVersionsRequest:
     return v1.RecordVersionsRequest(
         observations=[
@@ -118,6 +122,7 @@ def _request(
                 run_id=run_id,
                 change_reason=v1.ChangeReason.INITIAL,
                 normalization_version=observation.normalization_version,
+                delivery_id=delivery_id,
             )
             for observation in observations
         ]

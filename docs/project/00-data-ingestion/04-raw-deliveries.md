@@ -36,8 +36,12 @@ One row per answered source request. Insert-only: a delivery is never updated or
 
 - `record_delivery(source_id, run_id, request_url, response_status, fetched_at, last_modified, etag, payload, payload_sha256) return delivery_id`: stores one answer. Every call is a new delivery, also for the same request. The caller owns the transaction.
 
+## Writing deliveries
+
+The ECB load ([[03-ecb-load]]) stores every answer through `OracleDeliveryStore` (`infrastructure/ing/`) before it parses it, and commits it on its own: an answer that fails validation is kept. Every value recorded from it carries its `delivery_id`. The hash is SHA-256 over the stored bytes; the payload is bound as a LOB, so its size is not limited by PL/SQL `RAW`. The connection settings are `INGESTION_DB__*` ([[03-ecb-load#Configuration]]).
+
 ## Migrations and tests
 
 - Liquibase, as in persistence: `db/admin/` (users, run as `SYSTEM`; passwords from `ING_PASSWORD`, `ING_APP_PASSWORD`) and `db/ing/` (table, package, grants, run as `ING`).
-- Locally: `task persistence:db:start`, then `task ingestion:db:migrate` (the same database; URL from `INGESTION_DB_URL`).
+- Locally: `task persistence:db:start`, then `task ingestion:db:migrate` (the same database, at `INGESTION_DB__DSN`).
 - `task ingestion:test:integration`: Testcontainers Oracle Free with both changelogs applied; migration tests and the utPLSQL suite `ut_ing_delivery` (payload byte for byte with metadata, empty delivery, one row per call, hash required with a payload and well-formed).

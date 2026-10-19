@@ -7,7 +7,8 @@ from email.utils import parsedate_to_datetime
 
 import httpx
 
-from ingestion.domain.observation import Delivery
+from ingestion.domain.delivery import RawDelivery
+from ingestion.domain.observation import PublishedObservation
 from ingestion.domain.windows import DateWindow
 from ingestion.infrastructure.ecb.payload import DATA_TYPES, SERIES_PREFIX, parse_payload
 from ingestion.infrastructure.http import Outcome, SourceClient
@@ -28,12 +29,13 @@ def is_no_data(response: httpx.Response) -> bool:
 
 
 class EcbSpotCurveSource:
-    """Fetches one window of the grid through the polite source client and validates it."""
+    """Fetches one window of the grid through the polite source client, and parses it."""
 
     def __init__(self, client: SourceClient) -> None:
         self._client = client
 
-    async def fetch(self, window: DateWindow) -> Delivery:
+    async def fetch(self, window: DateWindow) -> RawDelivery:
+        """The answer as received. Only a delivered, non-empty body is a payload."""
         response = await self._client.get(
             DATA_URL,
             params={
@@ -43,13 +45,18 @@ class EcbSpotCurveSource:
                 "detail": "dataonly",
             },
         )
-        observations = (
-            parse_payload(response.content) if response.outcome is Outcome.DELIVERED else []
-        )
+        has_payload = response.outcome is Outcome.DELIVERED and bool(response.content)
         last_modified = response.headers.get("Last-Modified")
-        return Delivery(
+        return RawDelivery(
             source_id=SOURCE_ID,
-            window=window,
-            observations=tuple(observations),
+            request_url=response.url,
+            response_status=response.status_code,
+            fetched_at=response.fetched_at,
             last_modified=parsedate_to_datetime(last_modified) if last_modified else None,
+            etag=response.headers.get("ETag"),
+            payload=response.content if has_payload else None,
         )
+
+    def parse(self, delivery: RawDelivery) -> list[PublishedObservation]:
+        """Validate and map the payload; raises ``InvalidPayloadError`` if it breaks the schema."""
+        return parse_payload(delivery.payload) if delivery.payload is not None else []
