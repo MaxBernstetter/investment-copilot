@@ -16,6 +16,7 @@ def to_observation(version: v1.ObservationVersion) -> Observation:
         source_id=version.source_id,
         run_id=version.run_id,
         change_reason=ChangeReason(version.change_reason.value),
+        normalization_version=version.normalization_version,
     )
 
 

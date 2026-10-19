@@ -19,6 +19,11 @@ from ingestion.domain.observation import PublishedObservation
 SCHEMA_VERSION = "1"
 """Version of the declared payload schema below."""
 
+NORMALIZATION_VERSION = "1"
+"""Version of the mapping rules in ``parse_payload``: ``DATA_TYPE_FM`` ``SR_<tenor>`` to the
+grid tenor, ``TIME_PERIOD`` to the valid date, ``OBS_VALUE`` unchanged. Raise it whenever
+the mapping changes, so every stored value names the rules that produced it."""
+
 CURVE_ID = "ecb-aaa-spot"
 """Euro area AAA government bond curve, Svensson model, spot rates."""
 
@@ -83,6 +88,7 @@ def parse_payload(content: bytes) -> list[PublishedObservation]:
             maturity=data_type.removeprefix("SR_"),
             valid_date=date.fromisoformat(time_period),
             value=Decimal(obs_value),
+            normalization_version=NORMALIZATION_VERSION,
         )
         for data_type, time_period, obs_value in validated.select(
             "DATA_TYPE_FM", "TIME_PERIOD", "OBS_VALUE"

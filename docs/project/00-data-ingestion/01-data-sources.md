@@ -50,8 +50,33 @@ Not consumed, on purpose:
 
 - **Euro area, not a country.** The AAA curve is a composite of all AAA-rated euro area issuers, and its composition changes over time ("changing composition"). The domain term is **curve**, not country. A country curve (Germany) is a phase 3 source.
 - **A model output, not a market quote.** The ECB's values are already fitted. In YieldLens they are *published* values (published by a source), and the source's method (Svensson, the ECB's estimation) is recorded with the source. YieldLens' own *derived* curves are fitted on top of the published grid, and their method versions are ours.
-- **Continuous compounding.** Spot rates from other sources (for example US Treasury par yields, semi-annual bond-equivalent) are not directly comparable. Normalization records the compounding convention instead of silently converting ([#19](https://github.com/MaxBernstetter/yield-lens/issues/19)).
+- **Continuous compounding.** Spot rates from other sources (for example US Treasury par yields, semi-annual bond-equivalent) are not directly comparable. Normalization records the compounding convention with the curve instead of silently converting (see [[#Mapping rules]]).
 - **No data on closed days.** There is no observation for days that are not TARGET business days. Completeness checks use the TARGET calendar, so these days are not reported as missing.
+
+### Mapping rules
+
+Normalization maps each delivered row to an observation on the **common maturity grid** ([#19](https://github.com/MaxBernstetter/investment-copilot/issues/19)). The rules are versioned: **normalization version `1`** (`NORMALIZATION_VERSION` in `src/services/ingestion/src/ingestion/infrastructure/ecb/payload.py`). Every stored version carries the normalization version that produced it.
+
+| Observation | From | Rule |
+|---|---|---|
+| `curve_id` | – | `ecb-aaa-spot` |
+| `maturity` | `DATA_TYPE_FM` | `SR_<tenor>` → grid tenor `<tenor>` (`SR_10Y` → `10Y`); only the 11 grid tenors are accepted |
+| `valid_date` | `TIME_PERIOD` | The ISO date as is |
+| `value` | `OBS_VALUE` | **Unchanged**: the published digits, in percent per annum. The ESCB reuse terms forbid modifying published statistics |
+| `normalization_version` | – | `1` |
+
+Conventions are **recorded per curve, not converted**. The curve definition `ecb-aaa-spot` in persistence ([[01-bitemporal-model#Reference data: maturity grid and curves]]) records:
+
+| Convention | Value |
+|---|---|
+| Grid | Common maturity grid, version 1: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y |
+| Rate type | `spot` (zero-coupon) |
+| Compounding | `continuous` |
+| Unit | `percent` (per annum) |
+| Source model | `Svensson (ECB)` |
+
+- Converting between conventions (for example semi-annual par yields to continuous spot rates) is a calculation. It belongs to processing and produces *derived* values.
+- Any change to these rules raises the normalization version. The normalization version is provenance, not part of a value: a reload that differs only in it stores nothing new ([[01-bitemporal-model#Versioning]]).
 
 ## HOW it is consumed
 

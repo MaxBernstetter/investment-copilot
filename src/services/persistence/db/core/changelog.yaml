@@ -13,6 +13,9 @@ databaseChangeLog:
       file: 19_curve_reference_data.sql
       relativeToChangelogFile: true
   - include:
+      file: 19_normalization_version.sql
+      relativeToChangelogFile: true
+  - include:
       file: core_observation.sql
       relativeToChangelogFile: true
   - include:

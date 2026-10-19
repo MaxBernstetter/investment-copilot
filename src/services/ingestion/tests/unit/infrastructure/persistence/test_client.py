@@ -21,7 +21,7 @@ SETTINGS = PersistenceSettings.model_validate({"url": URL})
 def observations(count: int) -> list[PublishedObservation]:
     return [
         PublishedObservation(
-            "ecb-aaa-spot", "10Y", date(2000, 1, 1) + timedelta(days=i), Decimal(i)
+            "ecb-aaa-spot", "10Y", date(2000, 1, 1) + timedelta(days=i), Decimal(i), "1"
         )
         for i in range(count)
     ]
@@ -61,6 +61,7 @@ async def test_observations_are_sent_as_published_versions_of_the_run() -> None:
             source_id="ecb",
             run_id="run-1",
             change_reason=v1.ChangeReason.INITIAL,
+            normalization_version="1",
         )
     ]
 

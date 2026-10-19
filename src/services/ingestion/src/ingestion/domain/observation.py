@@ -17,6 +17,8 @@ class PublishedObservation:
     valid_date: date
     value: Decimal
     """In the source's unit (ECB: percent per annum), unchanged."""
+    normalization_version: str
+    """Version of the source mapping (normalization rules) that produced this observation."""
 
 
 @dataclass(frozen=True, slots=True)
