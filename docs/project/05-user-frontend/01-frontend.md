@@ -42,6 +42,20 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`) afte
 |---|---|---|
 | `VITE_ACCESS_URL` | `http://localhost:8000` | Base URL of the `access` API, read at build time (`src/config.ts`) |
 
+## Time travel
+
+The "Known as of" control shows the curve as it was known at a chosen time (the API's `as_of`, the transaction-time axis, separate from the valid date).
+
+- **Control:** a `datetime-local` input, read as local time and sent as UTC ISO. "Now" clears it and returns to the latest knowledge.
+- **URL:** the choice is kept in the `as_of` query parameter, so a link reproduces the view. A missing or unparseable `as_of` is ignored. Changes use `history.replaceState`, so they add no history entries.
+- **Banner:** while `as_of` is set the page shows "Showing the curve as known on …" in UTC.
+- **No data:** if nothing was known at that time (404), the page shows "No data known as of …"; a 422 shows the problem `detail`.
+
+| Path | Content |
+|---|---|
+| `src/asOf.ts` | Read and write `as_of` in the URL; local and UTC conversion |
+| `src/curve/AsOfControl.tsx` | "Known as of" input and "Now" button |
+
 ## Offline state
 
 On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the curve view; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later."). While the check runs, the page shows "Loading…".
