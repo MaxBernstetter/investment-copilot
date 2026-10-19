@@ -4,7 +4,7 @@ requests to a persistence stub out. No live source and no network are used."""
 import json
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -14,6 +14,7 @@ from contracts.persistence import v1
 
 from ingestion.infrastructure.http import USER_AGENT
 from ingestion.job import main
+from tests.fake_deliveries import FakeDeliveryStore
 from tests.recorded import (
     DAILY,
     EMPTY_WINDOW,
@@ -21,6 +22,7 @@ from tests.recorded import (
     HISTORY_2026,
     MALFORMED,
     NO_SERIES_404,
+    payload,
     recorded_response,
 )
 from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
@@ -64,6 +66,9 @@ class Run:
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_PERSISTENCE__URL", URL)
+    # Required at startup; the tests inject an in-memory delivery store instead.
+    monkeypatch.setenv("INGESTION_DB__DSN", "oracle.test:1521/FREEPDB1")
+    monkeypatch.setenv("INGESTION_DB__PASSWORD", "not-a-secret")
     # Pacing is the source client's concern (tested there); here it would only slow tests.
     monkeypatch.setenv("INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS", "0")
 
@@ -73,9 +78,13 @@ def run(
     argv: list[str],
     ecb: StubEcb,
     persistence: StubPersistence,
+    deliveries: FakeDeliveryStore | None = None,
 ) -> Run:
     exit_code = main(
-        argv, source_transport=ecb.transport, persistence_transport=persistence.transport
+        argv,
+        source_transport=ecb.transport,
+        persistence_transport=persistence.transport,
+        delivery_store=deliveries or FakeDeliveryStore(),
     )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
@@ -117,6 +126,28 @@ def test_daily_load_stores_all_11_tenors_as_published_values_of_the_run(
         ("ecb-aaa-spot", v1.Origin.PUBLISHED, None, "ecb", "ecb-daily-2026-10-15")
     }
     assert result.summary["recorded_count"] == 121
+
+
+def test_the_answer_is_kept_byte_for_byte_and_every_value_names_its_delivery(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    deliveries = FakeDeliveryStore()
+    persistence = StubPersistence()
+
+    result = run(capsys, ["daily", "--valid-date", "2026-10-15"], ecb, persistence, deliveries)
+
+    [(delivery, run_id)] = deliveries.stored
+    assert run_id == "ecb-daily-2026-10-15"
+    assert delivery.payload == payload(DAILY)
+    assert delivery.source_id == "ecb"
+    assert delivery.request_url == str(ecb.requests[0].url)
+    assert delivery.response_status == 200
+    assert delivery.last_modified == datetime(2026, 10, 16, 10, 0, tzinfo=UTC)
+    assert delivery.etag is None
+    assert delivery.fetched_at.tzinfo is not None
+    assert {o.delivery_id for o in persistence.observations} == {"1"}
+    assert result.summary["windows"][0]["delivery_id"] == "1"
 
 
 def test_published_values_are_stored_unchanged(capsys: pytest.CaptureFixture[str]) -> None:
@@ -186,6 +217,28 @@ def test_an_empty_window_is_a_successful_run_with_zero_rows_and_no_retry(
     assert result.summary["recorded_count"] == 0
 
 
+@pytest.mark.parametrize(
+    ("fixture", "status"),
+    [
+        pytest.param(NO_SERIES_404, 404, id="ECB 404 no data"),
+        pytest.param(EMPTY_WINDOW, 200, id="200 with empty body"),
+    ],
+)
+def test_an_empty_window_is_kept_as_a_delivery_without_payload(
+    capsys: pytest.CaptureFixture[str], fixture: str, status: int
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): fixture})
+    deliveries = FakeDeliveryStore()
+
+    result = run(
+        capsys, ["daily", "--valid-date", "2026-10-15"], ecb, StubPersistence(), deliveries
+    )
+
+    [delivery] = deliveries.deliveries
+    assert (delivery.response_status, delivery.payload) == (status, None)
+    assert result.summary["windows"][0]["delivery_id"] == "1"
+
+
 def test_history_loads_one_calendar_year_per_request_in_order(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -204,20 +257,26 @@ def test_history_loads_one_calendar_year_per_request_in_order(
         ("2026-01-01", "2026-01-09"),
     ]
     assert [len(batch.observations) for batch in persistence.batches] == [66, 66]
+    assert [{o.delivery_id for o in batch.observations} for batch in persistence.batches] == [
+        {"1"},
+        {"2"},
+    ]
     assert {o.run_id for o in persistence.observations} == {"ecb-history-2025-12-22-2026-01-09"}
     assert result.summary["recorded_count"] == 132
 
 
-def test_a_malformed_payload_fails_the_run_and_writes_nothing(
+def test_a_malformed_payload_fails_the_run_and_writes_nothing_but_the_delivery(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     ecb = StubEcb({("2026-10-01", "2026-10-15"): MALFORMED})
+    deliveries = FakeDeliveryStore()
     persistence = StubPersistence()
 
-    result = run(capsys, ["daily", "--valid-date", "2026-10-15"], ecb, persistence)
+    result = run(capsys, ["daily", "--valid-date", "2026-10-15"], ecb, persistence, deliveries)
 
     assert result.exit_code == 1
     assert persistence.batches == []
+    assert [d.payload for d in deliveries.deliveries] == [payload(MALFORMED)]
     failure = json.loads(result.stderr)
     assert failure["event"] == "load_failed"
     assert failure["error"] == "InvalidPayloadError"

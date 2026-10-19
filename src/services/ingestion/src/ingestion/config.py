@@ -3,11 +3,12 @@
 Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source settings are
 ``INGESTION_SOURCES__<SOURCE>__<SETTING>``, for example
 ``INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS=2``; the persistence service is
-``INGESTION_PERSISTENCE__<SETTING>``. Unknown sources or settings are
+``INGESTION_PERSISTENCE__<SETTING>``; ingestion's own database schema ``ING`` is
+``INGESTION_DB__<SETTING>``. Unknown sources or settings are
 rejected, so a typo fails at startup instead of being ignored.
 """
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MAX_ATTEMPTS_PER_REQUEST = 3
@@ -55,6 +56,18 @@ class PersistenceSettings(BaseModel):
     timeout_seconds: float = Field(default=30.0, gt=0)
 
 
+class DatabaseSettings(BaseModel):
+    """Ingestion's own schema ``ING`` (raw deliveries), as its least-privilege runtime user."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    dsn: str = Field(min_length=1)
+    """Oracle DSN, e.g. ``localhost:1521/FREEPDB1``."""
+    user: str = Field(default="ing_app", min_length=1)
+    password: SecretStr
+    call_timeout_ms: int = Field(default=30_000, gt=0)
+
+
 class IngestionSettings(BaseSettings):
     """All ingestion settings. Construct once at process start."""
 
@@ -67,3 +80,4 @@ class IngestionSettings(BaseSettings):
 
     sources: SourcesSettings = SourcesSettings()
     persistence: PersistenceSettings
+    db: DatabaseSettings

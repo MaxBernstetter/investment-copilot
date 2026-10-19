@@ -55,6 +55,7 @@ def summary(result: LoadResult) -> str:
                 {
                     "start": window.window.start.isoformat(),
                     "end": window.window.end.isoformat(),
+                    "delivery_id": window.delivery_id,
                     "delivered_count": window.delivered_count,
                     "recorded_count": sum(batch.recorded_count for batch in window.batches),
                     "unchanged_count": sum(batch.unchanged_count for batch in window.batches),

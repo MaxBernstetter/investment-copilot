@@ -1,4 +1,4 @@
-"""Composition root of the ``job`` process: wires the ECB source and persistence.
+"""Composition root of the ``job`` process: wires the ECB source, ``ING`` and persistence.
 
 Entry point ``ingestion-load-ecb`` (see ``ingestion.facade.jobs.load_ecb``). Exit
 status: ``0`` the load finished (also with zero rows), ``1`` the load failed, ``2``
@@ -7,17 +7,20 @@ usage or configuration error.
 
 import asyncio
 import sys
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 
 import httpx
+import oracledb
 from pydantic import ValidationError
 
-from ingestion.application.load_published_curve import LoadPublishedCurve, LoadResult
+from ingestion.application.load_published_curve import DeliveryStore, LoadPublishedCurve, LoadResult
 from ingestion.config import IngestionSettings
 from ingestion.facade.jobs.load_ecb import LoadCommand, failure, parse_command, summary
 from ingestion.infrastructure.ecb import SOURCE_ID, EcbSpotCurveSource, InvalidPayloadError
 from ingestion.infrastructure.ecb import is_no_data as ecb_is_no_data
 from ingestion.infrastructure.http import SourceClient, SourceDisabledError, SourceRequestError
+from ingestion.infrastructure.ing import OracleDeliveryStore
 from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
 
 LOAD_ERRORS = (
@@ -26,6 +29,7 @@ LOAD_ERRORS = (
     InvalidPayloadError,
     PersistenceWriteError,
     httpx.HTTPError,
+    oracledb.Error,
 )
 
 
@@ -34,8 +38,10 @@ def main(
     *,
     source_transport: httpx.AsyncBaseTransport | None = None,
     persistence_transport: httpx.AsyncBaseTransport | None = None,
+    delivery_store: DeliveryStore | None = None,
 ) -> int:
-    """Run one ECB load. The transports are injected by tests; the defaults are real."""
+    """Run one ECB load. Tests inject the transports and the delivery store; the defaults
+    are real (the ``ING`` schema in Oracle)."""
     try:
         settings = IngestionSettings()
     except ValidationError as error:
@@ -45,7 +51,9 @@ def main(
         argv, lookback_business_days=settings.sources.ecb.lookback_business_days
     )
     try:
-        result = asyncio.run(_load(command, settings, source_transport, persistence_transport))
+        result = asyncio.run(
+            _load(command, settings, source_transport, persistence_transport, delivery_store)
+        )
     except LOAD_ERRORS as error:
         print(failure(command.run_id, error), file=sys.stderr)
         return 1
@@ -58,12 +66,25 @@ async def _load(
     settings: IngestionSettings,
     source_transport: httpx.AsyncBaseTransport | None,
     persistence_transport: httpx.AsyncBaseTransport | None,
+    delivery_store: DeliveryStore | None,
 ) -> LoadResult:
     async with (
+        _deliveries(settings, delivery_store) as deliveries,
         SourceClient(
             SOURCE_ID, settings.sources.ecb, is_no_data=ecb_is_no_data, transport=source_transport
         ) as source_client,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
-        load = LoadPublishedCurve(EcbSpotCurveSource(source_client), store)
+        load = LoadPublishedCurve(EcbSpotCurveSource(source_client), deliveries, store)
         return await load(command.windows, command.run_id)
+
+
+@asynccontextmanager
+async def _deliveries(
+    settings: IngestionSettings, injected: DeliveryStore | None
+) -> AsyncIterator[DeliveryStore]:
+    if injected is not None:
+        yield injected
+        return
+    async with OracleDeliveryStore(settings.db) as store:
+        yield store

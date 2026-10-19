@@ -10,8 +10,8 @@ env:
   INGESTION_PERSISTENCE__URL: '{{.INGESTION_PERSISTENCE__URL | default "http://localhost:8001"}}'
   INGESTION_DB_ADMIN_PASSWORD: '{{.INGESTION_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
   INGESTION_DB_OWNER_PASSWORD: '{{.INGESTION_DB_OWNER_PASSWORD | default "LocalIngOwner_1"}}'
-  INGESTION_DB_PASSWORD: '{{.INGESTION_DB_PASSWORD | default "LocalIngApp_1"}}'
-  INGESTION_DB_URL: '{{.INGESTION_DB_URL | default "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"}}'
+  INGESTION_DB__PASSWORD: '{{.INGESTION_DB__PASSWORD | default "LocalIngApp_1"}}'
+  INGESTION_DB__DSN: '{{.INGESTION_DB__DSN | default "localhost:1521/FREEPDB1"}}'
 
 tasks:
   setup:

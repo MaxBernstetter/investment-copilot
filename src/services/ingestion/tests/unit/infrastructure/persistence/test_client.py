@@ -41,10 +41,10 @@ async def record(
     async with PersistenceClient(
         SETTINGS, transport=stub.transport, sleep=sleep or FakeSleep()
     ) as client:
-        return await client.record("ecb", rows, "run-1")
+        return await client.record("ecb", rows, "run-1", "delivery-7")
 
 
-async def test_observations_are_sent_as_published_versions_of_the_run() -> None:
+async def test_observations_are_sent_as_published_versions_of_the_run_and_delivery() -> None:
     stub = StubPersistence()
 
     result = await record(stub, observations(1))
@@ -62,6 +62,7 @@ async def test_observations_are_sent_as_published_versions_of_the_run() -> None:
             run_id="run-1",
             change_reason=v1.ChangeReason.INITIAL,
             normalization_version="1",
+            delivery_id="delivery-7",
         )
     ]
 
