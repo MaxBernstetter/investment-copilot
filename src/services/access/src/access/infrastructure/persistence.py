@@ -17,6 +17,7 @@ from access.domain.curve import (
     PersistenceUnavailableError,
 )
 from access.domain.series import Series, SeriesPoint
+from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 
 HTTP_UNPROCESSABLE_CONTENT = 422
 
@@ -108,6 +109,61 @@ class PersistenceClient:
         if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
             raise InvalidCurveQueryError(_problem_detail(response))
         raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+    async def value_versions(
+        self, curve_id: str, maturity: str, valid_date: date, as_of: datetime | None
+    ) -> ValueVersions:
+        """Read the version history of one value; absent ``as_of`` is left to persistence."""
+        path = v1.VALUE_VERSIONS_PATH.format(
+            curve_id=quote(curve_id, safe=""),
+            maturity=quote(maturity, safe=""),
+            valid_date=valid_date.isoformat(),
+        )
+        params: dict[str, str] = {}
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat()
+        try:
+            response = await self._http.get(path, params=params)
+        except httpx.HTTPError as error:
+            raise PersistenceUnavailableError from error
+
+        if response.status_code == httpx.codes.OK:
+            return _versions_to_domain(_parse_versions(response))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+
+def _parse_versions(response: httpx.Response) -> v1.ValueVersionsResponse:
+    try:
+        return v1.ValueVersionsResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise PersistenceUnavailableError("persistence sent an unexpected versions body") from error
+
+
+def _versions_to_domain(body: v1.ValueVersionsResponse) -> ValueVersions:
+    return ValueVersions(
+        curve_id=body.data.curve_id,
+        maturity=body.data.maturity,
+        valid_date=body.data.valid_date,
+        as_of=body.meta.as_of,
+        versions=tuple(
+            ValueVersion(
+                version_id=version.version_id,
+                value=version.value,
+                known_from=version.known_from,
+                known_to=version.known_to,
+                source_id=version.source_id,
+                run_id=version.run_id,
+                change_reason=ChangeReason(version.change_reason.value),
+                normalization_version=version.normalization_version,
+                delivery_id=version.delivery_id,
+            )
+            for version in body.data.versions
+        ),
+    )
 
 
 def _parse_series(response: httpx.Response) -> v1.SeriesObservationsResponse:

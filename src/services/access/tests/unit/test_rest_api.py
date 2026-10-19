@@ -1,7 +1,7 @@
 import re
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -16,11 +16,13 @@ from access.domain.curve import (
     PersistenceUnavailableError,
 )
 from access.domain.series import Series, SeriesPoint
+from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 from access.facade.rest.app import Services, create_app
 
 FRONTEND_ORIGIN = "http://localhost:5174"
 CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
 SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
+VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
@@ -28,7 +30,34 @@ class FakeCurveReader:
     def __init__(self) -> None:
         self.calls: list[tuple[str, date | None, datetime | None]] = []
         self.series_calls: list[tuple[str, str, date | None, date | None, datetime | None]] = []
+        self.versions_calls: list[tuple[str, str, date, datetime | None]] = []
         self.error: Exception | None = None
+
+    async def value_versions(
+        self, curve_id: str, maturity: str, valid_date: date, as_of: datetime | None
+    ) -> ValueVersions:
+        self.versions_calls.append((curve_id, maturity, valid_date, as_of))
+        if self.error is not None:
+            raise self.error
+        return ValueVersions(
+            curve_id=curve_id,
+            maturity=maturity,
+            valid_date=valid_date,
+            as_of=AS_OF,
+            versions=(
+                ValueVersion(
+                    version_id=4711,
+                    value=2.61,
+                    known_from=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+                    known_to=None,
+                    source_id="ecb",
+                    run_id="run-1",
+                    change_reason=ChangeReason.INITIAL,
+                    normalization_version="1",
+                    delivery_id="4711",
+                ),
+            ),
+        )
 
     async def series_as_of(
         self,
@@ -466,5 +495,79 @@ def test_the_same_instant_in_another_offset_is_settled(client: TestClient) -> No
     in_utc = AS_OF.astimezone(ZoneInfo("UTC")).isoformat()
 
     response = client.get(CURVE_PATH, params={"as_of": in_utc})
+
+    assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_value_versions_envelope(client: TestClient, services: FakeServices) -> None:
+    response = client.get(VERSIONS_PATH, params={"as_of": AS_OF.isoformat()})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "valid_date": "2026-03-12",
+            "versions": [
+                {
+                    "version_id": 4711,
+                    "value": 2.61,
+                    "known_from": "2026-03-13T08:00:00Z",
+                    "known_to": None,
+                    "source_id": "ecb",
+                    "run_id": "run-1",
+                    "change_reason": "initial",
+                    "normalization_version": "1",
+                    "delivery_id": "4711",
+                }
+            ],
+        },
+        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+    }
+    assert services.curves.versions_calls == [("ecb-aaa-spot", "10Y", date(2026, 3, 12), AS_OF)]
+
+
+def test_value_versions_not_found_is_404(client: TestClient, services: FakeServices) -> None:
+    services.curves.error = CurveNotFoundError("maturity 4Y is not on the grid")
+
+    response = client.get(VERSIONS_PATH)
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+    assert response.json()["detail"] == "maturity 4Y is not on the grid"
+
+
+def test_value_versions_bad_date_is_422(client: TestClient, services: FakeServices) -> None:
+    response = client.get(VERSIONS_PATH.replace("2026-03-12", "12.03.2026"))
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid request"
+    assert services.curves.versions_calls == []
+
+
+def test_value_versions_unavailable_is_503(client: TestClient, services: FakeServices) -> None:
+    services.curves.error = PersistenceUnavailableError()
+
+    response = client.get(VERSIONS_PATH)
+
+    assert response.status_code == 503
+    assert response.json()["title"] == "Service unavailable"
+
+
+def test_value_versions_carry_an_etag(client: TestClient) -> None:
+    response = client.get(VERSIONS_PATH)
+
+    assert response.status_code == 200
+    assert re.fullmatch(r'"[0-9a-f]{32}"', response.headers["etag"])
+
+    conditional = client.get(VERSIONS_PATH, headers={"If-None-Match": response.headers["etag"]})
+    assert conditional.status_code == 304
+    assert conditional.content == b""
+
+
+def test_settled_value_versions_are_immutable(client: TestClient) -> None:
+    response = client.get(VERSIONS_PATH, params={"as_of": AS_OF.isoformat()})
 
     assert response.headers["cache-control"] == IMMUTABLE

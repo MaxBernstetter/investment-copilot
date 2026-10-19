@@ -19,7 +19,7 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
-from access.facade.mapping import to_response, to_series_response
+from access.facade.mapping import to_response, to_series_response, to_versions_response
 from access.facade.rest.caching import cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
@@ -126,6 +126,37 @@ def _add_routes(app: FastAPI) -> None:
             request,
             to_series_response(series),
             cache_control=cache_control(as_of, series.as_of),
+        )
+
+    @app.get(
+        v1.VALUE_VERSIONS_PATH,
+        response_model=v1.ValueVersionsResponse,
+        responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
+            status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
+            status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
+        },
+    )
+    async def value_versions(
+        request: Request,
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        maturity: Annotated[str, Path(min_length=1, max_length=16)],
+        valid_date: date,
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> Response:
+        """The version history of one value as it was known at ``meta.as_of``.
+
+        Versions are listed oldest first; ``known_to`` is null while a version is current.
+        Without ``as_of`` the store picks its default; the answer reports the knowledge
+        time it used in ``meta.as_of``.
+        """
+        versions = await services.curves.value_versions(curve_id, maturity, valid_date, as_of)
+        return json_with_etag(
+            request,
+            to_versions_response(versions),
+            cache_control=cache_control(as_of, versions.as_of),
         )
 
     @app.get("/health")
