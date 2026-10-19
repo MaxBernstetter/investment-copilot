@@ -40,7 +40,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`) afte
 
 | Path | Content |
 |---|---|
-| `src/curve/CurveView.tsx` | Curve page: date input, overlay, state messages, source |
+| `src/curve/CurveView.tsx` | Curve page: date input, overlay, history buttons, state messages, source |
 | `src/curve/CurveChart.tsx` | Plotly line chart with markers, one trace per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
 | `src/curve/curveData.ts` | Chart series and missing maturities |
@@ -63,6 +63,22 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 | `src/series/SeriesChart.tsx` | Plotly line chart with markers over dates |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
 | `src/series/seriesData.ts` | Maturity grid, chart series and default range |
+
+## Version history files
+
+| Path | Content |
+|---|---|
+| `src/versions/VersionHistory.tsx` | Version table for one value, with state messages and Close |
+| `src/versions/fetchVersions.ts` | API call and mapping of responses to `VersionsResult` |
+
+## Version history
+
+Each shown value can be traced to the versions it had, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions`.
+
+- **Entry:** the curve view has a "History <maturity>" button for each maturity with a value in the shown curve. The panel opens below the buttons and closes with "Close".
+- **Scope:** it shows the maturity, the valid date currently shown and the current "Known as of" time (`as_of`). It refetches when `as_of` changes.
+- **Table:** one row per version, oldest first as the API returns them, with value, "Known from", "Known until" ("current" while the version is still current), reason, source, run and delivery. Missing source or delivery shows "–".
+- **Errors:** as for the curve view; 404 shows "No data known for this value." (or "No data known as of …" with `as_of`); 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 
 ## Configuration
 

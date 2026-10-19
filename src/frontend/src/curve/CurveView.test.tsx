@@ -4,6 +4,7 @@ import { localInputToUtc } from '../asOf'
 import CurveChart from './CurveChart'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
+import VersionHistory from '../versions/VersionHistory'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -13,7 +14,12 @@ vi.mock('./fetchCurve', () => ({
   fetchCurve: vi.fn(),
 }))
 
+vi.mock('../versions/VersionHistory', () => ({
+  default: vi.fn(() => null),
+}))
+
 const mockedFetch = vi.mocked(fetchCurve)
+const mockedHistory = vi.mocked(VersionHistory)
 const mockedChart = vi.mocked(CurveChart)
 
 function curveResult(validDate: string, values: (number | null)[]): CurveResult {
@@ -181,6 +187,19 @@ describe('CurveView', () => {
       expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-16', asOf }),
     )
     expect(mockedFetch).toHaveBeenCalledWith({ validDate: '2026-10-01', asOf })
+  })
+
+  it('opens the history of a maturity', async () => {
+    await renderLoaded()
+
+    expect(screen.queryByRole('button', { name: 'History 15Y' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'History 10Y' }))
+
+    expect(mockedHistory.mock.lastCall?.[0]).toMatchObject({
+      maturity: '10Y',
+      validDate: '2026-10-16',
+      asOf: undefined,
+    })
   })
 
   it('caps the overlay at 5 curves', async () => {
