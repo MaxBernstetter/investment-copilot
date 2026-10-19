@@ -9,6 +9,7 @@ import httpx
 from contracts.persistence import v1
 from pydantic import ValidationError
 
+from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
     CurveNotFoundError,
@@ -134,6 +135,65 @@ class PersistenceClient:
         if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
             raise InvalidCurveQueryError(_problem_detail(response))
         raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+    async def changes(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        since: datetime,
+        as_of: datetime | None,
+    ) -> CurveChanges:
+        """Read the changes of a curve; an absent ``as_of`` is left to persistence."""
+        path = v1.CURVE_CHANGES_PATH.format(curve_id=quote(curve_id, safe=""))
+        params: dict[str, str] = {
+            "from": valid_from.isoformat(),
+            "to": valid_to.isoformat(),
+            "since": since.isoformat(),
+        }
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat()
+        try:
+            response = await self._http.get(path, params=params)
+        except httpx.HTTPError as error:
+            raise PersistenceUnavailableError from error
+
+        if response.status_code == httpx.codes.OK:
+            return _changes_to_domain(_parse_changes(response))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+
+def _parse_changes(response: httpx.Response) -> v1.CurveChangesResponse:
+    try:
+        return v1.CurveChangesResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise PersistenceUnavailableError("persistence sent an unexpected changes body") from error
+
+
+def _changes_to_domain(body: v1.CurveChangesResponse) -> CurveChanges:
+    return CurveChanges(
+        curve_id=body.data.curve_id,
+        valid_from=body.data.valid_from,
+        valid_to=body.data.valid_to,
+        since=body.meta.since,
+        as_of=body.meta.as_of,
+        changes=tuple(
+            ValueChange(
+                valid_date=change.valid_date,
+                maturity=change.maturity,
+                old_value=change.old_value,
+                new_value=change.new_value,
+                change_reason=ChangeReason(change.change_reason.value),
+                source_id=change.source_id,
+                known_from=change.known_from,
+            )
+            for change in body.data.changes
+        ),
+    )
 
 
 def _parse_versions(response: httpx.Response) -> v1.ValueVersionsResponse:

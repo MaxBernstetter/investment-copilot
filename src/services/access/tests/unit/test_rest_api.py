@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
+from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
     CurveNotFoundError,
@@ -23,6 +24,8 @@ FRONTEND_ORIGIN = "http://localhost:5174"
 CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
 SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
+CHANGES_PATH = "/v1/curves/ecb-aaa-spot/changes"
+SINCE = datetime(2026, 3, 12, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
@@ -31,7 +34,38 @@ class FakeCurveReader:
         self.calls: list[tuple[str, date | None, datetime | None]] = []
         self.series_calls: list[tuple[str, str, date | None, date | None, datetime | None]] = []
         self.versions_calls: list[tuple[str, str, date, datetime | None]] = []
+        self.changes_calls: list[tuple[str, date, date, datetime, datetime | None]] = []
         self.error: Exception | None = None
+
+    async def changes(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        since: datetime,
+        as_of: datetime | None,
+    ) -> CurveChanges:
+        self.changes_calls.append((curve_id, valid_from, valid_to, since, as_of))
+        if self.error is not None:
+            raise self.error
+        return CurveChanges(
+            curve_id=curve_id,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            since=SINCE.astimezone(UTC),
+            as_of=AS_OF,
+            changes=(
+                ValueChange(
+                    valid_date=date(2026, 3, 12),
+                    maturity="10Y",
+                    old_value=2.61,
+                    new_value=2.7,
+                    change_reason=ChangeReason.CORRECTION,
+                    source_id="ecb",
+                    known_from=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+                ),
+            ),
+        )
 
     async def value_versions(
         self, curve_id: str, maturity: str, valid_date: date, as_of: datetime | None
@@ -571,3 +605,85 @@ def test_settled_value_versions_are_immutable(client: TestClient) -> None:
     response = client.get(VERSIONS_PATH, params={"as_of": AS_OF.isoformat()})
 
     assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_returns_the_changes_in_the_public_envelope(client: TestClient) -> None:
+    response = client.get(
+        CHANGES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-14", "since": SINCE.isoformat()},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-03-12",
+            "valid_to": "2026-03-14",
+            "changes": [
+                {
+                    "valid_date": "2026-03-12",
+                    "maturity": "10Y",
+                    "old_value": 2.61,
+                    "new_value": 2.7,
+                    "change_reason": "correction",
+                    "source_id": "ecb",
+                    "known_from": "2026-03-13T08:00:00Z",
+                }
+            ],
+        },
+        "meta": {"since": "2026-03-12T08:00:00Z", "as_of": "2026-03-13T08:00:00Z"},
+    }
+
+
+def test_passes_range_since_and_as_of_to_persistence(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(
+        CHANGES_PATH,
+        params={
+            "from": "2026-03-12",
+            "to": "2026-03-14",
+            "since": SINCE.isoformat(),
+            "as_of": AS_OF.isoformat(),
+        },
+    )
+
+    assert services.curves.changes_calls == [
+        ("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), SINCE, AS_OF)
+    ]
+
+
+def test_settled_changes_are_immutable(client: TestClient) -> None:
+    response = client.get(
+        CHANGES_PATH,
+        params={
+            "from": "2026-03-12",
+            "to": "2026-03-14",
+            "since": SINCE.isoformat(),
+            "as_of": AS_OF.isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_changes_without_as_of_are_no_cache(client: TestClient, services: FakeServices) -> None:
+    response = client.get(
+        CHANGES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-14", "since": SINCE.isoformat()},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+    assert services.curves.changes_calls[0][4] is None
+
+
+def test_changes_missing_since_is_rejected_without_calling_persistence(
+    client: TestClient, services: FakeServices
+) -> None:
+    response = client.get(CHANGES_PATH, params={"from": "2026-03-12", "to": "2026-03-14"})
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert services.curves.changes_calls == []

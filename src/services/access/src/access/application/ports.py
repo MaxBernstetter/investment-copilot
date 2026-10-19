@@ -3,6 +3,7 @@
 from datetime import date, datetime
 from typing import Protocol
 
+from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
@@ -30,4 +31,18 @@ class CurveReader(Protocol):
         self, curve_id: str, maturity: str, valid_date: date, as_of: datetime | None
     ) -> ValueVersions:
         """Read the version history of one value; ``None`` means the store's default."""
+        ...
+
+    async def changes(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        since: datetime,
+        as_of: datetime | None,
+    ) -> CurveChanges:
+        """Read what changed in a curve between ``since`` and ``as_of``.
+
+        ``None`` for ``as_of`` means the store's default.
+        """
         ...
