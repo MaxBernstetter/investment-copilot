@@ -8,6 +8,8 @@ src/
     src/contracts/<service>/v1/
   services/
     ingestion/
+      db/                  # Liquibase changelogs (admin/, ing/), PL/SQL packages, utPLSQL tests (tests/)
+      compose.yaml         # ING migrations against the local Oracle Free of persistence
     persistence/
       db/                  # Liquibase changelogs (admin/, core/), PL/SQL packages, utPLSQL tests (tests/)
       compose.yaml         # local Oracle Free + migrations for development
