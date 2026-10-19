@@ -91,7 +91,8 @@ Values are never overwritten. For each observation of a batch, identified by its
 
 - **Version-relevant attributes** are `value` (numerically: `2.61` equals `2.610`) and `source_id`: they state what the value is and where it comes from. `run_id`, `change_reason`, `normalization_version` and `delivery_id` describe the write, so a reload by another run, another normalization version or from another delivery with the same value and source is unchanged; the open version keeps them as they were.
 - Previous versions stay stored with their closed knowledge interval. The intervals of one key are contiguous: each closed `known_to` equals the next version's `known_from`. Every version stays retrievable through `get_versions`, and the version visible at a given time through [[#As-of retrieval]].
-- Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]). The stored `change_reason` is the caller's; deriving it belongs to [#23](https://github.com/MaxBernstetter/yield-lens/issues/23).
+- **Change reason:** a new version keeps the `change_reason` the caller sent, with one exception. An `initial` version of an observation that already has a version (closed or open) is stored as `revision`, so a revised value from a rerun is a revision without the caller having to know it. The first version keeps `initial`; `correction`, `recalculation` and `simulated` are stored as sent. An unchanged reload is a no-op, so its reason is not stored.
+- Reloads are idempotent, so a daily load can resend its whole lookback window ([[12-data-pipeline#Extraction and revisions]]).
 - Set-based: one locking `SELECT … FOR UPDATE`, one `UPDATE` (close changed versions) and one `INSERT … SELECT` (open versions for keys without one), each restricted to the batch's valid-date range, so partitions are pruned.
 
 ### Concurrency

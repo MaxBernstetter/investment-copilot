@@ -100,6 +100,22 @@ def test_a_revised_value_becomes_a_new_version_and_keeps_the_previous_one(
     ]
 
 
+def test_a_revised_value_is_stored_as_revision(
+    client: TestClient, oracle: OracleDatabase, curve_id: str
+) -> None:
+    client.post(RECORD_VERSIONS_PATH, json=batch(curve_id))
+
+    response = client.post(RECORD_VERSIONS_PATH, json=batch(curve_id, ten_year="2.70"))
+
+    assert response.status_code == 200
+    versions = stored_versions(oracle, curve_id)
+    assert [(v["maturity"], v["value"], v["change_reason"]) for v in versions] == [
+        ("10Y", 2.61, "initial"),
+        ("10Y", 2.7, "revision"),
+        ("2Y", 2.1, "initial"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("maturity", "defined"), [("4Y", True), ("10Y", False)], ids=["off-grid", "undefined-curve"]
 )

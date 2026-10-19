@@ -31,6 +31,9 @@ create or replace package core_observation authid definer as
   -- * open version with the same value and source_id: unchanged, nothing is
   --   written (run_id, change_reason, normalization_version and delivery_id
   --   describe how the value was written, not the value).
+  -- A new version keeps its change_reason, except that an 'initial' version of
+  -- an observation that already has a version is stored as 'revision'.
+  -- correction, recalculation and simulated are stored as sent.
   -- o_recorded_count counts the new versions only.
   -- All versions of one call share one knowledge time: p_known_from if given
   -- (for deterministic tests and replays), otherwise the database clock in UTC,
@@ -195,13 +198,27 @@ create or replace package body core_observation as
 
     -- Open a version for every observation that has none now: new ones and
     -- changed ones. Unchanged observations still have their open version.
+    -- An 'initial' version of an observation that already has a version
+    -- (closed or open) is a revision.
     insert into observation (
       curve_id, maturity, valid_date, value, known_from,
       origin, method_version, source_id, run_id, change_reason, normalization_version,
       delivery_id
     )
     select v.curve_id, v.maturity, v.valid_date, v.value, l_known_from,
-           v.origin, v.method_version, v.source_id, v.run_id, v.change_reason,
+           v.origin, v.method_version, v.source_id, v.run_id,
+           case when v.change_reason = 'initial' and exists (
+                  select 1
+                    from observation p
+                   where p.curve_id = v.curve_id
+                     and p.maturity = v.maturity
+                     and p.valid_date = v.valid_date
+                     and p.origin = v.origin
+                     and decode(p.method_version, v.method_version, 1, 0) = 1
+                     and p.valid_date between l_valid_date_from and l_valid_date_to
+                ) then 'revision'
+                else v.change_reason
+           end,
            v.normalization_version, v.delivery_id
       from table(p_versions) v
      where not exists (
