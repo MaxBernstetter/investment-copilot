@@ -74,11 +74,11 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-The local development stack (Oracle, migrations, spool, persistence api) lives in `src/deploy/` (namespace `dev`, run from that directory):
+The local development stack (Oracle, the `CORE` and `ING` migrations, persistence api) lives in `src/deploy/` (namespace `dev`, run from that directory):
 
 | Task | Does |
 |---|---|
-| `dev:up` | Start Oracle and the spool, apply the migrations, set up the spool and start the persistence api; waits until healthy (idempotent) |
+| `dev:up` | Start Oracle, apply the `CORE` and `ING` migrations and start the persistence api; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 
