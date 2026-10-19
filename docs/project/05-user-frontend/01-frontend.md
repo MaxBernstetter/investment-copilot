@@ -77,6 +77,23 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
 - **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 320 kB, CSS at most 45 kB. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
 
+## Changes view
+
+The "Changes" tab shows which values differ between two knowledge states, via `GET /v1/curves/{curve_id}/changes`.
+
+- **Range:** "From" and "To" are valid dates, defaulting to the last 365 days up to today (UTC).
+- **Compare from:** a required "Compare from (known as of)" `datetime-local` input, the earlier knowledge time. Until it is set the view asks for it and sends no request.
+- **To:** the shared "Known as of" control and `as_of` URL parameter; "Now" (the default) compares with the latest knowledge.
+- **Table:** one row per changed value in API order, with valid date, maturity, old and new value (yield in percent), change in basis points (signed, one decimal), reason, source and "Known from". Old value and source show "–" when absent; the change shows "–" when the value was not known at the earlier time. Reasons are badges: `correction` orange, `revision` blue, others gray.
+- **Empty:** "No changes between these knowledge times."
+- **Errors:** 404 and 422 show the problem `detail`; 503 or an unreachable API shows the offline alert.
+
+| Path | Content |
+|---|---|
+| `src/changes/ChangesView.tsx` | Changes page: ranges, earlier knowledge time, table and state messages |
+| `src/changes/fetchChanges.ts` | API call and mapping of responses to `ChangesResult` |
+| `src/changes/changesData.ts` | Table rows and basis-point change formatting |
+
 ## Version history files
 
 | Path | Content |
@@ -142,6 +159,7 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 | `src/api/schema.d.ts` | Generated API types, git-ignored |
 | `src/curve/` | Curve view and curve choice (see above) |
 | `src/series/` | Time series view (see above) |
+| `src/changes/` | Changes view (see above) |
 | `src/test/setup.ts` | Test setup (jest-dom matchers, Mantine browser mocks) |
 | `src/test/render.tsx` | `render` wrapping UI in `MantineProvider`; re-exports Testing Library |
 | `src/theme.ts` | Mantine theme |

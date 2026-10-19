@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AppShell, Alert, Badge, Container, Group, Loader, SegmentedControl, Tabs, Text, Title } from '@mantine/core'
 import { isBackendOnline } from './backend'
+import ChangesView from './changes/ChangesView'
 import CurveView from './curve/CurveView'
 import { curveById, readCurveId, writeCurveId } from './curve/curves'
 import SeriesView from './series/SeriesView'
@@ -53,6 +54,7 @@ export default function App() {
                 <Tabs.List>
                   <Tabs.Tab value="curve">Curve</Tabs.Tab>
                   <Tabs.Tab value="series">Time series</Tabs.Tab>
+                  <Tabs.Tab value="changes">Changes</Tabs.Tab>
                 </Tabs.List>
               </Group>
             )}
@@ -83,6 +85,9 @@ export default function App() {
                 </Tabs.Panel>
                 <Tabs.Panel value="series">
                   <SeriesView key={curveId} curveId={curveId} />
+                </Tabs.Panel>
+                <Tabs.Panel value="changes">
+                  <ChangesView key={curveId} curveId={curveId} />
                 </Tabs.Panel>
               </>
             )}
