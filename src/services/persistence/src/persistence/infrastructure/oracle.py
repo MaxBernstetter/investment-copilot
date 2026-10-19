@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime
 
 import oracledb
 
+from persistence.domain.changes import ValueChange
 from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
     ChangeReason,
@@ -198,6 +199,60 @@ class OracleObservationRepository:
                 change_reason,
                 normalization_version,
                 delivery_id,
+            ) in rows
+        ]
+
+    async def has_curve(self, curve_id: str) -> bool:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            found = await connection.cursor().callfunc(
+                "core.core_observation.has_curve",
+                oracledb.DB_TYPE_NUMBER,
+                [curve_id],
+            )
+        return bool(found)
+
+    async def changes(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        since: datetime,
+        as_of: datetime,
+    ) -> list[ValueChange]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            changes = await cursor.callfunc(
+                "core.core_observation.get_changes",
+                oracledb.DB_TYPE_CURSOR,
+                [
+                    curve_id,
+                    valid_from,
+                    valid_to,
+                    _bind_timestamp(cursor, since),
+                    _bind_timestamp(cursor, as_of),
+                ],
+            )
+            rows = await changes.fetchall()
+        return [
+            ValueChange(
+                valid_date=valid_date.date(),
+                maturity=maturity,
+                old_value=float(old_value) if old_value is not None else None,
+                new_value=float(new_value),
+                change_reason=ChangeReason(change_reason),
+                source_id=source_id,
+                known_from=_as_utc(known_from),
+            )
+            for (
+                valid_date,
+                maturity,
+                old_value,
+                new_value,
+                change_reason,
+                source_id,
+                known_from,
             ) in rows
         ]
 

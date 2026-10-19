@@ -10,6 +10,7 @@ from functools import partial
 from fastapi import FastAPI
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
+from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
@@ -40,6 +41,7 @@ async def oracle_services(settings: Settings) -> AsyncIterator[Services]:
             GetCurveAsOf(repository),
             GetSeriesAsOf(repository),
             GetValueVersions(repository),
+            GetCurveChanges(repository),
         )
     finally:
         await pool.close()

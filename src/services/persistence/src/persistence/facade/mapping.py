@@ -2,6 +2,7 @@
 
 from contracts.persistence import v1
 
+from persistence.domain.changes import CurveChanges
 from persistence.domain.curve import CurveAsOf
 from persistence.domain.observation import ChangeReason, Observation, Origin, RecordedVersions
 from persistence.domain.series import Series
@@ -82,4 +83,27 @@ def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
             ],
         ),
         meta=v1.CurveMeta(as_of=versions.as_of),
+    )
+
+
+def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
+    return v1.CurveChangesResponse(
+        data=v1.CurveChanges(
+            curve_id=changes.curve_id,
+            valid_from=changes.valid_from,
+            valid_to=changes.valid_to,
+            changes=[
+                v1.ValueChange(
+                    valid_date=change.valid_date,
+                    maturity=change.maturity,
+                    old_value=change.old_value,
+                    new_value=change.new_value,
+                    change_reason=v1.ChangeReason(change.change_reason.value),
+                    source_id=change.source_id,
+                    known_from=change.known_from,
+                )
+                for change in changes.changes
+            ],
+        ),
+        meta=v1.ChangesMeta(since=changes.since, as_of=changes.as_of),
     )

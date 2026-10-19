@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from contracts.persistence.v1 import (
+    CURVE_CHANGES_PATH,
     CURVE_OBSERVATIONS_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
@@ -13,9 +14,11 @@ from contracts.persistence.v1 import (
 from fastapi.testclient import TestClient
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
+from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
+from persistence.domain.changes import ValueChange
 from persistence.domain.observation import (
     ChangeReason,
     Observation,
@@ -58,6 +61,7 @@ class FakeBackend:
             GetCurveAsOf(self.curves),
             GetSeriesAsOf(self.curves),
             GetValueVersions(self.curves),
+            GetCurveChanges(self.curves),
         )
 
 
@@ -149,6 +153,7 @@ def test_a_concurrent_write_is_a_conflict() -> None:
             GetCurveAsOf(curves),
             GetSeriesAsOf(curves),
             GetValueVersions(curves),
+            GetCurveChanges(curves),
         )
 
     with TestClient(create_app(services)) as client:
@@ -425,3 +430,95 @@ def test_value_versions_route_bad_date_is_422(client: TestClient) -> None:
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Invalid request"
+
+
+CHANGES_PATH = CURVE_CHANGES_PATH.format(curve_id="ecb-aaa-spot")
+
+
+def test_changes_route_returns_the_envelope(client: TestClient, backend: FakeBackend) -> None:
+    backend.curves.value_changes["ecb-aaa-spot"] = [
+        ValueChange(
+            valid_date=date(2026, 3, 12),
+            maturity="10Y",
+            old_value=2.61,
+            new_value=2.7,
+            change_reason=ChangeReason.CORRECTION,
+            source_id="ecb",
+            known_from=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
+        )
+    ]
+
+    response = client.get(
+        CHANGES_PATH,
+        params={
+            "from": "2026-03-01",
+            "to": "2026-03-31",
+            "since": "2026-03-12T18:00:00Z",
+            "as_of": "2026-03-13T08:30:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-03-01",
+            "valid_to": "2026-03-31",
+            "changes": [
+                {
+                    "valid_date": "2026-03-12",
+                    "maturity": "10Y",
+                    "old_value": 2.61,
+                    "new_value": 2.7,
+                    "change_reason": "correction",
+                    "source_id": "ecb",
+                    "known_from": "2026-03-13T08:00:00Z",
+                }
+            ],
+        },
+        "meta": {"since": "2026-03-12T18:00:00Z", "as_of": "2026-03-13T08:30:00Z"},
+    }
+
+
+def test_changes_route_requires_since_from_and_to(client: TestClient) -> None:
+    response = client.get(CHANGES_PATH, params={"from": "2026-03-01", "to": "2026-03-31"})
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid request"
+    missing = {error["loc"][-1] for error in response.json()["errors"]}
+    assert missing == {"since"}
+
+    response = client.get(
+        CHANGES_PATH, params={"since": "2026-03-12T18:00:00Z", "to": "2026-03-31"}
+    )
+
+    assert response.status_code == 422
+    assert {error["loc"][-1] for error in response.json()["errors"]} == {"from"}
+
+
+def test_changes_route_undefined_curve_is_404(client: TestClient) -> None:
+    response = client.get(
+        CURVE_CHANGES_PATH.format(curve_id="unknown-curve"),
+        params={"from": "2026-03-01", "to": "2026-03-31", "since": "2026-03-12T18:00:00Z"},
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+
+
+def test_changes_route_since_after_as_of_is_422(client: TestClient) -> None:
+    response = client.get(
+        CHANGES_PATH,
+        params={
+            "from": "2026-03-01",
+            "to": "2026-03-31",
+            "since": "2026-03-13T08:00:00Z",
+            "as_of": "2026-03-12T18:00:00Z",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Invalid range"
