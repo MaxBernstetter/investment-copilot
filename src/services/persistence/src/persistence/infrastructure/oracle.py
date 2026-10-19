@@ -9,10 +9,18 @@ from datetime import UTC, datetime
 
 import oracledb
 
-from persistence.domain.observation import Observation, OpenVersionExistsError, RecordedVersions
+from persistence.domain.observation import (
+    InvalidObservationsError,
+    Observation,
+    OpenVersionExistsError,
+    RecordedVersions,
+)
 
 OPEN_VERSION_EXISTS = 20001
 """Application error code of core_observation.open_version_exists (raised as ORA-20001)."""
+
+DUPLICATE_OBSERVATION = 20002
+"""Application error code of core_observation.duplicate_observation (raised as ORA-20002)."""
 
 
 def create_pool(
@@ -49,13 +57,18 @@ class OracleObservationRepository:
                 )
             except oracledb.DatabaseError as error:
                 await connection.rollback()
-                if _error_code(error) == OPEN_VERSION_EXISTS:
+                code = _error_code(error)
+                if code == OPEN_VERSION_EXISTS:
                     raise OpenVersionExistsError(str(error)) from error
+                if code == DUPLICATE_OBSERVATION:
+                    raise InvalidObservationsError(str(error)) from error
                 raise
             await connection.commit()
+        recorded = int(recorded_count.getvalue())
         return RecordedVersions(
             known_from=_as_utc(known_from.getvalue()),
-            recorded_count=int(recorded_count.getvalue()),
+            recorded_count=recorded,
+            unchanged_count=len(observations) - recorded,
         )
 
     async def is_reachable(self) -> bool:
