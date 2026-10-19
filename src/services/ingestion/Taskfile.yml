@@ -3,6 +3,10 @@
 # this directory as working directory.
 version: "3"
 
+# Local-only default: the persistence api started by `task persistence:run`.
+env:
+  INGESTION_PERSISTENCE__URL: '{{.INGESTION_PERSISTENCE__URL | default "http://localhost:8001"}}'
+
 tasks:
   setup:
     desc: Create the virtual environment from the lockfile
@@ -16,10 +20,11 @@ tasks:
       - uv run --locked ruff check --fix .
 
   lint:
-    desc: Lint and check formatting
+    desc: Lint, check formatting and the layer rules
     cmds:
       - uv run --locked ruff check .
       - uv run --locked ruff format --check .
+      - uv run --locked lint-imports
 
   typecheck:
     desc: Type-check sources and tests (mypy strict)
@@ -30,3 +35,17 @@ tasks:
     desc: Run the unit tests (no I/O, no live sources)
     cmds:
       - uv run --locked pytest tests/unit
+
+  load:ecb:daily:
+    desc: Load the ECB curve for VALID_DATE and its lookback window (live ECB call; manual only)
+    requires:
+      vars: [VALID_DATE]
+    cmds:
+      - uv run --locked ingestion-load-ecb daily --valid-date {{.VALID_DATE}}
+
+  load:ecb:history:
+    desc: Load the ECB curve from START to END, one request per year (live ECB calls; manual only)
+    requires:
+      vars: [START, END]
+    cmds:
+      - uv run --locked ingestion-load-ecb history --start {{.START}} --end {{.END}}
