@@ -16,11 +16,18 @@ from contracts.persistence.v1.observations import (
     RecordVersionsRequest,
     RecordVersionsResponse,
 )
+from contracts.persistence.v1.series import (
+    SERIES_OBSERVATIONS_PATH,
+    SeriesObservations,
+    SeriesObservationsResponse,
+    SeriesPoint,
+)
 
 __all__ = [
     "CURVE_OBSERVATIONS_PATH",
     "MAX_BATCH_SIZE",
     "RECORD_VERSIONS_PATH",
+    "SERIES_OBSERVATIONS_PATH",
     "ChangeReason",
     "CurveMeta",
     "CurveObservations",
@@ -30,4 +37,7 @@ __all__ = [
     "Origin",
     "RecordVersionsRequest",
     "RecordVersionsResponse",
+    "SeriesObservations",
+    "SeriesObservationsResponse",
+    "SeriesPoint",
 ]

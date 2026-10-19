@@ -14,6 +14,8 @@ from contracts.persistence.v1 import (
     Origin,
     RecordVersionsRequest,
     RecordVersionsResponse,
+    SeriesObservationsResponse,
+    SeriesPoint,
 )
 
 
@@ -171,3 +173,33 @@ def test_curve_point_value_is_a_json_number() -> None:
     point = CurvePoint(maturity="10Y", months=120, value=2.61)
 
     assert '"value":2.61' in point.model_dump_json()
+
+
+def series_response(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "maturity": "10Y",
+            "points": [
+                {"valid_date": "2026-03-12", "value": 2.61},
+                {"valid_date": "2026-03-14", "value": 2.7},
+            ],
+        },
+        "meta": {"as_of": "2026-03-15T09:00:00Z"},
+    }
+    return body | overrides
+
+
+def test_series_response_round_trips_with_gaps_between_dates() -> None:
+    response = SeriesObservationsResponse.model_validate(series_response())
+
+    assert [point.valid_date for point in response.data.points] == [
+        date(2026, 3, 12),
+        date(2026, 3, 14),
+    ]
+    assert SeriesObservationsResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_series_point_rejects_a_non_finite_value() -> None:
+    with pytest.raises(ValidationError, match="value"):
+        SeriesPoint.model_validate({"valid_date": "2026-03-12", "value": "NaN"})

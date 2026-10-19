@@ -4,6 +4,7 @@ from contracts.persistence import v1
 
 from persistence.domain.curve import CurveAsOf
 from persistence.domain.observation import ChangeReason, Observation, Origin, RecordedVersions
+from persistence.domain.series import Series
 
 
 def to_observation(version: v1.ObservationVersion) -> Observation:
@@ -41,4 +42,18 @@ def to_curve_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
             ],
         ),
         meta=v1.CurveMeta(as_of=curve.as_of),
+    )
+
+
+def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
+    return v1.SeriesObservationsResponse(
+        data=v1.SeriesObservations(
+            curve_id=series.curve_id,
+            maturity=series.maturity,
+            points=[
+                v1.SeriesPoint(valid_date=point.valid_date, value=point.value)
+                for point in series.points
+            ],
+        ),
+        meta=v1.CurveMeta(as_of=series.as_of),
     )

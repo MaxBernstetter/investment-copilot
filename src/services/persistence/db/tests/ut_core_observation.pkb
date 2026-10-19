@@ -11,6 +11,9 @@ create or replace package body ut_core_observation as
   type point_t is record (maturity varchar2(16), months number, value number);
   type point_rows is table of point_t;
 
+  type series_point_t is record (valid_date date, value number);
+  type series_point_rows is table of series_point_t;
+
   c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
     || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
 
@@ -100,6 +103,27 @@ create or replace package body ut_core_observation as
     end loop;
     return l_text;
   end points_as_of;
+
+  -- The series of the maturity on the test curve as of p_as_of: date=value
+  -- pairs in valid-date order; null when no date has a visible value.
+  function series_as_of(
+    p_from     in date,
+    p_to       in date,
+    p_as_of    in timestamp,
+    p_maturity in varchar2 default '10Y'
+  ) return varchar2 is
+    l_cursor sys_refcursor := core_observation.get_series(c_curve, p_maturity, p_from, p_to, p_as_of);
+    l_points series_point_rows;
+    l_text   varchar2(4000);
+  begin
+    fetch l_cursor bulk collect into l_points;
+    close l_cursor;
+    for i in 1 .. l_points.count loop
+      l_text := l_text || case when i > 1 then ',' end
+        || to_char(l_points(i).valid_date, 'YYYY-MM-DD') || '=' || to_char(l_points(i).value, 'TM9');
+    end loop;
+    return l_text;
+  end series_as_of;
 
   function stored(p_curve_id in varchar2 default c_curve) return observation_rows is
     l_cursor sys_refcursor := core_observation.get_versions(
@@ -521,6 +545,65 @@ create or replace package body ut_core_observation as
     ut.expect(core_observation.latest_valid_date(c_curve, c_revised_at))
       .to_equal(date '2026-04-02');
   end latest_valid_date_as_of;
+
+  procedure series_returns_known_dates_in_order is
+  begin
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-03', p_value => 2.80),
+      version(p_valid_date => date '2026-04-01', p_value => 2.61),
+      version(p_valid_date => date '2026-04-02', p_value => 2.70),
+      version(p_valid_date => date '2026-04-02', p_maturity => '2Y', p_value => 2.10)
+    ));
+
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-03', c_known_from))
+      .to_equal('2026-04-01=2.61,2026-04-02=2.7,2026-04-03=2.8');
+    ut.expect(series_as_of(date '2026-04-02', date '2026-04-02', c_known_from))
+      .to_equal('2026-04-02=2.7');
+  end series_returns_known_dates_in_order;
+
+  procedure series_returns_the_version_known_then is
+  begin
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-01', p_value => 2.61)
+    ));
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-01', p_value => 2.70, p_change_reason => 'revision')
+    ), c_revised_at);
+
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-01', c_known_from))
+      .to_equal('2026-04-01=2.61');
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-01', c_revised_at - interval '1' second))
+      .to_equal('2026-04-01=2.61');
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-01', c_revised_at))
+      .to_equal('2026-04-01=2.7');
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-01', c_later))
+      .to_equal('2026-04-01=2.7');
+  end series_returns_the_version_known_then;
+
+  procedure series_omits_dates_without_a_visible_version is
+  begin
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-01', p_value => 2.61),
+      version(p_valid_date => date '2026-04-03', p_value => 2.80)
+    ));
+    record(observation_version_list_t(
+      version(p_valid_date => date '2026-04-02', p_value => 2.70)
+    ), c_revised_at);
+
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-03', c_known_from))
+      .to_equal('2026-04-01=2.61,2026-04-03=2.8');
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-03', c_revised_at))
+      .to_equal('2026-04-01=2.61,2026-04-02=2.7,2026-04-03=2.8');
+    ut.expect(series_as_of(date '2026-04-01', date '2026-04-03', c_known_from - interval '1' second))
+      .to_be_null();
+  end series_omits_dates_without_a_visible_version;
+
+  procedure has_maturity_checks_the_grid is
+  begin
+    ut.expect(core_observation.has_maturity(c_curve, '10Y')).to_equal(1);
+    ut.expect(core_observation.has_maturity(c_curve, '4Y')).to_equal(0);
+    ut.expect(core_observation.has_maturity('ut-undefined', '10Y')).to_equal(0);
+  end has_maturity_checks_the_grid;
 
 end ut_core_observation;
 /
