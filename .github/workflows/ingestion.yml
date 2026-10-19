@@ -1,8 +1,9 @@
-# Ingestion service: lint, type check and unit tests.
+# Ingestion service: lint, type check, unit tests and integration tests (Oracle Free via
+# Testcontainers, including the utPLSQL suites of the ING schema).
 # Thin by design: provision the devbox toolchain, then run the same tasks
 # developers run locally. See docs/architecture/13-build-and-ci.md.
 #
-# Local equivalent: devbox run -- task ingestion:setup ingestion:lint ingestion:typecheck ingestion:test:unit
+# Local equivalent: devbox run -- task ingestion:<task>
 name: Ingestion
 
 on:
@@ -65,3 +66,36 @@ jobs:
 
       - name: Unit tests
         run: devbox run -- task ingestion:test:unit
+
+  integration:
+    name: integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Cache uv packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: uv-ingestion-${{ runner.os }}-${{ hashFiles('src/services/ingestion/uv.lock') }}
+
+      - name: Cache utPLSQL release
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: src/services/ingestion/.cache/utplsql
+          key: utplsql-ingestion-${{ hashFiles('src/services/ingestion/tests/integration/test_plsql.py') }}
+
+      - name: Set up environment
+        run: devbox run -- task ingestion:setup
+
+      - name: Integration tests
+        run: devbox run -- task ingestion:test:integration
