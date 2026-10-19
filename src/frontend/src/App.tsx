@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isBackendOnline } from './backend'
+import CurveView from './curve/CurveView'
 
 type BackendState = 'checking' | 'online' | 'offline'
 
@@ -23,7 +24,7 @@ export default function App() {
       {state === 'offline' && (
         <p role="alert">Backend offline: the YieldLens API is not reachable. Try again later.</p>
       )}
-      {state === 'online' && <p>Backend online</p>}
+      {state === 'online' && <CurveView />}
     </main>
   )
 }
