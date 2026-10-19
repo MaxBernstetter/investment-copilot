@@ -18,5 +18,8 @@ create or replace package ut_ing_delivery as
   --%test(Rejects a hash that is not lowercase hex SHA-256)
   --%throws(-2290)
   procedure rejects_malformed_hash;
+
+  --%test(Reads the deliveries of a source in a fetch period, in fetch order, with payload)
+  procedure reads_deliveries_in_fetch_order;
 end ut_ing_delivery;
 /

@@ -65,3 +65,10 @@ tasks:
       vars: [START, END]
     cmds:
       - uv run --locked ingestion-load-ecb history --start {{.START}} --end {{.END}}
+
+  load:ecb:replay:
+    desc: Parse the ECB deliveries stored in ING and fetched FROM to TO (UTC days) again and record them (no ECB call)
+    requires:
+      vars: [FROM, TO]
+    cmds:
+      - uv run --locked ingestion-load-ecb replay --fetched-from {{.FROM}} --fetched-to {{.TO}}

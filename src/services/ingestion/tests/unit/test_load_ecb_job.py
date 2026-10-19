@@ -12,6 +12,7 @@ import httpx
 import pytest
 from contracts.persistence import v1
 
+from ingestion.domain.delivery import RawDelivery
 from ingestion.infrastructure.http import USER_AGENT
 from ingestion.job import main
 from tests.fake_deliveries import FakeDeliveryStore
@@ -137,7 +138,7 @@ def test_the_answer_is_kept_byte_for_byte_and_every_value_names_its_delivery(
 
     result = run(capsys, ["daily", "--valid-date", "2026-10-15"], ecb, persistence, deliveries)
 
-    [(delivery, run_id)] = deliveries.stored
+    [(delivery, run_id)] = deliveries.stored_with_run
     assert run_id == "ecb-daily-2026-10-15"
     assert delivery.payload == payload(DAILY)
     assert delivery.source_id == "ecb"
@@ -331,12 +332,107 @@ def test_missing_configuration_is_a_startup_error(
     assert json.loads(result.stderr)["error"] == "ValidationError"
 
 
+def stored_deliveries(*payloads: bytes | None) -> FakeDeliveryStore:
+    """Deliveries fetched on 2026-10-16 (UTC), one hour apart, with ids 1, 2, ..."""
+    deliveries = FakeDeliveryStore()
+    for hour, content in enumerate(payloads):
+        deliveries.stored_with_run.append(
+            (
+                RawDelivery(
+                    source_id="ecb",
+                    request_url=ECB_DATA_URL,
+                    response_status=200 if content is not None else 404,
+                    fetched_at=datetime(2026, 10, 16, 18 + hour, tzinfo=UTC),
+                    last_modified=None,
+                    etag=None,
+                    payload=content,
+                ),
+                "ecb-daily-2026-10-16",
+            )
+        )
+    return deliveries
+
+
+class NoSource(StubEcb):
+    """Fails the test on any request: replay must never call the source."""
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"replay called the source: {request.url}")
+
+
+def test_replay_records_the_stored_values_again_without_calling_the_source(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = NoSource({})
+    persistence = StubPersistence()
+    deliveries = stored_deliveries(payload(HISTORY_2025), None, payload(HISTORY_2026))
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-16", "--fetched-to", "2026-10-16"],
+        ecb,
+        persistence,
+        deliveries,
+    )
+
+    assert result.exit_code == 0
+    assert ecb.requests == []
+    assert [{o.delivery_id for o in batch.observations} for batch in persistence.batches] == [
+        {"1"},
+        {"3"},
+    ]
+    assert {o.run_id for o in persistence.observations} == {"ecb-replay-2026-10-16-2026-10-16"}
+    summary = result.summary
+    assert summary["event"] == "replay_finished"
+    assert summary["recorded_count"] == 132
+    assert [(d["delivery_id"], d["delivered_count"]) for d in summary["deliveries"]] == [
+        ("1", 66),
+        ("2", 0),
+        ("3", 66),
+    ]
+
+
+def test_replay_reads_only_deliveries_fetched_in_the_period(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    persistence = StubPersistence()
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-17", "--fetched-to", "2026-10-18"],
+        NoSource({}),
+        persistence,
+        stored_deliveries(payload(DAILY)),
+    )
+
+    assert result.exit_code == 0
+    assert persistence.batches == []
+    assert result.summary["deliveries"] == []
+
+
+def test_replay_of_a_malformed_payload_fails_the_run(capsys: pytest.CaptureFixture[str]) -> None:
+    persistence = StubPersistence()
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-16", "--fetched-to", "2026-10-16"],
+        NoSource({}),
+        persistence,
+        stored_deliveries(payload(MALFORMED)),
+    )
+
+    assert result.exit_code == 1
+    assert persistence.batches == []
+    assert json.loads(result.stderr)["error"] == "InvalidPayloadError"
+
+
 @pytest.mark.parametrize(
     "argv",
     [
         ["daily"],
         ["daily", "--valid-date", "15.10.2026"],
         ["history", "--start", "2026-01-02", "--end", "2026-01-01"],
+        ["replay", "--fetched-from", "2026-10-18", "--fetched-to", "2026-10-17"],
         ["weekly", "--valid-date", "2026-10-15"],
     ],
 )
