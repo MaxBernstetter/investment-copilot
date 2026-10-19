@@ -1,0 +1,13 @@
+# ING changelog: the raw source deliveries and their PL/SQL interface.
+# Runs as the schema owner ING. Never edit an applied changeset; add a new one
+# (expand/contract). Packages are re-applied when they change (runOnChange).
+databaseChangeLog:
+  - include:
+      file: delivery.sql
+      relativeToChangelogFile: true
+  - include:
+      file: ing_delivery.sql
+      relativeToChangelogFile: true
+  - include:
+      file: grants.sql
+      relativeToChangelogFile: true
