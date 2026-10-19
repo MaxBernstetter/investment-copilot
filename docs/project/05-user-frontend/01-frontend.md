@@ -45,6 +45,25 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`) afte
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
 | `src/curve/curveData.ts` | Chart series and missing maturities |
 
+## Time series
+
+The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) over a range of valid dates, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations`.
+
+- **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
+- **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
+- **Chart:** a Plotly line with markers over a date axis, in valid-date order.
+- **Known as of:** the same control and `as_of` URL parameter as the curve view, so the choice carries across both views.
+- **Errors:** as for the curve view; 404 shows "No data known for this maturity."
+- **Navigation:** "Curve" and "Time series" buttons switch views; the curve view is the default.
+- **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source.
+
+| Path | Content |
+|---|---|
+| `src/series/SeriesView.tsx` | Time series page: maturity, range, state messages, source |
+| `src/series/SeriesChart.tsx` | Plotly line chart with markers over dates |
+| `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
+| `src/series/seriesData.ts` | Maturity grid, chart series and default range |
+
 ## Configuration
 
 | Variable | Default | Use |
@@ -80,6 +99,7 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 | `src/api/client.ts` | Typed `openapi-fetch` client |
 | `src/api/schema.d.ts` | Generated API types, git-ignored |
 | `src/curve/` | Curve view (see above) |
+| `src/series/` | Time series view (see above) |
 | `src/test/setup.ts` | Test setup (jest-dom matchers) |
 
 ## Tasks

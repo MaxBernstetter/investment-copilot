@@ -1,9 +1,13 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 vi.mock('./curve/CurveView', () => ({
   default: () => <p>Curve view</p>,
+}))
+
+vi.mock('./series/SeriesView', () => ({
+  default: () => <p>Time series view</p>,
 }))
 
 afterEach(() => {
@@ -27,5 +31,20 @@ describe('App', () => {
 
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'YieldLens' })).toBeInTheDocument()
+  })
+
+  it('switches between the curve and time series views', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Time series' }))
+    expect(screen.getByText('Time series view')).toBeInTheDocument()
+    expect(screen.queryByText('Curve view')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Curve' }))
+    expect(screen.getByText('Curve view')).toBeInTheDocument()
+    expect(screen.queryByText('Time series view')).not.toBeInTheDocument()
   })
 })
