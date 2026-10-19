@@ -1,5 +1,5 @@
 # Persistence service: lint, types and integration tests (Oracle Free via
-# Testcontainers). Runs when the service or the toolchain change.
+# Testcontainers, including the utPLSQL suites). Runs when the service or the toolchain change.
 # Thin by design: provision the devbox toolchain, then run the same tasks as locally.
 # See docs/architecture/13-build-and-ci.md.
 #
@@ -77,6 +77,12 @@ jobs:
         with:
           path: ~/.cache/uv
           key: uv-${{ runner.os }}-${{ hashFiles('src/services/persistence/uv.lock') }}
+
+      - name: Cache utPLSQL release
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: src/services/persistence/.cache/utplsql
+          key: utplsql-${{ hashFiles('src/services/persistence/tests/integration/test_plsql.py') }}
 
       - name: Integration tests
         run: devbox run -- task persistence:test:integration

@@ -19,6 +19,15 @@ def test_creates_the_observation_table_partitioned_by_valid_date(oracle: OracleD
         assert cursor.fetchall() == [("RANGE", "VALID_DATE", "NUMTOYMINTERVAL(1, 'MONTH')")]
 
 
+def test_compiles_the_core_observation_package(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select object_type, status from user_objects"
+            " where object_name = 'CORE_OBSERVATION' order by object_type"
+        )
+        assert cursor.fetchall() == [("PACKAGE", "VALID"), ("PACKAGE BODY", "VALID")]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 
