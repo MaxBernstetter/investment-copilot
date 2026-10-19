@@ -1,6 +1,6 @@
 # Local development stack: the services of the VM, started by `task dev:*` (see
-# docs/architecture/09-deployment.md). Oracle and the spool are extended from their
-# service compose files; migrations and the persistence api are defined here.
+# docs/architecture/09-deployment.md). Oracle is extended from its service compose file;
+# migrations and the persistence api are defined here.
 # Passwords come from the environment (the Taskfile sets local-only defaults).
 name: yieldlens-dev
 
@@ -16,11 +16,6 @@ services:
     extends:
       file: ../services/persistence/compose.yaml
       service: oracle
-
-  spool-store:
-    extends:
-      file: ../services/ingestion/compose.yaml
-      service: spool-store
 
   core-migrate-admin:
     <<: *liquibase
@@ -48,6 +43,38 @@ services:
       core-migrate-admin:
         condition: service_completed_successfully
 
+  # ING schema: the same changelogs as src/services/ingestion/compose.yaml, run here
+  # against the local Oracle. The SYSTEM password is the one Oracle is started with.
+  ing-migrate-admin:
+    <<: *liquibase
+    volumes:
+      - ../services/ingestion/db:/liquibase/changelog:ro
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: system
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_ADMIN_PASSWORD:?set PERSISTENCE_DB_ADMIN_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: admin/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+      ING_PASSWORD: ${INGESTION_DB_OWNER_PASSWORD:?set INGESTION_DB_OWNER_PASSWORD}
+      ING_APP_PASSWORD: ${INGESTION_DB__PASSWORD:?set INGESTION_DB__PASSWORD}
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  ing-migrate:
+    <<: *liquibase
+    volumes:
+      - ../services/ingestion/db:/liquibase/changelog:ro
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: ing
+      LIQUIBASE_COMMAND_PASSWORD: ${INGESTION_DB_OWNER_PASSWORD:?set INGESTION_DB_OWNER_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: ing/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+    depends_on:
+      ing-migrate-admin:
+        condition: service_completed_successfully
+
   persistence:
     build:
       context: ..
@@ -67,4 +94,3 @@ services:
 
 volumes:
   oracle-data:
-  spool-data:

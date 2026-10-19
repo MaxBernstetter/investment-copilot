@@ -2,7 +2,7 @@
 # Glue only: every command is a single binary call (see docs/architecture/13-build-and-ci.md).
 # Included by the root Taskfile with this directory as working directory.
 #
-# Clashes with persistence:db:* and ingestion:spool:* (same ports): stop those stacks first.
+# Clashes with persistence:db:* (same port): stop that stack first.
 version: "3"
 
 # Local-only defaults for the development stack. Override any of them through the
@@ -11,20 +11,16 @@ env:
   PERSISTENCE_DB_ADMIN_PASSWORD: '{{.PERSISTENCE_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
   PERSISTENCE_DB_OWNER_PASSWORD: '{{.PERSISTENCE_DB_OWNER_PASSWORD | default "LocalOwner_1"}}'
   PERSISTENCE_DB_PASSWORD: '{{.PERSISTENCE_DB_PASSWORD | default "LocalApp_1"}}'
-  GARAGE_RPC_SECRET: '{{.GARAGE_RPC_SECRET | default "10ca100000000000000000000000000000000000000000000000000000000000"}}'
-  GARAGE_ADMIN_TOKEN: '{{.GARAGE_ADMIN_TOKEN | default "local-admin"}}'
-  INGESTION_SPOOL__URL: '{{.INGESTION_SPOOL__URL | default "s3://ingestion-spool"}}'
-  INGESTION_SPOOL__ENDPOINT: '{{.INGESTION_SPOOL__ENDPOINT | default "http://localhost:3900"}}'
-  INGESTION_SPOOL__ACCESS_KEY_ID: '{{.INGESTION_SPOOL__ACCESS_KEY_ID | default "GK10ca10000000000000000000"}}'
-  INGESTION_SPOOL__SECRET_ACCESS_KEY: '{{.INGESTION_SPOOL__SECRET_ACCESS_KEY | default "10ca100000000000000000000000000000000000000000000000000000000000"}}'
+  INGESTION_DB_OWNER_PASSWORD: '{{.INGESTION_DB_OWNER_PASSWORD | default "LocalIngOwner_1"}}'
+  INGESTION_DB__PASSWORD: '{{.INGESTION_DB__PASSWORD | default "LocalIngApp_1"}}'
 
 tasks:
   up:
     desc: Start the local stack and wait until it is healthy (idempotent)
     cmds:
-      - docker compose up --detach --wait oracle spool-store
+      - docker compose up --detach --wait oracle
       - docker compose --profile tools run --rm core-migrate
-      - ../services/ingestion/spool/setup.sh
+      - docker compose --profile tools run --rm ing-migrate
       - docker compose up --detach --wait --build persistence
 
   down:
