@@ -76,5 +76,6 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 
 ## Not yet in place
 
-- Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32)), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
+- Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32); `GET /v1/runs`, see [[06-run-history]]), an Airflow callback that runs `fail-unfinished` on killed attempts, alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
+- Deployment of Airflow itself (Compose stack with its Postgres metadata DB, `AIRFLOW_HOME`, importing the pools on start).
 - OpenLineage events and `traceparent` propagation from the task.
