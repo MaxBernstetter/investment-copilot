@@ -109,7 +109,7 @@ The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, pe
 
 | Task | Does |
 |---|---|
-| `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence and processing apis; waits until healthy (idempotent) |
+| `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence, processing and access apis; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
