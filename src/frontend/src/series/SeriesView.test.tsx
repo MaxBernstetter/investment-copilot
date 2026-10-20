@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { localInputToUtc } from '../asOf'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesView from './SeriesView'
 
@@ -70,21 +69,11 @@ describe('SeriesView', () => {
     })
   })
 
-  it('reads as_of from the URL and writes it on change', async () => {
-    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
-    render(<SeriesView curveId="ecb-aaa-spot" />)
-    await screen.findByRole('status')
+  it('passes asOf to the fetch', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
 
-    expect(mockedFetch).toHaveBeenCalledWith(
-      expect.objectContaining({ asOf: '2026-10-01T12:00:00Z' }),
-    )
-
-    const chosen = '2026-10-02T09:30:00'
-    fireEvent.change(screen.getByLabelText(/Known as of/), { target: { value: chosen } })
-
-    expect(new URLSearchParams(window.location.search).get('as_of')).toBe(
-      localInputToUtc(chosen),
-    )
+    expect(await screen.findByLabelText('Maturity')).toHaveValue('10Y')
+    expect(mockedFetch).toHaveBeenCalledWith(expect.objectContaining({ asOf: '2026-10-01T12:00:00Z' }))
   })
 
   it('shows the offline alert', async () => {

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { localInputToUtc } from '../asOf'
+import { formatUtc } from '../format'
 import CurveChart from './CurveChart'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
@@ -57,8 +58,9 @@ afterEach(() => {
 })
 
 async function renderLoaded() {
-  render(<CurveView curveId="ecb-aaa-spot" />)
+  const view = render(<CurveView curveId="ecb-aaa-spot" />)
   await waitFor(() => expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16'))
+  return view
 }
 
 function addButton() {
@@ -114,62 +116,28 @@ describe('CurveView', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
   })
 
-  it('passes as_of to the API and shows the banner', async () => {
-    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
+  it('passes asOf to the API', async () => {
+    render(<CurveView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
 
-    render(<CurveView curveId="ecb-aaa-spot" />)
-
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      `Showing the curve as known on ${new Date('2026-10-01T12:00:00Z').toUTCString()}`,
+    await waitFor(() =>
+      expect(mockedFetch).toHaveBeenCalledWith({
+        curveId: 'ecb-aaa-spot',
+        validDate: undefined,
+        asOf: '2026-10-01T12:00:00Z',
+      }),
     )
-    expect(mockedFetch).toHaveBeenCalledWith({
-      curveId: 'ecb-aaa-spot',
-      validDate: undefined,
-      asOf: '2026-10-01T12:00:00Z',
-    })
-  })
-
-  it('shows the as-of banner as a status alert', async () => {
-    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
-
-    render(<CurveView curveId="ecb-aaa-spot" />)
-
-    const banner = await screen.findByRole('status')
-    expect(banner).toHaveTextContent(
-      `Showing the curve as known on ${new Date('2026-10-01T12:00:00Z').toUTCString()}`,
-    )
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('Now clears as_of', async () => {
-    window.history.replaceState(null, '', '/?as_of=2026-10-01T12:00:00Z')
-    render(<CurveView curveId="ecb-aaa-spot" />)
-    await screen.findByRole('status')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Now' }))
-
-    expect(mockedFetch).toHaveBeenLastCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
-    expect(new URLSearchParams(window.location.search).has('as_of')).toBe(false)
-    expect(screen.queryByText(/Showing the curve as known on/)).not.toBeInTheDocument()
   })
 
   it('shows no data known as of the chosen time', async () => {
-    const chosen = '2026-10-01T12:00:00'
-    mockedFetch.mockImplementation(async ({ asOf }) =>
-      asOf
+    const asOf = localInputToUtc('2026-10-01T12:00:00')
+    mockedFetch.mockImplementation(async (options) =>
+      options.asOf
         ? { kind: 'not-found', detail: 'no curve as of then' }
         : curveResult('2026-10-16', [2.1, 2.4, 2.6, null, null]),
     )
-    render(<CurveView curveId="ecb-aaa-spot" />)
-    const input = await screen.findByLabelText(/Known as of/)
+    render(<CurveView curveId="ecb-aaa-spot" asOf={asOf} />)
 
-    fireEvent.change(input, { target: { value: chosen } })
-
-    const expected = new Date(localInputToUtc(chosen)).toUTCString()
-    expect(await screen.findByText(`No data known as of ${expected}`)).toBeInTheDocument()
-    expect(new URLSearchParams(window.location.search).get('as_of')).toBe(
-      localInputToUtc(chosen),
-    )
+    expect(await screen.findByText(`No data known as of ${formatUtc(asOf)}`)).toBeInTheDocument()
   })
 
   it('overlays a second date', async () => {
@@ -197,16 +165,20 @@ describe('CurveView', () => {
     await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01']))
   })
 
-  it('refetches overlays when as_of changes', async () => {
-    await renderLoaded()
+  it('refetches overlays when asOf changes', async () => {
+    const { rerender } = await renderLoaded()
     fireEvent.click(addButton())
     pickDate('2026-10-01')
     fireEvent.click(addButton())
-    const chosen = '2026-10-01T12:00:00'
+    const asOf = localInputToUtc('2026-10-01T12:00:00')
 
-    fireEvent.change(screen.getByLabelText(/Known as of/), { target: { value: chosen } })
+    // The same Fragment wrapper as the initial render, so React updates the view instead of remounting it.
+    rerender(
+      <>
+        <CurveView curveId="ecb-aaa-spot" asOf={asOf} />
+      </>,
+    )
 
-    const asOf = localInputToUtc(chosen)
     await waitFor(() =>
       expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-16', asOf }),
     )

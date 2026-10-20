@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
+import { formatUtc } from '../format'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 import VersionHistory from './VersionHistory'
 
@@ -83,8 +84,8 @@ describe('VersionHistory', () => {
     expect(await screen.findByRole('table')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeInTheDocument()
     expect(rows()).toEqual([
-      ['2.4', new Date(first.known_from).toUTCString(), new Date(first.known_to ?? '').toUTCString(), 'initial', 'ecb', 'run-1', '4711'],
-      ['2.5', new Date(second.known_from).toUTCString(), 'current', 'revision', '–', 'run-2', '–'],
+      ['2.4', formatUtc(first.known_from), formatUtc(first.known_to ?? ''), 'initial', 'ecb', 'run-1', '4711'],
+      ['2.5', formatUtc(second.known_from), 'current', 'revision', '–', 'run-2', '–'],
     ])
   })
 

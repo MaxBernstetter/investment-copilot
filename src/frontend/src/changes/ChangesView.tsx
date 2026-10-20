@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Alert, Badge, Group, Paper, Skeleton, Stack, Table, TextInput, Text, VisuallyHidden } from '@mantine/core'
-import { localInputToUtc, readAsOf, writeAsOf } from '../asOf'
+import { localInputToUtc } from '../asOf'
 import PageHeader from '../layout/PageHeader'
-import AsOfControl from '../curve/AsOfControl'
 import { defaultRange } from '../series/seriesData'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
 import { toChangeRows } from './changesData'
 
 type ChangesViewProps = {
   curveId: string
+  /** The knowledge time shared by all views, set in the header. */
+  asOf?: string
 }
 
 const REASON_COLORS: Record<string, string> = {
@@ -16,10 +17,9 @@ const REASON_COLORS: Record<string, string> = {
   revision: 'blue',
 }
 
-export default function ChangesView({ curveId }: ChangesViewProps) {
+export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
   const [range, setRange] = useState(() => defaultRange(new Date()))
   const [sinceInput, setSinceInput] = useState('')
-  const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [result, setResult] = useState<ChangesResult | undefined>(undefined)
 
   const since = sinceInput ? localInputToUtc(sinceInput) : undefined
@@ -34,11 +34,6 @@ export default function ChangesView({ curveId }: ChangesViewProps) {
       active = false
     }
   }, [curveId, range, since, asOf])
-
-  const changeAsOf = (next: string | undefined) => {
-    setAsOf(next)
-    writeAsOf(next)
-  }
 
   return (
     <Stack component="section" gap="md">
@@ -67,7 +62,6 @@ export default function ChangesView({ curveId }: ChangesViewProps) {
           value={sinceInput}
           onChange={(event) => setSinceInput(event.currentTarget.value)}
         />
-        <AsOfControl asOf={asOf} onChange={changeAsOf} />
       </Group>
       {since === undefined && (
         <Text role="status">Choose the earlier knowledge time to compare.</Text>

@@ -3,6 +3,7 @@ import { AppShell, Alert, Button, Container, Group, Loader, Stack, Tabs, Text } 
 import { useDisclosure } from '@mantine/hooks'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
+import { readAsOf, writeAsOf } from './asOf'
 import ChangesView from './changes/ChangesView'
 import AppFooter from './layout/AppFooter'
 import AppHeader from './layout/AppHeader'
@@ -19,6 +20,7 @@ export default function App() {
   const [attempt, setAttempt] = useState(0)
   const [view, setView] = useState<string | null>('curve')
   const [curveId, setCurveId] = useState(() => readCurveId(window.location.search))
+  const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [navOpened, navHandlers] = useDisclosure(false)
   const simulated = curveById(curveId).isSimulated
   const online = state === 'online'
@@ -26,6 +28,11 @@ export default function App() {
   const changeCurve = (next: string) => {
     setCurveId(next)
     writeCurveId(next)
+  }
+
+  const changeAsOf = (next: string | undefined) => {
+    setAsOf(next)
+    writeAsOf(next)
   }
 
   useEffect(() => {
@@ -60,6 +67,8 @@ export default function App() {
             curveId={curveId}
             onCurveChange={changeCurve}
             simulated={simulated}
+            asOf={asOf}
+            onAsOfChange={changeAsOf}
             navOpened={navOpened}
             onToggleNav={navHandlers.toggle}
           />
@@ -109,13 +118,13 @@ export default function App() {
                   </Alert>
                 )}
                 <Tabs.Panel value="curve">
-                  <CurveView key={curveId} curveId={curveId} />
+                  <CurveView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="series">
-                  <SeriesView key={curveId} curveId={curveId} />
+                  <SeriesView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="changes">
-                  <ChangesView key={curveId} curveId={curveId} />
+                  <ChangesView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
               </Stack>
             )}

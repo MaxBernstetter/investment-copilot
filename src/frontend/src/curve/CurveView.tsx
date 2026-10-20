@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Group, Paper, Pill, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
-import { readAsOf, writeAsOf } from '../asOf'
+import { formatUtc } from '../format'
 import PageHeader from '../layout/PageHeader'
-import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
 import { missingMaturities, type LabelledCurve } from './curveData'
 import { curveById } from './curves'
@@ -13,11 +12,12 @@ const MAX_OVERLAYS = 5
 
 type CurveViewProps = {
   curveId: string
+  /** The knowledge time shared by all views, set in the header. */
+  asOf?: string
 }
 
-export default function CurveView({ curveId }: CurveViewProps) {
+export default function CurveView({ curveId, asOf }: CurveViewProps) {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
-  const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
   const [overlayDates, setOverlayDates] = useState<string[]>([])
   const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
@@ -50,11 +50,6 @@ export default function CurveView({ curveId }: CurveViewProps) {
     }
   }, [curveId, overlayDates, asOf])
 
-  const changeAsOf = (next: string | undefined) => {
-    setAsOf(next)
-    writeAsOf(next)
-  }
-
   const returnedDate = result?.kind === 'ok' ? result.curve.data.valid_date : ''
   const shownDate = validDate ?? returnedDate
   const canAddOverlay =
@@ -74,8 +69,6 @@ export default function CurveView({ curveId }: CurveViewProps) {
     result?.kind === 'ok'
       ? result.curve.data.points.filter((point) => point.value !== null).map((point) => point.maturity)
       : []
-  const asOfText = asOf ? new Date(asOf).toUTCString() : ''
-
   return (
     <Stack component="section" gap="md">
       <PageHeader title={curveById(curveId).label} />
@@ -86,13 +79,7 @@ export default function CurveView({ curveId }: CurveViewProps) {
           value={validDate ?? returnedDate}
           onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
         />
-        <AsOfControl asOf={asOf} onChange={changeAsOf} />
       </Group>
-      {asOf && (
-        <Alert variant="light" color="blue" role="status">
-          Showing the curve as known on {asOfText}
-        </Alert>
-      )}
       {result === undefined && (
         <>
           <Skeleton h={320} />
@@ -162,7 +149,7 @@ export default function CurveView({ curveId }: CurveViewProps) {
           No data known for this date.
         </Alert>
       )}
-      {result?.kind === 'not-found' && asOf && <Text>No data known as of {asOfText}</Text>}
+      {result?.kind === 'not-found' && asOf && <Text>No data known as of {formatUtc(asOf)}</Text>}
       {(result?.kind === 'invalid' || result?.kind === 'error') && (
         <Alert color="red" role="alert">
           {result.detail}

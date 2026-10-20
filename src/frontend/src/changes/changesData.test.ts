@@ -32,7 +32,7 @@ describe('changesData', () => {
 
     expect(formatDeltaBp(null, 2.5)).toBe('–')
     expect(row).toMatchObject({ oldValue: '–', delta: '–', source: '–', newValue: '2.5' })
-    expect(row.knownFrom).toBe(new Date('2026-10-17T08:00:00Z').toUTCString())
+    expect(row.knownFrom).toBe('17 Oct 2026, 08:00:00 UTC')
   })
 
   it('keeps the API order', () => {

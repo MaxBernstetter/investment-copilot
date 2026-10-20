@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
-import { readAsOf, writeAsOf } from '../asOf'
+import { formatUtc } from '../format'
 import PageHeader from '../layout/PageHeader'
-import AsOfControl from '../curve/AsOfControl'
 import { curveById } from '../curve/curves'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesChart from './SeriesChart'
@@ -12,12 +11,13 @@ const DEFAULT_MATURITY = '10Y'
 
 type SeriesViewProps = {
   curveId: string
+  /** The knowledge time shared by all views, set in the header. */
+  asOf?: string
 }
 
-export default function SeriesView({ curveId }: SeriesViewProps) {
+export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
   const [maturity, setMaturity] = useState(DEFAULT_MATURITY)
   const [range, setRange] = useState(() => defaultRange(new Date()))
-  const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [result, setResult] = useState<SeriesResult | undefined>(undefined)
 
   useEffect(() => {
@@ -29,13 +29,6 @@ export default function SeriesView({ curveId }: SeriesViewProps) {
       active = false
     }
   }, [curveId, maturity, range, asOf])
-
-  const changeAsOf = (next: string | undefined) => {
-    setAsOf(next)
-    writeAsOf(next)
-  }
-
-  const asOfText = asOf ? new Date(asOf).toUTCString() : ''
 
   return (
     <Stack component="section" gap="md">
@@ -63,13 +56,7 @@ export default function SeriesView({ curveId }: SeriesViewProps) {
             if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
           }}
         />
-        <AsOfControl asOf={asOf} onChange={changeAsOf} />
       </Group>
-      {asOf && (
-        <Alert variant="light" color="blue" role="status">
-          Showing the series as known on {asOfText}
-        </Alert>
-      )}
       {result === undefined && (
         <>
           <Skeleton h={320} />
@@ -96,7 +83,7 @@ export default function SeriesView({ curveId }: SeriesViewProps) {
           No data known for this maturity.
         </Alert>
       )}
-      {result?.kind === 'not-found' && asOf && <Text>No data known as of {asOfText}</Text>}
+      {result?.kind === 'not-found' && asOf && <Text>No data known as of {formatUtc(asOf)}</Text>}
       {(result?.kind === 'invalid' || result?.kind === 'error') && (
         <Alert color="red" role="alert">
           {result.detail}

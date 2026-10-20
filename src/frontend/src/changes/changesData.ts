@@ -1,4 +1,5 @@
 import type { components } from '../api/schema'
+import { formatUtc } from '../format'
 
 export type ValueChange = components['schemas']['ValueChange']
 
@@ -27,7 +28,7 @@ export function toChangeRows(changes: ValueChange[]): ChangeRow[] {
     delta: formatDeltaBp(change.old_value, change.new_value),
     reason: change.change_reason,
     source: change.source_id ?? EMPTY,
-    knownFrom: new Date(change.known_from).toUTCString(),
+    knownFrom: formatUtc(change.known_from),
   }))
 }
 
