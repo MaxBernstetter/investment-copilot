@@ -23,12 +23,12 @@ const REASON_COLORS: Record<string, string> = {
   revision: 'blue',
 }
 
-export function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant'> {
+export function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant' | 'miw'> {
   if (reason === 'correction') {
     // orange.6 keeps L > theme luminanceThreshold so autoContrast uses black label text (≥4.5:1).
-    return { color: 'orange.6', variant: 'filled' }
+    return { color: 'orange.6', variant: 'filled', miw: 'max-content' }
   }
-  return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light' }
+  return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light', miw: 'max-content' }
 }
 
 /** Dimmed text is darkened (light) or lightened (dark) so it meets 4.5:1 contrast (A1). */

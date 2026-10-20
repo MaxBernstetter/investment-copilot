@@ -123,6 +123,22 @@ describe('VersionHistory', () => {
     expect(badgeVariant('initial')).toHaveAttribute('data-variant', 'light')
   })
 
+  it('keeps reason badges at their full label width', async () => {
+    renderHistory()
+
+    await screen.findByRole('table')
+    const badge = screen.getByText('revision').closest('[data-variant]')
+    expect(badge).toHaveStyle({ minWidth: 'max-content' })
+  })
+
+  it('does not render the drawer header as a banner landmark', async () => {
+    renderHistory()
+
+    await screen.findByRole('table')
+    expect(screen.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('banner')).toHaveLength(0)
+  })
+
   it('shows current for the open version', async () => {
     renderHistory()
 
