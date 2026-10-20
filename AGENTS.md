@@ -3,6 +3,7 @@
 ## Project documentation
 - `docs/` is the Obsidian vault. Entry points: `ARCHITECTURE.md`, `docs/architecture/README.md`, `docs/development/README.md`.
 - Keep documentation consistent with the implementation.
+- Frontend work follows `docs/development/design-guidelines.md` (Direction A); the `designer` agent specifies and reviews UI changes against it.
 
 ## Before planning or implementing
 1. Read `docs/development/principles/README.md` (workflow and Definition of done).
