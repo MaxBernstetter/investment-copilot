@@ -57,7 +57,10 @@ export default function VersionHistory({
         </Alert>
       )}
       {result?.kind === 'ok' && result.versions.data.versions.length > 0 && (
-        <Table.ScrollContainer minWidth={600}>
+        <Table.ScrollContainer
+          minWidth={600}
+          scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}
+        >
           <Table striped>
             <Table.Thead>
               <Table.Tr>

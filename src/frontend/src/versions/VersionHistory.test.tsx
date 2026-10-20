@@ -85,6 +85,13 @@ function rows(): string[][] {
 }
 
 describe('VersionHistory', () => {
+  it('makes the history table scroll region keyboard focusable', async () => {
+    renderHistory()
+
+    const table = await screen.findByRole('table')
+    expect(table.closest('[tabindex="0"]')).toBeTruthy()
+  })
+
   it('shows every version oldest first with reason and source', async () => {
     renderHistory()
 
