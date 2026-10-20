@@ -1,21 +1,29 @@
 """The quality check job end to end: persistence reads in, a recorded check out. No Oracle."""
 
+import asyncio
 import json
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import cast
 
 import httpx
+import oracledb
 import pytest
 from contracts.persistence import v1
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import StatusCode, format_span_id, format_trace_id
+from pydantic import SecretStr
 
 from processing.application.ports import QualityStore
+from processing.config import DatabaseSettings
 from processing.domain.assessment import QualityCheck
 from processing.domain.quality import Rule, Status
+from processing.infrastructure.proc import OracleQualityStore
 from processing.infrastructure.telemetry import Telemetry
-from processing.job import main
+from processing.job import main, oracle_quality_store
 from tests.unit.fakes import job_telemetry
 
 URL = "http://persistence.test:8001"
@@ -373,3 +381,37 @@ def test_summary_and_failure_lines_carry_the_root_trace_id(
     failure = json.loads(failed.stderr)
     assert failure["trace_id"] == format_trace_id(failed_root.context.trace_id)
     assert failure["span_id"] == format_span_id(failed_root.context.span_id)
+
+
+class _FakeConnection:
+    call_timeout: int = 0
+    client_identifier: str | None = None
+    clientinfo: str | None = None
+
+
+class _FakePool:
+    def acquire(self) -> AbstractAsyncContextManager[_FakeConnection]:
+        return _acquired()
+
+
+@asynccontextmanager
+async def _acquired() -> AsyncIterator[_FakeConnection]:
+    yield _FakeConnection()
+
+
+def test_the_job_store_traces_its_sessions_with_the_job_tracer() -> None:
+    telemetry, spans, _ = job_telemetry()
+    settings = DatabaseSettings(dsn="oracle.test:1521/FREEPDB1", password=SecretStr("x"))
+    store = oracle_quality_store(
+        cast(oracledb.AsyncConnectionPool, _FakePool()), settings, telemetry
+    )
+
+    async def probe() -> None:
+        assert isinstance(store, OracleQualityStore)
+        async with store._session("probe"):
+            pass
+
+    asyncio.run(probe())
+    telemetry.tracer_provider.force_flush()
+
+    assert [span.name for span in spans.get_finished_spans()] == ["proc_quality.probe"]

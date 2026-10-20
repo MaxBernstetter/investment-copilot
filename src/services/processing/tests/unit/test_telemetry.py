@@ -9,7 +9,7 @@ import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import format_span_id, format_trace_id
 
-from processing.infrastructure.telemetry import otlp_configured
+from processing.infrastructure.telemetry import metrics_configured, traces_configured
 from processing.job import main
 from tests.unit.test_check_quality_job import (
     CURVE_ID,
@@ -23,10 +23,26 @@ from tests.unit.test_check_quality_job import (
 LOG_CONFIG = Path(__file__).parents[2] / "log_config.json"
 
 
-def test_otlp_configured_only_with_an_endpoint() -> None:
-    assert otlp_configured({}) is False
-    assert otlp_configured({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"}) is True
-    assert otlp_configured({"OTEL_SERVICE_NAME": "x"}) is False
+@pytest.mark.parametrize(
+    ("environ", "traces", "metrics"),
+    [
+        ({}, False, False),
+        ({"OTEL_SERVICE_NAME": "x"}, False, False),
+        ({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"}, True, True),
+        ({"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://x:4318/v1/traces"}, True, False),
+        ({"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "http://x:4318/v1/metrics"}, False, True),
+        (
+            {"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": ""},
+            False,
+            False,
+        ),
+    ],
+)
+def test_each_signal_exports_only_with_its_own_endpoint(
+    environ: dict[str, str], traces: bool, metrics: bool
+) -> None:
+    assert traces_configured(environ) is traces
+    assert metrics_configured(environ) is metrics
 
 
 def test_without_otel_env_the_job_runs_and_logs_no_exporter_errors(

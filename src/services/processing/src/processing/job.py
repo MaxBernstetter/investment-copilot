@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from processing.application.check_quality import CheckQuality, CheckSummary, UnknownCurveError
 from processing.application.ports import QualityStore
-from processing.config import JobSettings
+from processing.config import DatabaseSettings, JobSettings
 from processing.facade.jobs.check_quality import CheckCommand, failure, parse_command, summary
 from processing.infrastructure.persistence import PersistenceClient, PersistenceReadError
 from processing.infrastructure.proc import OracleQualityStore, create_pool
@@ -77,6 +77,15 @@ def _run(
     return 0
 
 
+def oracle_quality_store(
+    pool: oracledb.AsyncConnectionPool, settings: DatabaseSettings, telemetry: Telemetry
+) -> OracleQualityStore:
+    """The Oracle store of the job; its sessions are traced with the job's tracer."""
+    return OracleQualityStore(
+        pool, call_timeout_ms=settings.call_timeout_ms, tracer=telemetry.tracer
+    )
+
+
 async def _check(
     command: CheckCommand,
     settings: JobSettings,
@@ -103,11 +112,7 @@ async def _check(
         db = settings.db.model_copy(update={"pool_min": 1, "pool_max": 1})
         pool = create_pool(db)
         try:
-            store = OracleQualityStore(
-                pool,
-                call_timeout_ms=db.call_timeout_ms,
-                tracer=telemetry.tracer,
-            )
+            store = oracle_quality_store(pool, db, telemetry)
             use_case = CheckQuality(reader, store)
             return await use_case(
                 command.curve_id,
