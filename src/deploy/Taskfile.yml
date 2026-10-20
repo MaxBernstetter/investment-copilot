@@ -66,11 +66,21 @@ tasks:
 
   airflow:up:
     desc: Build job images and start the Airflow profile (opt-in; default stack unchanged)
+    vars:
+      DOCKER_GID:
+        sh: stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock
+    env:
+      DOCKER_GID: '{{.DOCKER_GID}}'
     cmds:
       - docker compose --profile airflow build ingestion processing-job
       - docker compose --profile airflow up --detach --wait airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
 
   airflow:down:
     desc: Stop the Airflow profile (does not tear down the default stack)
+    vars:
+      DOCKER_GID:
+        sh: stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock
+    env:
+      DOCKER_GID: '{{.DOCKER_GID}}'
     cmds:
       - docker compose --profile airflow down airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
