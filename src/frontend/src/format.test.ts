@@ -38,12 +38,13 @@ describe('formatBp', () => {
 })
 
 describe('formatYield', () => {
-  it('shows three decimals and a thin space before the percent sign', () => {
-    expect(formatYield(2.871)).toBe('2.871 %')
-    expect(formatYield(2.7)).toBe('2.700 %')
+  it('shows three decimals and a narrow no-break space before the percent sign', () => {
+    expect(formatYield(2.871)).toBe('2.871 %')
+    expect(formatYield(2.7)).toBe('2.700 %')
   })
 
   it('rounds to three decimals', () => {
-    expect(formatYield(3.4444646497)).toBe('3.444 %')
+    expect(formatYield(3.4444646497)).toBe('3.444 %')
+    expect(formatYield(2.871)).toContain('\u202F%')
   })
 })
