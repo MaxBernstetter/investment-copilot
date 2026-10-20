@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
-import { formatUtc } from '../format'
+import { formatUtc, formatYield } from '../format'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 import VersionHistory from './VersionHistory'
 
@@ -64,7 +64,14 @@ afterEach(() => {
 function renderHistory(props: { asOf?: string } = {}) {
   const onClose = vi.fn()
   render(
-    <VersionHistory curveId="ecb-aaa-spot" maturity="10Y" validDate="2026-10-16" onClose={onClose} {...props} />,
+    <VersionHistory
+      curveId="ecb-aaa-spot"
+      maturity="10Y"
+      validDate="2026-10-16"
+      opened
+      onClose={onClose}
+      {...props}
+    />,
   )
   return { onClose }
 }
@@ -84,8 +91,16 @@ describe('VersionHistory', () => {
     expect(await screen.findByRole('table')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeInTheDocument()
     expect(rows()).toEqual([
-      ['2.4', formatUtc(first.known_from), formatUtc(first.known_to ?? ''), 'initial', 'ecb', 'run-1', '4711'],
-      ['2.5', formatUtc(second.known_from), 'current', 'revision', '–', 'run-2', '–'],
+      [
+        formatYield(first.value),
+        formatUtc(first.known_from),
+        formatUtc(first.known_to ?? ''),
+        'initial',
+        'ecb',
+        'run-1',
+        '4711',
+      ],
+      [formatYield(second.value), formatUtc(second.known_from), 'current', 'revision', '–', 'run-2', '–'],
     ])
   })
 
@@ -112,7 +127,7 @@ describe('VersionHistory', () => {
   it('shows not-found and offline states', async () => {
     mockedFetch.mockResolvedValueOnce({ kind: 'not-found', detail: 'no value' })
     const { unmount } = render(
-      <VersionHistory curveId="ecb-aaa-spot" maturity="10Y" validDate="2026-10-16" onClose={vi.fn()} />,
+      <VersionHistory curveId="ecb-aaa-spot" maturity="10Y" validDate="2026-10-16" opened onClose={vi.fn()} />,
     )
     expect(await screen.findByRole('status')).toHaveTextContent('No data known for this value.')
     unmount()

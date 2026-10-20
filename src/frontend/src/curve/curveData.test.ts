@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { missingMaturities, overlayRows, overlaySeries, type CurvePoint } from './curveData'
+import { missingMaturities, overlayRows, overlaySeries, spread2s10s, yield10y, type CurvePoint } from './curveData'
 
 const points: CurvePoint[] = [
   { maturity: '3M', months: 3, value: 2.1, version_id: 1, origin: 'published' },
@@ -24,6 +24,17 @@ describe('curveData', () => {
       { maturity: '1Y', '2026-10-16': null, '2026-10-01': null },
       { maturity: '10Y', '2026-10-16': 2.6, '2026-10-01': null },
     ])
+  })
+
+  it('reads 10Y yield and 2s10s spread in bp', () => {
+    expect(yield10y(points)).toBe(2.6)
+    expect(spread2s10s(points)).toBeUndefined()
+    const with2y: CurvePoint[] = [
+      { maturity: '2Y', months: 24, value: 2.5, version_id: 1, origin: 'published' },
+      { maturity: '10Y', months: 120, value: 2.6, version_id: 2, origin: 'published' },
+    ]
+    expect(spread2s10s(with2y)).toBeCloseTo(10)
+    expect(spread2s10s([with2y[0], { ...with2y[1], value: 2.4 }])).toBeCloseTo(-10)
   })
 
   it('one series per curve named by valid date', () => {

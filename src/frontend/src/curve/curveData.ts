@@ -32,3 +32,21 @@ export function overlaySeries(curves: LabelledCurve[]): { name: string; color: s
 export function missingMaturities(points: CurvePoint[]): string[] {
   return points.filter((point) => point.value === null).map((point) => point.maturity)
 }
+
+const yieldAt = (points: CurvePoint[], maturity: string): number | undefined => {
+  const value = points.find((point) => point.maturity === maturity)?.value
+  return value === null || value === undefined ? undefined : value
+}
+
+/** The 10Y yield in percent, or undefined when it is not published. */
+export function yield10y(points: CurvePoint[]): number | undefined {
+  return yieldAt(points, '10Y')
+}
+
+/** 10Y minus 2Y in basis points from the same curve, or undefined when either leg is missing. */
+export function spread2s10s(points: CurvePoint[]): number | undefined {
+  const y2 = yieldAt(points, '2Y')
+  const y10 = yieldAt(points, '10Y')
+  if (y2 === undefined || y10 === undefined) return undefined
+  return (y10 - y2) * 100
+}

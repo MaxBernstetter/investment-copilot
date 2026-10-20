@@ -5,7 +5,7 @@ import { formatUtc } from '../format'
 import CurveChart from './CurveChart'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
-import VersionHistory from '../versions/VersionHistory'
+import { fetchVersions } from '../versions/fetchVersions'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -15,17 +15,17 @@ vi.mock('./fetchCurve', () => ({
   fetchCurve: vi.fn(),
 }))
 
-vi.mock('../versions/VersionHistory', () => ({
-  default: vi.fn(() => null),
+vi.mock('../versions/fetchVersions', () => ({
+  fetchVersions: vi.fn(),
 }))
 
 const mockedFetch = vi.mocked(fetchCurve)
-const mockedHistory = vi.mocked(VersionHistory)
+const mockedVersions = vi.mocked(fetchVersions)
 const mockedChart = vi.mocked(CurveChart)
 
 function curveResult(validDate: string, values: (number | null)[]): CurveResult {
-  const grid = ['3M', '1Y', '10Y', '15Y', '20Y']
-  const months = [3, 12, 120, 180, 240]
+  const grid = ['3M', '1Y', '2Y', '10Y', '15Y', '20Y']
+  const months = [3, 12, 24, 120, 180, 240]
   return {
     kind: 'ok',
     curve: {
@@ -47,8 +47,20 @@ function curveResult(validDate: string, values: (number | null)[]): CurveResult 
 
 beforeEach(() => {
   mockedFetch.mockImplementation(async ({ validDate }) =>
-    curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.6, null, null]),
+    curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
   )
+  mockedVersions.mockResolvedValue({
+    kind: 'ok',
+    versions: {
+      data: {
+        curve_id: 'ecb-aaa-spot',
+        maturity: '10Y',
+        valid_date: '2026-10-16',
+        versions: [],
+      },
+      meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
+    },
+  })
 })
 
 afterEach(() => {
@@ -93,6 +105,24 @@ describe('CurveView', () => {
     expect(headings[0]).toHaveTextContent('ECB euro area AAA spot')
   })
 
+  it('shows key figures with formatted yield and spread', async () => {
+    await renderLoaded()
+
+    expect(screen.getByRole('heading', { level: 3, name: /2\.600/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: '+10.0 bp' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: '2026-10-16' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Live' })).toBeInTheDocument()
+  })
+
+  it('shows a negative spread when 10Y is below 2Y', async () => {
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 3.0, 2.6, null, null]),
+    )
+    await renderLoaded()
+
+    expect(screen.getByRole('heading', { level: 3, name: '−40.0 bp' })).toBeInTheDocument()
+  })
+
   it('marks missing points', async () => {
     render(<CurveView curveId="ecb-aaa-spot" />)
 
@@ -133,7 +163,7 @@ describe('CurveView', () => {
     mockedFetch.mockImplementation(async (options) =>
       options.asOf
         ? { kind: 'not-found', detail: 'no curve as of then' }
-        : curveResult('2026-10-16', [2.1, 2.4, 2.6, null, null]),
+        : curveResult('2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
     )
     render(<CurveView curveId="ecb-aaa-spot" asOf={asOf} />)
 
@@ -159,9 +189,11 @@ describe('CurveView', () => {
     pickDate('2026-10-01')
     fireEvent.click(addButton())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove 2026-10-16' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove 2026-10-16' }))
 
-    expect(screen.queryByRole('button', { name: 'Remove 2026-10-16' })).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Remove 2026-10-16' })).not.toBeInTheDocument(),
+    )
     await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01']))
   })
 
@@ -172,7 +204,6 @@ describe('CurveView', () => {
     fireEvent.click(addButton())
     const asOf = localInputToUtc('2026-10-01T12:00:00')
 
-    // The same Fragment wrapper as the initial render, so React updates the view instead of remounting it.
     rerender(
       <>
         <CurveView curveId="ecb-aaa-spot" asOf={asOf} />
@@ -185,17 +216,24 @@ describe('CurveView', () => {
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf })
   })
 
-  it('opens the history of a maturity', async () => {
+  it('opens and closes the history drawer', async () => {
     await renderLoaded()
 
     expect(screen.queryByRole('button', { name: 'History 15Y' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'History 10Y' }))
 
-    expect(mockedHistory.mock.lastCall?.[0]).toMatchObject({
+    expect(screen.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeInTheDocument()
+    expect(mockedVersions).toHaveBeenCalledWith({
+      curveId: 'ecb-aaa-spot',
       maturity: '10Y',
       validDate: '2026-10-16',
       asOf: undefined,
     })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'History of 10Y on 2026-10-16' })).not.toBeInTheDocument(),
+    )
   })
 
   it('caps the overlay at 5 curves', async () => {

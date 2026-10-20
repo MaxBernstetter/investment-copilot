@@ -62,8 +62,9 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).
 - C2 Page titles: "Yield curve", "Time series", "Changes", "Data quality", "Runs and alerts".
 - C3 Valid date tooltip: "The business day the yield applies to, as published by the ECB."
-  Known as of tooltip: "See the data exactly as YieldLens knew it at that moment. Later corrections are
-  hidden. Choose Now to see the latest knowledge."
+  Known as of helper text (dimmed text in the header as-of popover, not a label tooltip): "See the data
+  exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Now to see the latest
+  knowledge."
 - C4 Errors say what happened and what to do; no stack traces, no HTTP codes in the headline.
 
 ## Accessibility

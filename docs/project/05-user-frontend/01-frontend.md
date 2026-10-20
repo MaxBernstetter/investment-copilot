@@ -26,29 +26,32 @@ The views are built from Mantine components: `Title` for headings, `TextInput` a
 
 ## Curve view
 
-The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes.
+The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes. The layout follows the calm editorial pattern: `PageHeader` (title, subtitle, valid date and overlay actions), a row of `StatCard` key figures, a chart card and a values table card.
 
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
-- **Valid date:** picking a date refetches for that date. Clearing the input returns to the latest curve.
-- **Gaps:** maturities without a published value (`value: null`) are plotted as gaps, not zeros, and listed under the chart ("No value for: …"). Points keep the API's grid order.
+- **Valid date:** in the page header, with an info tooltip (ECB business day). Picking a date refetches for that date. Clearing the input returns to the latest curve.
+- **Key figures:** 10Y yield (`formatYield`, 3 dp), 2Y–10Y spread in basis points (`spread2s10s` and `formatBp`, signed), curve date and knowledge (`Live` or `formatUtc(asOf)`).
+- **Gaps:** maturities without a published value (`value: null`) are plotted as gaps, not zeros, and listed in dimmed text under the chart ("No value for: …"). Points keep the API's grid order.
+- **Values table:** every grid maturity with yield to three decimals and a subtle "History" row action (`aria-label` "History {maturity}").
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
 
 ### Overlay
 
-"Add to overlay" pins the valid date currently shown, so the chart compares several dates of the same curve.
+"Add to overlay" (header, primary button) pins the valid date currently shown, so the chart compares several dates of the same curve.
 
-- **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date is listed with a "Remove <date>" button.
-- **Chart:** the shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
+- **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date appears as a `Pill` in the chart card header (`aria-label` "Overlaid valid dates") with "Remove <date>".
+- **Chart:** card title "Spot curve (%)", linear axes with `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
 - **Data:** each pinned date is fetched with the current `as_of` (from `App`), and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
 - **Scope:** overlays compare valid dates only; countries are not overlaid.
 
 | Path | Content |
 |---|---|
-| `src/curve/CurveView.tsx` | Curve page: date input, overlay pills, history buttons, state alerts |
+| `src/components/StatCard.tsx` | Reusable key figure card (label, value, optional hint) |
+| `src/curve/CurveView.tsx` | Curve page: header actions, stat cards, chart and values cards |
 | `src/curve/CurveChart.tsx` | Mantine line chart, one line per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
-| `src/curve/curveData.ts` | Chart series and missing maturities |
+| `src/curve/curveData.ts` | Chart series, missing maturities, `yield10y`, `spread2s10s` |
 
 ## Time series
 
@@ -101,16 +104,16 @@ The "Changes" tab shows which values differ between two knowledge states, via `G
 
 | Path | Content |
 |---|---|
-| `src/versions/VersionHistory.tsx` | Version table for one value in a bordered panel, with state alerts and Close |
+| `src/versions/VersionHistory.tsx` | Version history drawer for one value, with state alerts |
 | `src/versions/fetchVersions.ts` | API call and mapping of responses to `VersionsResult` |
 
 ## Version history
 
 Each shown value can be traced to the versions it had, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions`.
 
-- **Entry:** the curve view has a "History <maturity>" button for each maturity with a value in the shown curve. The panel opens below the buttons and closes with "Close".
+- **Entry:** the curve values table has a "History" button per maturity with a value (`aria-label` "History {maturity}"). It opens a right-hand `Drawer` titled "History of {maturity} on {valid_date}"; the drawer close control is labelled "Close".
 - **Scope:** it shows the maturity, the valid date currently shown and the current "Known as of" time (`as_of`, from `App`). It refetches when `as_of` changes.
-- **Table:** one row per version, oldest first as the API returns them, with value, "Known from", "Known until" ("current" while the version is still current), reason, source, run and delivery. Missing source or delivery shows "–".
+- **Table:** one row per version, oldest first as the API returns them, with value (3 dp, right-aligned), "Known from", "Known until" ("current" while the version is still current), reason badge, source, run and delivery. Times use `formatUtc`. Missing source or delivery shows "–".
 - **Errors:** as for the curve view; 404 shows "No data known for this value." (or "No data known as of …" with `as_of`); 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 
 ## Configuration

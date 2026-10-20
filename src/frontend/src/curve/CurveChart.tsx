@@ -17,10 +17,14 @@ export default function CurveChart({ curves }: CurveChartProps) {
         dataKey="maturity"
         series={overlaySeries(curves)}
         connectNulls={false}
-        withLegend
+        withLegend={curves.length > 1}
         curveType="linear"
-        unit="%"
-        yAxisLabel="Yield (%)"
+        strokeWidth={2}
+        gridAxis="y"
+        yAxisProps={{ domain: ['auto', 'auto'] }}
+        valueFormatter={(value) => value.toFixed(3)}
+        tooltipAnimationDuration={0}
+        lineProps={{ isAnimationActive: false }}
       />
     </Suspense>
   )
