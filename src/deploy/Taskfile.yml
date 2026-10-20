@@ -13,6 +13,8 @@ env:
   PERSISTENCE_DB_PASSWORD: '{{.PERSISTENCE_DB_PASSWORD | default "LocalApp_1"}}'
   INGESTION_DB_OWNER_PASSWORD: '{{.INGESTION_DB_OWNER_PASSWORD | default "LocalIngOwner_1"}}'
   INGESTION_DB__PASSWORD: '{{.INGESTION_DB__PASSWORD | default "LocalIngApp_1"}}'
+  PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
+  PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
 
 tasks:
   up:
@@ -21,7 +23,8 @@ tasks:
       - docker compose up --detach --wait oracle
       - docker compose --profile tools run --rm core-migrate
       - docker compose --profile tools run --rm ing-migrate
-      - docker compose up --detach --wait --build persistence access
+      - docker compose --profile tools run --rm proc-migrate
+      - docker compose up --detach --wait --build persistence access processing
 
   down:
     desc: Stop the local stack (keeps its data)

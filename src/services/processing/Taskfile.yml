@@ -5,6 +5,8 @@ version: "3"
 # Local-only defaults for the development database. Override them through the environment;
 # never reuse them outside your machine.
 env:
+  PROCESSING_DB_ADMIN_PASSWORD: '{{.PROCESSING_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
+  PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
   PROCESSING_DB__DSN: '{{.PROCESSING_DB__DSN | default "localhost:1521/FREEPDB1"}}'
   PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
 
@@ -39,6 +41,16 @@ tasks:
     desc: Run the unit tests (domain, use cases, REST facade, configuration; no real I/O)
     cmds:
       - uv run --locked pytest tests/unit
+
+  test:integration:
+    desc: Run the integration tests against Oracle Free (Testcontainers; applies the PROC migrations)
+    cmds:
+      - uv run --locked pytest tests/integration
+
+  db:migrate:
+    desc: Apply the PROC changelogs (admin as SYSTEM, then PROC as its owner) to the local database
+    cmds:
+      - docker compose run --rm migrate
 
   run:
     desc: Run the api process locally on PORT (default 8002) against the processing database

@@ -1,5 +1,5 @@
 # Processing service image. Build context is src/ (the service needs contracts/).
-# Compose wiring with the processing database follows in the schema change; not built by dev:up yet.
+# Compose wiring: src/deploy/compose.yaml (service processing, started by dev:up).
 
 FROM python:3.13.9-slim-bookworm AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /bin/uv
