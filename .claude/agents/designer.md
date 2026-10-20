@@ -12,7 +12,7 @@ Reference: `docs/development/design-guidelines.md` (rule IDs T, L, D, Q, C, A an
 Spec mode (before planning a UI issue): return the components and props for each state, the copy, and the screenshot acceptance list. Leave no open design questions for the worker.
 
 Review mode (after the validator passes): your prompt names the worktree, the branch and the screenshot acceptance list.
-1. Run `devbox run -- task frontend:e2e` in the worktree; collect snapshot diffs and axe results.
+1. Run `devbox run -- task frontend:e2e` in the worktree; collect snapshot diffs and axe results. If `frontend:e2e` does not exist yet (before MR 6 of #165), skip this step and rely on the screenshots in step 2.
 2. Open each listed screen at 1440×900 and 390×844, in light and dark where listed, and compare it with the baseline and the rules.
 3. Output exactly this structure:
    - `VISUAL REVIEW: PASS` or `VISUAL REVIEW: FAIL`
