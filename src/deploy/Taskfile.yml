@@ -40,6 +40,12 @@ tasks:
     desc: Run the corrected-yield scenario on the simulated curve ecb-aaa-spot-sim (no source call; real curves untouched)
     cmds:
       - docker compose --profile tools run --rm --build --entrypoint ingestion-scenario ingestion corrected-yield
+      - docker compose --profile tools run --rm --build processing-job ecb-aaa-spot-sim --from 2026-10-05 --to 2026-10-08
+
+  check-quality:
+    desc: Run a quality check for CURVE between FROM and TO on the local stack
+    cmds:
+      - docker compose --profile tools run --rm --build processing-job {{.CURVE}} --from {{.FROM}} --to {{.TO}}
 
   e2e:
     desc: End-to-end corrected-yield test against a fresh running stack (task dev:reset dev:up first)

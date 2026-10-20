@@ -191,5 +191,21 @@ services:
       interval: 5s
       retries: 30
 
+  processing-job:
+    profiles: [tools]
+    build:
+      context: ..
+      dockerfile: services/processing/Dockerfile
+    entrypoint: [processing-check-quality]
+    environment:
+      PROCESSING_PERSISTENCE__URL: http://persistence:8001
+      PROCESSING_DB__DSN: oracle:1521/FREEPDB1
+      PROCESSING_DB__PASSWORD: ${PROCESSING_DB__PASSWORD:?set PROCESSING_DB__PASSWORD}
+    depends_on:
+      persistence:
+        condition: service_healthy
+      oracle:
+        condition: service_healthy
+
 volumes:
   oracle-data:

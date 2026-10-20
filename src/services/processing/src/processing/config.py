@@ -32,3 +32,14 @@ class ApiSettings(BaseSettings):
     )
 
     db: DatabaseSettings
+
+
+class JobSettings(BaseSettings):
+    """Settings for the ``processing-check-quality`` job (database and persistence reads)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="PROCESSING_", env_nested_delimiter="__", extra="forbid", frozen=True
+    )
+
+    db: DatabaseSettings
+    persistence: PersistenceSettings

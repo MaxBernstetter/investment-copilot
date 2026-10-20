@@ -18,7 +18,7 @@ One image, two process types (see [[09-deployment]]):
 | Process | Status | Command |
 |---|---|---|
 | `api` | skeleton: health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
-| `job` | follows | `processing-check-quality` (not yet available) |
+| `job` | quality check over a date range | `processing-check-quality CURVE_ID --from D --to D [--run-id ID]` |
 
 The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`) is created by the Liquibase changelogs in `db/` (`db/admin` as SYSTEM, then `db/proc` as the owner `proc`). The runtime user `proc_app` has `CREATE SESSION` and nothing else until the check use case adds its grants. Its integration tests start Oracle Free with Testcontainers and check the migrations, the privileges and the readiness probe.
 
@@ -38,8 +38,12 @@ Read from environment variables with the prefix `PROCESSING_`, validated at star
 | `PROCESSING_DB__POOL_MIN` / `_POOL_MAX` | `1` / `4` | Connection pool size |
 | `PROCESSING_DB__ACQUIRE_TIMEOUT_MS` | `5000` | Wait for a free connection |
 | `PROCESSING_DB__CALL_TIMEOUT_MS` | `30000` | Timeout per database call |
+| `PROCESSING_PERSISTENCE__URL` | none (required for the job) | Base URL of the persistence service, e.g. `http://localhost:8001` |
+| `PROCESSING_PERSISTENCE__TIMEOUT_SECONDS` | `30` | Timeout per persistence request |
 
-The Taskfile supplies local development defaults for the DSN and the password. Override them through the environment; never reuse them outside your machine.
+The Taskfile supplies local development defaults for the DSN, the password and the persistence URL. Override them through the environment; never reuse them outside your machine.
+
+The `job` process reads the latest curve grid and maturity series from persistence, assesses the range in chunks and records the result in the PROC schema. Exit codes: `0` finished (also when the curve is unknown to persistence), `1` persistence or Oracle failure, `2` usage or configuration error (including a curve with no thresholds). It logs one JSON summary line to stdout on success and one failure line to stderr otherwise.
 
 ## Tasks
 
@@ -52,3 +56,4 @@ Run from the repository root (namespace `processing`, see [[13-build-and-ci]]):
 - `task processing:test:integration`: integration tests against Oracle Free (Testcontainers; applies the PROC migrations)
 - `task processing:db:migrate`: apply the PROC changelogs to the local database started by `persistence:db:start`
 - `task processing:run`: run the `api` process on port 8002
+- `task processing:check-quality CURVE=… FROM=… TO=…`: run the quality check job locally

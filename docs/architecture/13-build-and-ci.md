@@ -113,6 +113,8 @@ The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, pe
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
+| `dev:check-quality` | Run `processing-check-quality` for `CURVE`, `FROM` and `TO` in the `processing-job` container |
+| `dev:scenario:corrected-yield` | Run the corrected-yield scenario and check quality for `ecb-aaa-spot-sim` on 2026-10-05..2026-10-08 |
 | `dev:e2e` | End-to-end corrected-yield test (`src/e2e`) against the running stack; run `dev:reset` and `dev:up` first |
 
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]); `processing` has `db:migrate` for its `PROC` schema. `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
