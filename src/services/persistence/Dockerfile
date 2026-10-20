@@ -17,6 +17,10 @@ RUN uv sync --locked --no-dev --no-editable
 FROM python:3.13.16-slim-bookworm
 LABEL org.opencontainers.image.source="https://github.com/MaxBernstetter/yield-lens"
 
+RUN pip install --no-cache-dir --root-user-action=ignore \
+    setuptools==78.1.1 urllib3==2.8.0 msgpack==1.2.1 \
+    && pip uninstall -y pip setuptools
+
 RUN useradd --system --uid 10001 --no-create-home app
 COPY --from=build /app/.venv /app/.venv
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
