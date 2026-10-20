@@ -65,6 +65,7 @@ describe('ChangesView', () => {
     const status = screen.getByRole('status')
     expect(status).toHaveTextContent('Pick a starting point')
     expect(status).toHaveTextContent('Choose the earlier knowledge time to compare.')
+    expect(status.querySelector('h1, h2, h3, h4, h5, h6')).toBeNull()
     expect(mockedFetch).not.toHaveBeenCalled()
   })
 
@@ -96,7 +97,9 @@ describe('ChangesView', () => {
     expect(await screen.findByRole('cell', { name: formatYield(2.61) })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: formatYield(2.7) })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '+9.0 bp' })).toBeInTheDocument()
-    expect(screen.getByText('correction')).toBeInTheDocument()
+    const correctionBadge = screen.getByText('correction')
+    expect(correctionBadge).toBeInTheDocument()
+    expect(correctionBadge.closest('[data-variant]')).toHaveAttribute('data-variant', 'filled')
   })
 
   it('formats a negative change with a true minus', async () => {
