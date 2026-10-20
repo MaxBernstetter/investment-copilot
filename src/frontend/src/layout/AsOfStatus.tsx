@@ -47,8 +47,8 @@ export default function AsOfStatus({ asOf, onChange }: AsOfStatusProps) {
           <Stack gap="sm">
             <AsOfControl asOf={asOf} onChange={onChange} />
             <Text size="xs" c="dimmed">
-              See the data exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Live for
-              the latest knowledge.
+              See the data exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Now to
+              see the latest knowledge.
             </Text>
           </Stack>
         </Popover.Dropdown>

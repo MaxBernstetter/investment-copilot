@@ -63,7 +63,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - C2 Page titles: "Yield curve", "Time series", "Changes", "Data quality", "Runs and alerts".
 - C3 Valid date tooltip: "The business day the yield applies to, as published by the ECB."
   Known as of tooltip: "See the data exactly as YieldLens knew it at that moment. Later corrections are
-  hidden. Choose Live for the latest knowledge."
+  hidden. Choose Now to see the latest knowledge."
 - C4 Errors say what happened and what to do; no stack traces, no HTTP codes in the headline.
 
 ## Accessibility
