@@ -34,7 +34,7 @@ Browser ──▶ GitHub Pages (React SPA)
 
 ## Delivery
 
-GitHub Actions builds multi-arch images to GHCR, deploys the frontend to Pages, and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].
+GitHub Actions publishes multi-arch service images as `ghcr.io/maxbernstetter/yield-lens-<service>:<commit sha>` (`linux/amd64` and `linux/arm64`) via `images.yml` on every push to `main`, after a Trivy scan. It also deploys the frontend to Pages and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].
 
 ## Backup
 

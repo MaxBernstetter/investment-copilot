@@ -1,0 +1,12 @@
+# Image scan gate, used by the <service>:image:scan tasks (docs/architecture/13-build-and-ci.md):
+# fail on HIGH and CRITICAL vulnerabilities that have a fix. Accepted exceptions go into
+# .trivyignore with a reason.
+exit-code: 1
+severity:
+  - HIGH
+  - CRITICAL
+scan:
+  scanners:
+    - vuln
+vulnerability:
+  ignore-unfixed: true
