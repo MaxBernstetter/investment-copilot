@@ -1,6 +1,6 @@
 # Processing service
 
-The `processing` service owns the quality rules of YieldLens: it checks the published curves and keeps the results. This note describes the skeleton: its layers, its process types, its configuration and its tasks. The checks themselves follow with [#137](https://github.com/MaxBernstetter/yield-lens/issues/137) and the rules in [[01-plausibility-thresholds]].
+The `processing` service owns the quality rules of YieldLens: it checks the published curves and keeps the results. This note describes the skeleton: its layers, its process types, its configuration and its tasks. The checks follow with [#30](https://github.com/MaxBernstetter/yield-lens/issues/30) (completeness) and [#31](https://github.com/MaxBernstetter/yield-lens/issues/31) (plausibility, see [[01-plausibility-thresholds]]).
 
 ## Layers
 

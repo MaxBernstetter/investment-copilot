@@ -22,6 +22,6 @@ def create_app_from_environment() -> FastAPI:
 async def proc_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
     pool = create_pool(settings)
     try:
-        yield Services(OracleHealth(pool).is_reachable)
+        yield Services(OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable)
     finally:
         await pool.close()
