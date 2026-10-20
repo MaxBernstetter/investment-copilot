@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T18:49:25Z",
+    "source_attribution": "Simulated scenario data"
+  },
+  "valid_date": "2026-10-16",
+  "points": [
+    { "maturity": "3M", "months": 3, "value": 2.1, "origin": "published" },
+    { "maturity": "6M", "months": 6, "value": 2.15, "origin": "published" },
+    { "maturity": "1Y", "months": 12, "value": 2.2, "origin": "published" },
+    { "maturity": "2Y", "months": 24, "value": 2.35, "origin": "published" },
+    { "maturity": "3Y", "months": 36, "value": 2.45, "origin": "published" },
+    { "maturity": "5Y", "months": 60, "value": 2.55, "origin": "published" },
+    { "maturity": "7Y", "months": 84, "value": 2.65, "origin": "published" },
+    { "maturity": "10Y", "months": 120, "value": 26.4, "origin": "published" },
+    { "maturity": "15Y", "months": 180, "value": 2.9, "origin": "published" },
+    { "maturity": "20Y", "months": 240, "value": 2.95, "origin": "published" },
+    { "maturity": "30Y", "months": 360, "value": 3.0, "origin": "published" }
+  ]
+}
