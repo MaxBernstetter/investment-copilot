@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AppShell, Alert, Button, Container, Group, Loader, Stack, Tabs, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+import { IconInfoCircle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
 import ChangesView from './changes/ChangesView'
 import AppFooter from './layout/AppFooter'
@@ -63,7 +64,7 @@ export default function App() {
           />
         </AppShell.Header>
         {online && (
-          <AppShell.Navbar p="md">
+          <AppShell.Navbar p="md" hiddenFrom="sm" aria-label="Views">
             {navOpened && (
               <AppNavbar
                 view={view}
@@ -96,7 +97,7 @@ export default function App() {
             {online && (
               <Stack gap="lg">
                 {simulated && (
-                  <Alert color="orange" role="note">
+                  <Alert color="orange" role="note" py="xs" icon={<IconInfoCircle size={18} />}>
                     Simulated scenario data, not an ECB publication.
                   </Alert>
                 )}

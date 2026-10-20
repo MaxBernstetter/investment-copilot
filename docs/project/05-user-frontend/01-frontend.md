@@ -77,7 +77,7 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 - **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
 - **Time series chart:** one line over valid dates in valid-date order, with a brush to zoom the range; markers off.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
-- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 320 kB, CSS at most 45 kB. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
+- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 330 kB, CSS at most 45 kB. The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165). Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
 
 ## Changes view
 
@@ -156,8 +156,8 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 
 The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow footer. The default colour scheme is light; the header's toggle switches to dark and back.
 
-- **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, and the colour-scheme toggle (`aria-label` "Toggle colour scheme"). The as-of status will go to the right of the toggle.
-- **Navbar (below `sm`):** the views and the curve choice, opened by the Burger and closed after a choice.
+- **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs (a `nav` labelled "Views", from `sm`) and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, and the colour-scheme toggle, an `ActionIcon` with `aria-label` "Toggle colour scheme". The as-of status will go to the right of the toggle.
+- **Navbar (below `sm`):** a `nav` labelled "Views" with one Mantine `NavLink` per view (the active one has `aria-current="page"`) and the curve choice, opened by the Burger and closed after a choice.
 - **Body:** `Container` at 1200 px; the page title is its `h1` (`PageHeader`); sections are cards. The background comes from the theme.
 - **Footer:** below the body, not fixed. Left: the ECB source and copyright notice (or, for the simulated curve, that the data is scenario data). Right: API docs, Methodology (the plausibility note on GitHub), GitHub and `v{version} · {commit}`.
 - **Theme:** all styling lives in `src/theme.ts` (see ADR 0018). No CSS files and no `style` props.

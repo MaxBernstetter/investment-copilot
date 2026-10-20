@@ -1,8 +1,8 @@
 import {
   Badge,
   Box,
+  ActionIcon,
   Burger,
-  Button,
   Group,
   SegmentedControl,
   Tabs,
@@ -52,9 +52,9 @@ function ColorSchemeToggle() {
   const next = computed === 'dark' ? 'light' : 'dark'
   return (
     <Tooltip label={next === 'dark' ? 'Dark colours' : 'Light colours'}>
-      <Button variant="default" px={8} aria-label="Toggle colour scheme" onClick={() => setColorScheme(next)}>
+      <ActionIcon variant="default" size="lg" aria-label="Toggle colour scheme" onClick={() => setColorScheme(next)}>
         {computed === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-      </Button>
+      </ActionIcon>
     </Tooltip>
   )
 }
@@ -93,7 +93,7 @@ export default function AppHeader({
         </Text>
       </Group>
       {online && (
-        <Box visibleFrom="sm">
+        <Box component="nav" visibleFrom="sm" aria-label="Views">
           <Tabs.List>
             {VIEWS.map((item) => (
               <Tabs.Tab key={item.value} value={item.value}>

@@ -1,4 +1,4 @@
-import { Button, Stack } from '@mantine/core'
+import { NavLink, Stack } from '@mantine/core'
 import { CurveSwitch, VIEWS } from './AppHeader'
 
 type AppNavbarProps = {
@@ -18,19 +18,17 @@ export default function AppNavbar({ view, onViewChange, curveId, onCurveChange, 
         {VIEWS.map((item) => {
           const active = view === item.value
           return (
-            <Button
+            <NavLink
               key={item.value}
-              variant={active ? 'light' : 'subtle'}
-              justify="flex-start"
-              fullWidth
+              component="button"
+              label={item.label}
+              active={active}
               aria-current={active ? 'page' : undefined}
               onClick={() => {
                 onViewChange(item.value)
                 onNavigate()
               }}
-            >
-              {item.label}
-            </Button>
+            />
           )
         })}
       </Stack>

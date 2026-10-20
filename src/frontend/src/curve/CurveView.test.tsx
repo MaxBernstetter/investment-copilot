@@ -76,6 +76,15 @@ describe('CurveView', () => {
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
   })
 
+  it('has one h1, the page title', async () => {
+    render(<CurveView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
+    const headings = screen.getAllByRole('heading', { level: 1 })
+    expect(headings).toHaveLength(1)
+    expect(headings[0]).toHaveTextContent('ECB euro area AAA spot')
+  })
+
   it('marks missing points', async () => {
     render(<CurveView curveId="ecb-aaa-spot" />)
 

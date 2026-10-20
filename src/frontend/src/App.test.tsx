@@ -21,6 +21,9 @@ vi.mock('./changes/ChangesView', () => ({
 const simulatedBadges = () =>
   Array.from(document.querySelectorAll('.mantine-Badge-label')).filter((el) => el.textContent === 'Simulated')
 
+/** The navbar on small screens: the second "Views" navigation, after the header tabs. */
+const navbarOf = () => screen.getAllByRole('navigation', { name: 'Views' }).at(-1)!
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -37,6 +40,23 @@ describe('App', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Backend offline: the YieldLens API is not reachable. Try again later.',
     )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByText('YieldLens')).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  })
+
+  it('exposes the page landmarks and no YieldLens heading', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getAllByRole('navigation', { name: 'Views' })).toHaveLength(2)
+    expect(screen.getByRole('main')).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'YieldLens' })).not.toBeInTheDocument()
   })
 
   it('shows the curve view when access is healthy', async () => {
@@ -142,7 +162,23 @@ describe('App', () => {
       'href',
       'https://github.com/MaxBernstetter/yield-lens',
     )
+    expect(within(footer).getByRole('link', { name: 'ECB copyright notice' })).toHaveAttribute(
+      'href',
+      'https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html',
+    )
     expect(within(footer).getByText('v0.1.0 · dev')).toBeInTheDocument()
+  })
+
+  it('shows scenario data in the footer instead of the ECB source for the simulated curve', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Simulated' }))
+
+    const footer = screen.getByRole('contentinfo')
+    expect(within(footer).getByText('Scenario data, not published by the ECB.')).toBeInTheDocument()
+    expect(within(footer).queryByRole('link', { name: 'ECB statistics' })).not.toBeInTheDocument()
   })
 
   it('opens the navbar with the burger and closes it after a choice', async () => {
@@ -150,19 +186,20 @@ describe('App', () => {
 
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
-    const nav = screen.getByRole('navigation')
     const burger = screen.getByRole('button', { name: 'Toggle navigation' })
     expect(burger).toHaveAttribute('aria-expanded', 'false')
-    expect(within(nav).queryByRole('button', { name: 'Changes' })).not.toBeInTheDocument()
+    expect(within(navbarOf()).queryByRole('button', { name: 'Changes' })).not.toBeInTheDocument()
 
     fireEvent.click(burger)
 
     expect(burger).toHaveAttribute('aria-expanded', 'true')
-    fireEvent.click(within(nav).getByRole('button', { name: 'Changes' }))
+    expect(within(navbarOf()).getByRole('button', { name: 'Curve' })).toHaveAttribute('aria-current', 'page')
+    expect(within(navbarOf()).getByRole('button', { name: 'Time series' })).not.toHaveAttribute('aria-current')
+    fireEvent.click(within(navbarOf()).getByRole('button', { name: 'Changes' }))
 
     expect(screen.getByText('Changes view')).toBeVisible()
     expect(burger).toHaveAttribute('aria-expanded', 'false')
-    expect(within(nav).queryByRole('button', { name: 'Changes' })).not.toBeInTheDocument()
+    expect(within(navbarOf()).queryByRole('button', { name: 'Changes' })).not.toBeInTheDocument()
   })
 
   it('switches the colour scheme with the toggle', async () => {
