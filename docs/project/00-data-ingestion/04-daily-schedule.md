@@ -33,7 +33,7 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 
 ## How the tasks run the jobs
 
-The ingestion and processing services have images; the DAG still runs each job as a subprocess on the Airflow worker until Airflow starts them as containers.
+The ingestion and processing job images are built and tagged locally when you start the opt-in Airflow Compose profile (`task dev:airflow:up`). Until MR2 wires `DockerOperator`, the DAG still runs each job as a subprocess on the Airflow worker instead of starting those containers.
 
 | Task | Command | Run id |
 |---|---|---|
@@ -59,7 +59,7 @@ airflow dags trigger backfill_ecb --conf '{"start":"2004-09-06","end":"2024-12-3
 
 ## Pools
 
-Pools are created from `src/orchestration/pools.json` with `task orchestration:pools:import` (needs a migrated metadata DB in `AIRFLOW_HOME`). A task in a pool that does not exist is never scheduled, so the DAG tests check that every pool a DAG uses is in `pools.json`.
+Pools are defined in `src/orchestration/pools.json`. With the local Airflow profile, `airflow-init` imports them into the metadata DB on first start. You can re-import manually with `task orchestration:pools:import` when `AIRFLOW_HOME` points at that environment. A task in a pool that does not exist is never scheduled, so the DAG tests check that every pool a DAG uses is in `pools.json`.
 
 ## Tests
 
@@ -76,5 +76,5 @@ Pools are created from `src/orchestration/pools.json` with `task orchestration:p
 ## Not yet in place
 
 - Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32)), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
-- Deployment of Airflow itself (Compose stack with its Postgres metadata DB, `AIRFLOW_HOME`, importing the pools on start).
+- Running load and quality-check tasks as `job` containers from Airflow (`DockerOperator` and shared job runner; see [#181](https://github.com/MaxBernstetter/yield-lens/issues/181)).
 - OpenLineage events and `traceparent` propagation from the task.

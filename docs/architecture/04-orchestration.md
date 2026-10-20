@@ -15,7 +15,7 @@ Apache Airflow (3.x) schedules and sequences the pipeline. It is a platform comp
 
 `daily_load` is one DAG per source, named `daily_load_<source>`, because each source has its own schedule.
 
-**In place today:** `daily_load_ecb` runs ingest then a quality check on the loaded curve, Monday to Friday at 13:15 Europe/Berlin, for the previous TARGET business day (see [[04-daily-schedule]]). Until the service images exist, each task runs the job's command line as a subprocess instead of a `job` container. DAGs and pools live in `src/orchestration/` (`dags/`, `pools.json`).
+**In place today:** `daily_load_ecb` runs ingest then a quality check on the loaded curve, Monday to Friday at 13:15 Europe/Berlin, for the previous TARGET business day (see [[04-daily-schedule]]). DAGs and pools live in `src/orchestration/` (`dags/`, `pools.json`). Locally, the opt-in `airflow` Compose profile (`task dev:airflow:up`) provides Postgres metadata, init (migrate DB, UI user, pool import), scheduler, DAG processor and the API server UI; job images are tagged for Docker-based runs. Tasks still invoke job CLIs as subprocesses until `DockerOperator` is wired ([#181](https://github.com/MaxBernstetter/yield-lens/issues/181)).
 
 ## Airflow standards
 

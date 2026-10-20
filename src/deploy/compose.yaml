@@ -11,6 +11,38 @@ x-liquibase: &liquibase
     - ../services/persistence/db:/liquibase/changelog:ro
   command: [--search-path=/liquibase/changelog, update]
 
+# Opt-in local Airflow (profile `airflow`). Job images are tagged for MR2 DockerOperator.
+# Pin matches apache-airflow-providers-docker on PyPI for Airflow 3.3.x.
+x-airflow-env: &airflow-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+  AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-46BKJoT4wfZoK6Ez5JEh7Kk0rDYMqHOdGImQ2Kf9Xn0=}
+  AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+  AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:-yieldlens_local_airflow_jwt}
+  AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+  AIRFLOW_HOME: /opt/airflow
+  # apache-airflow-providers-docker==4.6.1 (requires apache-airflow>=2.11.0)
+  _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker==4.6.1
+  YIELDLENS_INGESTION_JOB_IMAGE: yieldlens-ingestion:local
+  YIELDLENS_PROCESSING_JOB_IMAGE: yieldlens-processing:local
+  INGESTION_PERSISTENCE__URL: http://persistence:8001
+  INGESTION_DB__DSN: oracle:1521/FREEPDB1
+  INGESTION_DB__PASSWORD: ${INGESTION_DB__PASSWORD:?set INGESTION_DB__PASSWORD}
+  PROCESSING_PERSISTENCE__URL: http://persistence:8001
+  PROCESSING_DB__DSN: oracle:1521/FREEPDB1
+  PROCESSING_DB__PASSWORD: ${PROCESSING_DB__PASSWORD:?set PROCESSING_DB__PASSWORD}
+  YIELDLENS_DOCKER_NETWORK: yieldlens-dev_default
+  PYTHONPATH: /opt/airflow/python_src
+
+x-airflow-volumes: &airflow-volumes
+  - ../orchestration/dags:/opt/airflow/dags:ro
+  - ../orchestration/src:/opt/airflow/python_src:ro
+  - ../orchestration/pools.json:/opt/airflow/pools/pools.json:ro
+  - /var/run/docker.sock:/var/run/docker.sock
+
 services:
   oracle:
     extends:
@@ -164,7 +196,8 @@ services:
   # One-shot ECB load job, started by `task dev:seed` (not a server). The image default CMD
   # is the api; this service sets the job entrypoint explicitly.
   ingestion:
-    profiles: [tools]
+    profiles: [tools, airflow]
+    image: yieldlens-ingestion:local
     build:
       context: ..
       dockerfile: services/ingestion/Dockerfile
@@ -195,7 +228,8 @@ services:
       retries: 30
 
   processing-job:
-    profiles: [tools]
+    profiles: [tools, airflow]
+    image: yieldlens-processing:local
     build:
       context: ..
       dockerfile: services/processing/Dockerfile
@@ -210,5 +244,85 @@ services:
       oracle:
         condition: service_healthy
 
+  airflow-postgres:
+    profiles: [airflow]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      retries: 30
+
+  airflow-init:
+    profiles: [airflow]
+    image: apache/airflow:3.3.2
+    user: "0:0"
+    environment:
+      <<: *airflow-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: ""
+    volumes: *airflow-volumes
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -euo pipefail
+        mkdir -p /opt/airflow/logs
+        /entrypoint
+        /entrypoint airflow pools import /opt/airflow/pools/pools.json
+
+  airflow-scheduler:
+    profiles: [airflow]
+    image: apache/airflow:3.3.2
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment: *airflow-env
+    volumes: *airflow-volumes
+    command: scheduler
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    profiles: [airflow]
+    image: apache/airflow:3.3.2
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment: *airflow-env
+    volumes: *airflow-volumes
+    command: dag-processor
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-apiserver:
+    profiles: [airflow]
+    image: apache/airflow:3.3.2
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment: *airflow-env
+    volumes: *airflow-volumes
+    command: api-server
+    ports:
+      - 127.0.0.1:8080:8080
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
 volumes:
   oracle-data:
+  airflow-postgres-data:
