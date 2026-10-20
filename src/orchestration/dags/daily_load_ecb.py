@@ -17,6 +17,7 @@ from orchestration.ecb_daily_load import (
     run_job,
     valid_date_for,
 )
+from orchestration.quality_check import daily_check_command
 
 DAG_ID = "daily_load_ecb"
 TIMEZONE = pendulum.timezone("Europe/Berlin")
@@ -46,7 +47,20 @@ def daily_load_ecb() -> None:
         valid_date = valid_date_for(run_at.astimezone(TIMEZONE).date())
         run_job(daily_load_command(valid_date, f"{DAG_ID}-{valid_date.isoformat()}"))
 
-    load_ecb()
+    @task(
+        retries=2,
+        retry_delay=timedelta(minutes=10),
+        retry_exponential_backoff=2.0,
+        execution_timeout=timedelta(minutes=30),
+        on_failure_callback=report_final_failure,
+    )
+    def check_quality() -> None:
+        context = get_current_context()
+        run_at = context["logical_date"] or context["dag_run"].run_after
+        valid_date = valid_date_for(run_at.astimezone(TIMEZONE).date())
+        run_job(daily_check_command(valid_date, f"{DAG_ID}-check-{valid_date.isoformat()}"))
+
+    load_ecb() >> check_quality()
 
 
 daily_load_ecb()

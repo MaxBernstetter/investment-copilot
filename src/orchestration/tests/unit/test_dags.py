@@ -109,3 +109,23 @@ def test_the_backfill_is_manual_and_loads_one_year_at_a_time_in_the_ecb_pool(
     assert load.max_active_tis_per_dag == 1
     assert load.retries == 2
     assert load.on_failure_callback == report_final_failure
+
+
+def test_the_daily_load_checks_quality_after_the_load(daily_load_ecb: DAG) -> None:
+    check = daily_load_ecb.get_task("check_quality")
+
+    assert set(check.upstream_task_ids) == {"load_ecb"}
+    assert check.pool != "ecb"
+    assert check.retries == 2
+    assert check.retry_delay == timedelta(minutes=10)
+    assert check.on_failure_callback == [report_final_failure]
+
+
+def test_the_backfill_checks_each_year_after_the_loads(backfill_ecb: DAG) -> None:
+    load = backfill_ecb.get_task("load_year")
+    check = backfill_ecb.get_task("check_year")
+
+    assert check in load.downstream_list
+    assert check.pool != "ecb"
+    assert check.retries == 2
+    assert check.on_failure_callback == report_final_failure
