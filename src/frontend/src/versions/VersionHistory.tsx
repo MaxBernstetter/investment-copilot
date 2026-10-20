@@ -55,7 +55,7 @@ export default function VersionHistory({
           )}
           {result?.kind === 'ok' && result.versions.data.versions.length > 0 && (
             <Table.ScrollContainer
-              minWidth={760}
+              minWidth={720}
               scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}
             >
               <Table striped>
@@ -73,7 +73,7 @@ export default function VersionHistory({
                 <Table.Tbody>
                   {result.versions.data.versions.map((version) => (
                     <Table.Tr key={version.version_id}>
-                      <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>{formatYield(version.value)}</Table.Td>
+                      <Table.Td ta="right">{formatYield(version.value)}</Table.Td>
                       <Table.Td>{formatUtc(version.known_from)}</Table.Td>
                       <Table.Td>{version.known_to === null ? 'current' : formatUtc(version.known_to)}</Table.Td>
                       <Table.Td>
@@ -82,8 +82,8 @@ export default function VersionHistory({
                         </Badge>
                       </Table.Td>
                       <Table.Td>{version.source_id ?? EMPTY}</Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{version.run_id}</Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{version.delivery_id ?? EMPTY}</Table.Td>
+                      <Table.Td><Text span inherit display="inline-block" miw="max-content">{version.run_id}</Text></Table.Td>
+                      <Table.Td>{version.delivery_id ?? EMPTY}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
