@@ -70,7 +70,7 @@ tasks:
   run:
     desc: Run the api process locally on PORT (default 8001) against the local database
     cmds:
-      - uv run --locked uvicorn --factory persistence.api:create_app_from_environment --port {{.PORT}}
+      - uv run --locked uvicorn --factory persistence.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
 
   image:
     desc: Build the image IMAGE:TAG (default the commit) for PLATFORMS (default the host) to OUTPUT (type=docker loads it locally, type=cacheonly only builds, type=registry pushes)

@@ -23,7 +23,8 @@ RUN pip install --no-cache-dir --root-user-action=ignore \
 
 RUN useradd --system --uid 10001 --no-create-home app
 COPY --from=build /app/.venv /app/.venv
+COPY services/persistence/log_config.json /app/log_config.json
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
 USER 10001
 EXPOSE 8001
-CMD ["uvicorn", "--factory", "persistence.api:create_app_from_environment", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "--factory", "persistence.api:create_app_from_environment", "--host", "0.0.0.0", "--port", "8001", "--log-config", "/app/log_config.json"]
