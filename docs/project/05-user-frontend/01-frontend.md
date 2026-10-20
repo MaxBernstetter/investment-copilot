@@ -8,6 +8,7 @@ The user frontend (`src/frontend/`) is a static React single-page app that calls
 |---|---|
 | Build and dev server | Vite 7 |
 | UI | React 19, TypeScript, Mantine 9 (`@mantine/core`, `@mantine/hooks`), theme in `src/theme.ts`; see [[0018-mantine-ui-and-charts]] |
+| Icons | `@tabler/icons-react`, named imports only (see the icons addendum in [[0018-mantine-ui-and-charts]]) |
 | Charts | `@mantine/charts` (Recharts), lazy-loaded; see [Charts](#charts) |
 | Unit tests | Vitest 5 with jsdom, Testing Library, jest-dom |
 | Lint | ESLint 9 with typescript-eslint and react-hooks rules |
@@ -31,7 +32,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 - **Valid date:** picking a date refetches for that date. Clearing the input returns to the latest curve.
 - **Gaps:** maturities without a published value (`value: null`) are plotted as gaps, not zeros, and listed under the chart ("No value for: …"). Points keep the API's grid order.
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
-- **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source, except for the simulated curve.
+- **Attribution:** the source is in the footer (see [Layout](#layout)).
 
 ### Overlay
 
@@ -44,7 +45,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 | Path | Content |
 |---|---|
-| `src/curve/CurveView.tsx` | Curve page: date input, overlay pills, history buttons, state alerts, source |
+| `src/curve/CurveView.tsx` | Curve page: date input, overlay pills, history buttons, state alerts |
 | `src/curve/CurveChart.tsx` | Mantine line chart, one line per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
 | `src/curve/curveData.ts` | Chart series and missing maturities |
@@ -55,15 +56,15 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 
 - **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
-- **Chart:** a Mantine line over valid dates, in valid-date order, with a brush below to narrow the range.
+- **Chart:** a Mantine line over valid dates, in valid-date order, with a brush below to narrow the range (`curveType` linear, colour `CHART_COLORS[0]`).
 - **Known as of:** the same control and `as_of` URL parameter as the curve view, so the choice carries across both views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
-- **Navigation:** "Curve" and "Time series" buttons switch views; the curve view is the default.
-- **Attribution:** the page credits [ECB statistics](https://data.ecb.europa.eu/) as the source.
+- **Navigation:** the header tabs "Curve", "Time series" and "Changes" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
+- **Attribution:** the source is in the footer (see [Layout](#layout)).
 
 | Path | Content |
 |---|---|
-| `src/series/SeriesView.tsx` | Time series page: maturity, range, state messages, source |
+| `src/series/SeriesView.tsx` | Time series page: maturity, range, state messages |
 | `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, with a brush |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
 | `src/series/seriesData.ts` | Maturity grid, chart series and default range |
@@ -72,7 +73,8 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 
 Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and the `@mantine/charts/styles.css` import in `src/main.tsx`. Plotly.js was removed in PR 3 of #153.
 
-- **Curve chart:** one row per maturity in grid order, one line per curve (palette `indigo`, `teal`, `orange`, `grape`, `cyan`, `pink`, cycled). A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
+- **Colours:** `CHART_COLORS` in `src/theme.ts` (`blue.8`, `orange.8`, `teal.8`, `grape.8`, `pink.8`, `lime.9`) in a fixed order, the same in light and dark. Series are never cycled past six.
+- **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
 - **Time series chart:** one line over valid dates in valid-date order, with a brush to zoom the range; markers off.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
 - **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 320 kB, CSS at most 45 kB. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
@@ -115,6 +117,9 @@ Each shown value can be traced to the versions it had, via `GET /v1/curves/{curv
 | Variable | Default | Use |
 |---|---|---|
 | `VITE_ACCESS_URL` | `http://localhost:8000` | Base URL of the `access` API, read at build time (`src/config.ts`) |
+| `VITE_COMMIT` | `dev` | Short git commit shown in the footer; set by `frontend:build` (`git rev-parse --short HEAD`) |
+
+The version shown in the footer is `version` in `package.json` (`0.1.0`), defined at build time in `vite.config.ts`. See [Versioning](../../architecture/13-build-and-ci.md#versioning).
 
 ## Time travel
 
@@ -134,10 +139,10 @@ The "Known as of" control shows the curve as it was known at a chosen time (the 
 
 The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) and "Simulated" (`ecb-aaa-spot-sim`, scenario data). The choice applies to the curve and time series views.
 
-- **Control:** a segmented control labelled "Curve" in the header, shown once the backend is online. It defaults to "Real".
-- **Simulated:** choosing "Simulated" shows an orange "Simulated" badge next to the control and a notice above the views ("Simulated data from a scenario, not real source data."). The views then omit the ECB source credit, since the data is not from ECB statistics.
+- **Control:** a segmented control labelled "Curve" in the header from `sm` up, and in the navbar below `sm`. It is shown once the backend is online and defaults to "Real".
+- **Simulated:** choosing "Simulated" shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
 - **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. A missing or unknown value falls back to the real curve.
-- **Views:** switching the curve resets the view state (pinned overlays, open history), and each view titles itself with the curve's label.
+- **Views:** switching the curve resets the view state (pinned overlays, open history), and each view titles itself with the curve's label (without a "Simulated:" prefix; the badge and note say it).
 
 | Path | Content |
 |---|---|
@@ -145,16 +150,28 @@ The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) an
 
 ## Offline state
 
-On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the curve view; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later."). While the check runs, the page shows "Loading…".
+On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows "Loading…". Both states are inside the app shell, so the header and footer stay visible.
 
 ## Layout
 
+The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow footer. The default colour scheme is light; the header's toggle switches to dark and back.
+
+- **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, and the colour-scheme toggle (`aria-label` "Toggle colour scheme"). The as-of status will go to the right of the toggle.
+- **Navbar (below `sm`):** the views and the curve choice, opened by the Burger and closed after a choice.
+- **Body:** `Container` at 1200 px; the page title is its `h1` (`PageHeader`); sections are cards. The background comes from the theme.
+- **Footer:** below the body, not fixed. Left: the ECB source and copyright notice (or, for the simulated curve, that the data is scenario data). Right: API docs, Methodology (the plausibility note on GitHub), GitHub and `v{version} · {commit}`.
+- **Theme:** all styling lives in `src/theme.ts` (see ADR 0018). No CSS files and no `style` props.
+
 | Path | Content |
 |---|---|
-| `src/main.tsx` | Entry point, renders `App` |
-| `src/App.tsx` | Page, backend state |
+| `src/main.tsx` | Entry point, renders `App` (light colour scheme by default) |
+| `src/App.tsx` | App shell, backend state, simulated note, views |
+| `src/layout/AppHeader.tsx` | Header, curve choice, colour-scheme toggle, view tab list (`VIEWS`) |
+| `src/layout/AppNavbar.tsx` | Navbar for small screens |
+| `src/layout/AppFooter.tsx` | Footer: source, links and version |
+| `src/layout/PageHeader.tsx` | Page title (`h1`), subtitle and actions |
 | `src/backend.ts` | `isBackendOnline` health check |
-| `src/config.ts` | `ACCESS_URL` |
+| `src/config.ts` | `ACCESS_URL`, `APP_VERSION`, `COMMIT`, `REPOSITORY_URL`, `METHODOLOGY_URL` |
 | `src/api/client.ts` | Typed `openapi-fetch` client |
 | `src/api/schema.d.ts` | Generated API types, git-ignored |
 | `src/curve/` | Curve view and curve choice (see above) |
@@ -177,7 +194,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:lint` | ESLint |
 | `frontend:typecheck` | `tsc -b` (app and Vite config) |
 | `frontend:test:unit` | Vitest, single run |
-| `frontend:build` | Production bundle in `dist/` |
+| `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

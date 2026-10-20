@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
-import { AppShell, Alert, Badge, Container, Group, Loader, SegmentedControl, Tabs, Text, Title } from '@mantine/core'
+import { AppShell, Alert, Button, Container, Group, Loader, Stack, Tabs, Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { isBackendOnline } from './backend'
 import ChangesView from './changes/ChangesView'
+import AppFooter from './layout/AppFooter'
+import AppHeader from './layout/AppHeader'
+import AppNavbar from './layout/AppNavbar'
 import CurveView from './curve/CurveView'
 import { curveById, readCurveId, writeCurveId } from './curve/curves'
 import SeriesView from './series/SeriesView'
 
 type BackendState = 'checking' | 'online' | 'offline'
+
 export default function App() {
   const [state, setState] = useState<BackendState>('checking')
+  const [attempt, setAttempt] = useState(0)
   const [view, setView] = useState<string | null>('curve')
   const [curveId, setCurveId] = useState(() => readCurveId(window.location.search))
+  const [navOpened, navHandlers] = useDisclosure(false)
   const simulated = curveById(curveId).isSimulated
+  const online = state === 'online'
 
   const changeCurve = (next: string) => {
     setCurveId(next)
@@ -20,48 +28,55 @@ export default function App() {
 
   useEffect(() => {
     let active = true
-    isBackendOnline().then((online) => {
-      if (active) setState(online ? 'online' : 'offline')
+    isBackendOnline().then((isOnline) => {
+      if (active) setState(isOnline ? 'online' : 'offline')
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [attempt])
+
+  const retry = () => {
+    setState('checking')
+    setAttempt((count) => count + 1)
+  }
 
   return (
     <Tabs value={view} onChange={setView}>
-      <AppShell header={{ height: 56 }} padding="md">
+      <AppShell
+        header={{ height: 56 }}
+        navbar={
+          online
+            ? { width: 260, breakpoint: 'sm', collapsed: { desktop: true, mobile: !navOpened } }
+            : undefined
+        }
+        padding={0}
+      >
         <AppShell.Header>
-          <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-            <Title order={3}>YieldLens</Title>
-            {state === 'online' && (
-              <Group gap="sm" wrap="nowrap">
-                <SegmentedControl
-                  aria-label="Curve"
-                  size="xs"
-                  value={curveId}
-                  onChange={changeCurve}
-                  data={[
-                    { label: 'Real', value: 'ecb-aaa-spot' },
-                    { label: 'Simulated', value: 'ecb-aaa-spot-sim' },
-                  ]}
-                />
-                {simulated && (
-                  <Badge color="orange" variant="filled">
-                    Simulated
-                  </Badge>
-                )}
-                <Tabs.List>
-                  <Tabs.Tab value="curve">Curve</Tabs.Tab>
-                  <Tabs.Tab value="series">Time series</Tabs.Tab>
-                  <Tabs.Tab value="changes">Changes</Tabs.Tab>
-                </Tabs.List>
-              </Group>
-            )}
-          </Group>
+          <AppHeader
+            online={online}
+            curveId={curveId}
+            onCurveChange={changeCurve}
+            simulated={simulated}
+            navOpened={navOpened}
+            onToggleNav={navHandlers.toggle}
+          />
         </AppShell.Header>
+        {online && (
+          <AppShell.Navbar p="md">
+            {navOpened && (
+              <AppNavbar
+                view={view}
+                onViewChange={setView}
+                curveId={curveId}
+                onCurveChange={changeCurve}
+                onNavigate={navHandlers.close}
+              />
+            )}
+          </AppShell.Navbar>
+        )}
         <AppShell.Main>
-          <Container size="lg">
+          <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
             {state === 'checking' && (
               <Group gap="xs">
                 <Loader size="sm" />
@@ -70,14 +85,19 @@ export default function App() {
             )}
             {state === 'offline' && (
               <Alert color="red" role="alert">
-                Backend offline: the YieldLens API is not reachable. Try again later.
+                <Stack gap="xs" align="flex-start">
+                  <Text size="sm">Backend offline: the YieldLens API is not reachable. Try again later.</Text>
+                  <Button variant="light" size="xs" onClick={retry}>
+                    Try again
+                  </Button>
+                </Stack>
               </Alert>
             )}
-            {state === 'online' && (
-              <>
+            {online && (
+              <Stack gap="lg">
                 {simulated && (
-                  <Alert color="orange" variant="light" role="note" mb="md">
-                    Simulated data from a scenario, not real source data.
+                  <Alert color="orange" role="note">
+                    Simulated scenario data, not an ECB publication.
                   </Alert>
                 )}
                 <Tabs.Panel value="curve">
@@ -89,10 +109,11 @@ export default function App() {
                 <Tabs.Panel value="changes">
                   <ChangesView key={curveId} curveId={curveId} />
                 </Tabs.Panel>
-              </>
+              </Stack>
             )}
           </Container>
         </AppShell.Main>
+        <AppFooter simulated={simulated} />
       </AppShell>
     </Tabs>
   )

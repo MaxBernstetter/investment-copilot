@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Anchor, Button, Group, Paper, Pill, Skeleton, Stack, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Alert, Button, Group, Paper, Pill, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
 import { readAsOf, writeAsOf } from '../asOf'
+import PageHeader from '../layout/PageHeader'
 import AsOfControl from './AsOfControl'
 import CurveChart from './CurveChart'
 import { missingMaturities, type LabelledCurve } from './curveData'
@@ -77,7 +78,7 @@ export default function CurveView({ curveId }: CurveViewProps) {
 
   return (
     <Stack component="section" gap="md">
-      <Title order={2}>{curveById(curveId).label}</Title>
+      <PageHeader title={curveById(curveId).label} />
       <Group gap="sm" align="flex-end">
         <TextInput
           type="date"
@@ -166,11 +167,6 @@ export default function CurveView({ curveId }: CurveViewProps) {
         <Alert color="red" role="alert">
           {result.detail}
         </Alert>
-      )}
-      {!curveById(curveId).isSimulated && (
-        <Text size="xs" c="dimmed">
-          Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
-        </Text>
       )}
     </Stack>
   )

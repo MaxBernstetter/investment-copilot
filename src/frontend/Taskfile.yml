@@ -55,6 +55,11 @@ tasks:
   build:
     desc: Build the production bundle with Vite
     deps: [generate]
+    vars:
+      COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo dev
+    env:
+      VITE_COMMIT: '{{.COMMIT}}'
     cmds:
       - npm run build
 

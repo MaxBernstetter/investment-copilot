@@ -1,11 +1,12 @@
 import type { components } from '../api/schema'
+import { CHART_COLORS } from '../theme'
 
 export type CurvePoint = components['schemas']['CurvePoint']
 
 /** A curve on the chart, labelled by its valid date. */
 export type LabelledCurve = { label: string; points: CurvePoint[] }
 
-const PALETTE = ['indigo.6', 'teal.6', 'orange.6', 'grape.6', 'cyan.6', 'pink.6']
+const PALETTE: readonly string[] = CHART_COLORS
 
 /**
  * One row per maturity in grid order, with one key per curve label.

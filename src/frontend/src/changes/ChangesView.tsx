@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Badge, Group, Paper, Skeleton, Stack, Table, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Table, TextInput, Text, VisuallyHidden } from '@mantine/core'
 import { localInputToUtc, readAsOf, writeAsOf } from '../asOf'
+import PageHeader from '../layout/PageHeader'
 import AsOfControl from '../curve/AsOfControl'
 import { defaultRange } from '../series/seriesData'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
@@ -41,7 +42,7 @@ export default function ChangesView({ curveId }: ChangesViewProps) {
 
   return (
     <Stack component="section" gap="md">
-      <Title order={2}>Changes between two knowledge states</Title>
+      <PageHeader title="Changes between two knowledge states" />
       <Group gap="sm" align="flex-end">
         <TextInput
           type="date"

@@ -4,7 +4,7 @@ const REAL_CURVE: CurveOption = { id: 'ecb-aaa-spot', label: 'ECB euro area AAA 
 
 export const CURVES: readonly CurveOption[] = [
   REAL_CURVE,
-  { id: 'ecb-aaa-spot-sim', label: 'Simulated: ECB euro area AAA spot (scenario data)', isSimulated: true },
+  { id: 'ecb-aaa-spot-sim', label: 'ECB euro area AAA spot (scenario data)', isSimulated: true },
 ]
 
 export const DEFAULT_CURVE_ID = REAL_CURVE.id
