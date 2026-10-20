@@ -73,4 +73,4 @@ tasks:
   airflow:down:
     desc: Stop the Airflow profile (does not tear down the default stack)
     cmds:
-      - docker compose --profile airflow down
+      - docker compose --profile airflow down airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
