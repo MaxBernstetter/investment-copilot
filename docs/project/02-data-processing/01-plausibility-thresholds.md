@@ -58,6 +58,8 @@ Every flag in the explorer carries a short explanation that states the rule and 
 - **Range (warn):** "Outside the plausible range of −2.00 % to 8.00 %. ECB AAA spot yields stayed between −1.00 % and 5.18 % since 2004."
 - **Jump (info):** "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress."
 - **Jump (warn):** "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data."
+- **Missing date (warn):** "No value was published for this TARGET business day."
+- **Missing maturity (warn):** "No value for this maturity on a TARGET business day on which other maturities have one."
 
 The quality dashboard links to this note for the full method. The rule configuration in the processing service names this note in a comment next to each threshold.
 
