@@ -3,6 +3,7 @@ import {
   assertNoHorizontalScroll,
   runAxe,
   screenshotName,
+  expectOpaque,
   settleAnimations,
   setColorScheme,
   VIEWPORTS,
@@ -215,6 +216,7 @@ test.describe('visual snapshots §7', () => {
         await page.keyboard.press('Enter')
         await expect(link).toBeFocused()
         await settleAnimations(page)
+        await expectOpaque(link)
         await page.mouse.move(0, 0)
         if (width === AXE_VIEWPORT.width) {
           await runAxe(page)

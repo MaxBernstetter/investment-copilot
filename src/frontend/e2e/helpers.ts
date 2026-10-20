@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 export const VIEWPORTS = [
   { width: 1280, height: 800 },
@@ -52,4 +52,22 @@ export async function settleAnimations(page: Page) {
         .map((a) => a.finished.catch(() => undefined)),
     ),
   )
+}
+
+/**
+ * Waits until the element and its ancestors are fully opaque. Mantine starts its fade-in with a
+ * timer, so a freshly opened popover can have no running animation yet when settleAnimations runs.
+ */
+export async function expectOpaque(locator: Locator) {
+  await expect
+    .poll(() =>
+      locator.evaluate((el) => {
+        let opacity = 1
+        for (let node: Element | null = el; node; node = node.parentElement) {
+          opacity *= Number(getComputedStyle(node).opacity)
+        }
+        return opacity
+      }),
+    )
+    .toBe(1)
 }
