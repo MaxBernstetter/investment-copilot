@@ -122,7 +122,7 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
 
   return (
     <Stack component="section" gap="lg">
-      <PageHeader title={curve.label} subtitle={subtitle} actions={headerActions} />
+      <PageHeader title="Yield curve" subtitle={subtitle} actions={headerActions} />
       {result === undefined && (
         <>
           <Skeleton h={320} />

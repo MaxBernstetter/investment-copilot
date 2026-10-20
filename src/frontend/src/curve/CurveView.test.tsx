@@ -102,7 +102,23 @@ describe('CurveView', () => {
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     const headings = screen.getAllByRole('heading', { level: 1 })
     expect(headings).toHaveLength(1)
-    expect(headings[0]).toHaveTextContent('ECB euro area AAA spot')
+    expect(headings[0]).toHaveTextContent('Yield curve')
+  })
+
+  it('shows the real-curve subtitle', async () => {
+    render(<CurveView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
+    expect(
+      screen.getByText('ECB euro area AAA government bonds, spot rates by maturity'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the simulated-curve subtitle', async () => {
+    render(<CurveView curveId="ecb-aaa-spot-sim" />)
+
+    expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
+    expect(screen.getByText('Simulated scenario based on ECB AAA spot')).toBeInTheDocument()
   })
 
   it('shows key figures with formatted yield and spread', async () => {

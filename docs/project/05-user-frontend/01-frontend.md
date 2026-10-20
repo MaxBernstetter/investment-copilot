@@ -26,7 +26,7 @@ The views are built from Mantine components: `Title` for headings, `TextInput` a
 
 ## Curve view
 
-The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes. The layout follows the calm editorial pattern: `PageHeader` (title, subtitle, valid date and overlay actions), a row of `StatCard` key figures, a chart card and a values table card.
+The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes. The layout follows the calm editorial pattern: `PageHeader` with title "Yield curve", a one-line subtitle that depends on the curve (real vs simulated), valid date and overlay actions, a row of `StatCard` key figures, a chart card and a values table card.
 
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
 - **Valid date:** in the page header, with an info tooltip (ECB business day). Picking a date refetches for that date. Clearing the input returns to the latest curve.
@@ -38,7 +38,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 ### Overlay
 
-"Add to overlay" (header, primary button) pins the valid date currently shown, so the chart compares several dates of the same curve.
+"Add to overlay" (header, default button) pins the valid date currently shown, so the chart compares several dates of the same curve.
 
 - **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date appears as a `Pill` in the chart card header (`aria-label` "Overlaid valid dates") with "Remove <date>".
 - **Chart:** card title "Spot curve (%)", linear axes with `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
@@ -149,7 +149,7 @@ The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) an
 - **Control:** a segmented control labelled "Curve" in the header from `sm` up, and in the navbar below `sm`. It is shown once the backend is online and defaults to "Real".
 - **Simulated:** choosing "Simulated" shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
 - **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. A missing or unknown value falls back to the real curve.
-- **Views:** switching the curve resets the view state (pinned overlays, open history), and each view titles itself with the curve's label (without a "Simulated:" prefix; the badge and note say it).
+- **Views:** switching the curve resets the view state (pinned overlays, open history). The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
 
 | Path | Content |
 |---|---|
