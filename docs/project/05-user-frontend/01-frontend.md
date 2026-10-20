@@ -77,7 +77,7 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 - **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
 - **Time series chart:** one line over valid dates in valid-date order, with a brush to zoom the range; markers off.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
-- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 330 kB, CSS at most 45 kB. The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165). Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
+- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 500 kB, CSS at most 45 kB. The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165), and raised to 500 kB on 2026-10-20 by the user. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
 
 ## Changes view
 
