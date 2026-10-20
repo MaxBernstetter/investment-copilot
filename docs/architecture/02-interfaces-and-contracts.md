@@ -28,6 +28,7 @@
 - **Envelope:** data responses carry `data` and `meta` (`as_of`, version ids, quality status incl. `warning` flags from validation gates, lineage refs). Data quarantined by a blocking gate is not returned.
 - **Pagination:** cursor-based (`limit`, `cursor`, `next_cursor`).
 - **Errors:** RFC 9457 problem details (`application/problem+json`).
+  - Unexpected errors are a `500` problem with a generic detail and a `trace_id` extension when traced; the exception is logged, never returned.
 - **Caching:**
   - Every response carries an `ETag`; conditional GET (`If-None-Match`) answers `304` without a body.
   - A settled answer is immutable: the request had an `as_of` and the response's `meta.as_of` equals it, and every published value in the answer has a known quality result that is not `unchecked`. It gets `Cache-Control: public, max-age=31536000, immutable`. An answer with an unchecked value is not settled.

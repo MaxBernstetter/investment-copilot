@@ -1,5 +1,6 @@
 """REST facade (``api`` process type): the public read API plus liveness and readiness."""
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from fastapi import Depends, FastAPI, Path, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
 from pydantic import AwareDatetime
 
 from access.application.ports import CurveReader, QualityReader
@@ -34,6 +36,9 @@ PROBLEM_JSON = "application/problem+json"
 UNAVAILABLE_DETAIL = "The curve store is not reachable; try again later."
 QUALITY_UNAVAILABLE_DETAIL = "The quality service is not reachable; try again later."
 NOT_MODIFIED = "Not modified: the ETag matches If-None-Match"
+UNEXPECTED_DETAIL = "An unexpected error occurred."
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,7 +305,28 @@ def _add_problem_handlers(app: FastAPI) -> None:
             status.HTTP_503_SERVICE_UNAVAILABLE, "Service unavailable", QUALITY_UNAVAILABLE_DETAIL
         )
 
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, error: Exception) -> JSONResponse:
+        trace_fields = _trace_fields()
+        logger.exception(
+            "Unexpected error",
+            exc_info=error,
+            extra={"event": "unexpected_error", "method": request.method, "path": request.url.path}
+            | trace_fields,
+        )
+        return _problem(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Internal server error",
+            UNEXPECTED_DETAIL,
+            **trace_fields,
+        )
+
 
 def _problem(status_code: int, title: str, detail: str, **extensions: Any) -> JSONResponse:
     body = {"type": "about:blank", "title": title, "status": status_code, "detail": detail}
     return JSONResponse(body | extensions, status_code=status_code, media_type=PROBLEM_JSON)
+
+
+def _trace_fields() -> dict[str, str]:
+    context = trace.get_current_span().get_span_context()
+    return {"trace_id": trace.format_trace_id(context.trace_id)} if context.is_valid else {}
