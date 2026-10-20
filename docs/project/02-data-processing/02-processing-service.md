@@ -51,6 +51,8 @@ The telemetry follows the standard OpenTelemetry variables. Traces and metrics a
 | `OTEL_SEMCONV_STABILITY_OPT_IN` | `http` in the image | Current HTTP semantic conventions |
 | `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` | `health,ready` in the image | Probe routes that are not traced |
 
+The Oracle spans (`proc_quality.<operation>`, CLIENT) are written by hand: no maintained instrumentation covers async `oracledb` pools or `callfunc`. Each one puts the trace id into the session's `CLIENT_IDENTIFIER` and `CLIENT_INFO`, so database views can be joined to a trace.
+
 The Taskfile supplies local development defaults for the DSN, the password and the persistence URL. Override them through the environment; never reuse them outside your machine.
 
 The `job` process reads the latest curve grid and maturity series from persistence, assesses the range in chunks and records the result in the PROC schema. Exit codes: `0` finished (also when the curve is unknown to persistence), `1` persistence or Oracle failure, `2` usage or configuration error (including a curve with no thresholds). It logs one JSON summary line to stdout on success and one failure line to stderr otherwise.

@@ -61,7 +61,7 @@ def _run(
         trace = trace_fields()
         try:
             result = asyncio.run(
-                _check(command, settings, persistence_transport, quality_store),
+                _check(command, settings, persistence_transport, quality_store, telemetry),
             )
         except UnknownCurveError as error:
             span.record_exception(error)
@@ -82,12 +82,14 @@ async def _check(
     settings: JobSettings,
     persistence_transport: httpx.AsyncBaseTransport | None,
     quality_store: QualityStore | None,
+    telemetry: Telemetry,
 ) -> CheckSummary:
     persistence = settings.persistence
     async with PersistenceClient(
         str(persistence.url),
         persistence.timeout_seconds,
         transport=persistence_transport,
+        telemetry=telemetry,
     ) as reader:
         if quality_store is not None:
             use_case = CheckQuality(reader, quality_store)
@@ -101,7 +103,11 @@ async def _check(
         db = settings.db.model_copy(update={"pool_min": 1, "pool_max": 1})
         pool = create_pool(db)
         try:
-            store = OracleQualityStore(pool, call_timeout_ms=db.call_timeout_ms)
+            store = OracleQualityStore(
+                pool,
+                call_timeout_ms=db.call_timeout_ms,
+                tracer=telemetry.tracer,
+            )
             use_case = CheckQuality(reader, store)
             return await use_case(
                 command.curve_id,

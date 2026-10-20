@@ -1,11 +1,14 @@
+import re
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import httpx
 import pytest
+from opentelemetry.trace import SpanKind, format_trace_id
 
 from processing.infrastructure.persistence import PersistenceClient, PersistenceReadError
+from tests.unit.fakes import job_telemetry
 
 pytestmark = pytest.mark.anyio
 
@@ -119,3 +122,27 @@ async def test_other_statuses_raise_persistence_read_error(
     async with client_answering(httpx.MockTransport(answer)) as client:
         with pytest.raises(PersistenceReadError):
             await client.grid("ecb-aaa-spot")
+
+
+async def test_persistence_calls_carry_w3c_traceparent() -> None:
+    telemetry, spans, _ = job_telemetry()
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=CURVE_BODY)
+
+    with telemetry.tracer.start_as_current_span("root") as root:
+        async with PersistenceClient(
+            BASE_URL, 5.0, transport=httpx.MockTransport(answer), telemetry=telemetry
+        ) as client:
+            await client.grid("ecb-aaa-spot")
+    telemetry.tracer_provider.force_flush()
+
+    trace_id = format_trace_id(root.get_span_context().trace_id)
+    # 03 = sampled plus the random-trace-id flag that the SDK sets on its own root spans.
+    assert re.fullmatch(rf"00-{trace_id}-[0-9a-f]{{16}}-0[13]", seen[0].headers["traceparent"])
+    clients = [span for span in spans.get_finished_spans() if span.kind is SpanKind.CLIENT]
+    assert clients
+    assert {format_trace_id(span.context.trace_id) for span in clients} == {trace_id}
+    telemetry.shutdown()

@@ -4,11 +4,14 @@ from contextlib import asynccontextmanager
 
 from contracts.processing.v1 import QUALITY_DAYS_PATH, VALUE_QUALITY_PATH
 from fastapi.testclient import TestClient
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.trace import SpanKind
 
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
 from processing.facade.rest.app import Services, create_app
-from tests.unit.fakes import FakeQualityStore
+from processing.infrastructure.telemetry import Telemetry
+from tests.unit.fakes import FakeQualityStore, job_telemetry
 
 
 async def _reachable() -> bool:
@@ -22,6 +25,7 @@ async def _unreachable() -> bool:
 def _client(
     is_ready: Callable[[], Awaitable[bool]] = _reachable,
     store: FakeQualityStore | None = None,
+    telemetry: Telemetry | None = None,
 ) -> TestClient:
     quality_store = store or FakeQualityStore()
 
@@ -33,7 +37,14 @@ def _client(
             GetValueQuality(quality_store),
         )
 
-    return TestClient(create_app(services))
+    app = create_app(services)
+    if telemetry is not None:
+        FastAPIInstrumentor.instrument_app(
+            app,
+            tracer_provider=telemetry.tracer_provider,
+            meter_provider=telemetry.meter_provider,
+        )
+    return TestClient(app)
 
 
 def test_health_is_ok() -> None:
@@ -120,3 +131,15 @@ def test_meta_as_of_is_the_requested_as_of_or_the_database_time() -> None:
     assert default.json()["meta"]["as_of"] == "2026-10-09T08:00:00Z"
     assert explicit.status_code == 200
     assert explicit.json()["meta"]["as_of"] == "2026-10-09T07:30:00Z"
+
+
+def test_fastapi_requests_are_traced() -> None:
+    telemetry, spans, _ = job_telemetry()
+
+    with _client(telemetry=telemetry) as client:
+        assert client.get("/health").status_code == 200
+    telemetry.tracer_provider.force_flush()
+
+    servers = [span for span in spans.get_finished_spans() if span.kind is SpanKind.SERVER]
+    assert len(servers) == 1
+    telemetry.shutdown()
