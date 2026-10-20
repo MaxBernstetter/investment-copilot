@@ -73,12 +73,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container:
-      image: mcr.microsoft.com/playwright:v1.51.1-noble
+      image: mcr.microsoft.com/playwright:v1.55.1-noble
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The devbox action's nix-store workaround runs `sudo` on Linux; the Playwright image does not ship it.
+      - name: Install sudo for devbox action
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends sudo
 
       - name: Install devbox toolchain
         uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
