@@ -18,6 +18,31 @@ create or replace package proc_quality authid definer as
     p_findings         in  proc_finding_list_t,
     p_check_run_id     out number
   );
+
+  function get_checked_days(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_as_of    in timestamp
+  ) return sys_refcursor;
+
+  function get_findings(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_maturity in varchar2 default null,
+    p_as_of    in timestamp
+  ) return sys_refcursor;
+
+  function get_value_quality(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_maturity in varchar2 default null,
+    p_as_of    in timestamp
+  ) return sys_refcursor;
+
+  function current_time return timestamp;
 end proc_quality;
 /
 --rollback drop package proc_quality;
@@ -89,6 +114,106 @@ create or replace package body proc_quality as
 
     p_check_run_id := l_check_run_id;
   end record_check;
+
+  function get_checked_days(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_as_of    in timestamp
+  ) return sys_refcursor is
+    l_result sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'get_checked_days');
+    open l_result for
+      with latest as (
+        select cd.valid_date,
+               max(cd.check_run_id) keep (dense_rank last order by r.checked_as_of, r.check_run_id)
+                 as check_run_id
+          from checked_day cd
+          join check_run r on r.check_run_id = cd.check_run_id
+         where cd.curve_id = p_curve_id
+           and cd.valid_date between p_from and p_to
+           and r.checked_as_of <= p_as_of
+         group by cd.valid_date
+      )
+      select cd.valid_date, cd.status, r.run_id, r.checked_as_of
+        from latest l
+        join checked_day cd
+          on cd.check_run_id = l.check_run_id and cd.valid_date = l.valid_date
+        join check_run r on r.check_run_id = l.check_run_id
+       order by cd.valid_date;
+    return l_result;
+  end get_checked_days;
+
+  function get_findings(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_maturity in varchar2 default null,
+    p_as_of    in timestamp
+  ) return sys_refcursor is
+    l_result sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'get_findings');
+    open l_result for
+      with latest as (
+        select cd.valid_date,
+               max(cd.check_run_id) keep (dense_rank last order by r.checked_as_of, r.check_run_id)
+                 as check_run_id
+          from checked_day cd
+          join check_run r on r.check_run_id = cd.check_run_id
+         where cd.curve_id = p_curve_id
+           and cd.valid_date between p_from and p_to
+           and r.checked_as_of <= p_as_of
+         group by cd.valid_date
+      )
+      select f.rule, f.severity, f.valid_date, f.maturity, f.version_id, f.value,
+             f.explanation, f.evidence
+        from latest l
+        join quality_finding f
+          on f.check_run_id = l.check_run_id and f.valid_date = l.valid_date
+       where f.curve_id = p_curve_id
+         and (p_maturity is null or f.maturity = p_maturity)
+       order by f.valid_date, f.maturity nulls first, f.rule;
+    return l_result;
+  end get_findings;
+
+  function get_value_quality(
+    p_curve_id in varchar2,
+    p_from     in date,
+    p_to       in date,
+    p_maturity in varchar2 default null,
+    p_as_of    in timestamp
+  ) return sys_refcursor is
+    l_result sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'get_value_quality');
+    open l_result for
+      with latest as (
+        select cd.valid_date,
+               max(cd.check_run_id) keep (dense_rank last order by r.checked_as_of, r.check_run_id)
+                 as check_run_id
+          from checked_day cd
+          join check_run r on r.check_run_id = cd.check_run_id
+         where cd.curve_id = p_curve_id
+           and cd.valid_date between p_from and p_to
+           and r.checked_as_of <= p_as_of
+         group by cd.valid_date
+      )
+      select vq.version_id, vq.maturity, vq.valid_date, vq.status
+        from latest l
+        join value_quality vq
+          on vq.check_run_id = l.check_run_id and vq.valid_date = l.valid_date
+       where vq.curve_id = p_curve_id
+         and (p_maturity is null or vq.maturity = p_maturity)
+       order by vq.valid_date, vq.maturity;
+    return l_result;
+  end get_value_quality;
+
+  function current_time return timestamp is
+  begin
+    return sys_extract_utc(systimestamp);
+  end current_time;
 
 end proc_quality;
 /

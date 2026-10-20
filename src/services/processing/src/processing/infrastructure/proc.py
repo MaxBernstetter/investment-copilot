@@ -1,12 +1,14 @@
 """Oracle adapter: the connection pool of the PROC schema and its health check."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from typing import Any
 
 import oracledb
 
 from processing.config import DatabaseSettings
-from processing.domain.assessment import DayStatus, QualityCheck, ValueStatus
-from processing.domain.quality import Finding
+from processing.domain.assessment import CheckedDay, DayStatus, QualityCheck, ValueStatus
+from processing.domain.quality import Finding, Rule, Severity, Status
 
 
 def create_pool(settings: DatabaseSettings) -> oracledb.AsyncConnectionPool:
@@ -70,6 +72,96 @@ class OracleQualityStore:
             )
             await connection.commit()
 
+    async def checked_days(
+        self, curve_id: str, valid_from: date, valid_to: date, as_of: datetime
+    ) -> list[CheckedDay]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            result = await cursor.callfunc(
+                "proc.proc_quality.get_checked_days",
+                oracledb.DB_TYPE_CURSOR,
+                [curve_id, valid_from, valid_to, _bind_timestamp(cursor, as_of)],
+            )
+            rows = await result.fetchall()
+        return [
+            CheckedDay(
+                valid_date=_as_date(valid_date),
+                status=Status(status),
+                run_id=run_id,
+                checked_as_of=_as_utc(checked_as_of),
+            )
+            for valid_date, status, run_id, checked_as_of in rows
+        ]
+
+    async def findings(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime,
+        *,
+        maturity: str | None = None,
+    ) -> list[Finding]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            result = await cursor.callfunc(
+                "proc.proc_quality.get_findings",
+                oracledb.DB_TYPE_CURSOR,
+                [
+                    curve_id,
+                    valid_from,
+                    valid_to,
+                    maturity,
+                    _bind_timestamp(cursor, as_of),
+                ],
+            )
+            rows = await result.fetchall()
+        return [_finding_from_row(row) for row in rows]
+
+    async def value_statuses(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime,
+        *,
+        maturity: str | None = None,
+    ) -> list[ValueStatus]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            cursor = connection.cursor()
+            result = await cursor.callfunc(
+                "proc.proc_quality.get_value_quality",
+                oracledb.DB_TYPE_CURSOR,
+                [
+                    curve_id,
+                    valid_from,
+                    valid_to,
+                    maturity,
+                    _bind_timestamp(cursor, as_of),
+                ],
+            )
+            rows = await result.fetchall()
+        return [
+            ValueStatus(
+                version_id=int(version_id),
+                maturity=maturity_value,
+                valid_date=_as_date(valid_date),
+                status=Status(status),
+            )
+            for version_id, maturity_value, valid_date, status in rows
+        ]
+
+    async def current_time(self) -> datetime:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            now = await connection.cursor().callfunc(
+                "proc.proc_quality.current_time", oracledb.DB_TYPE_TIMESTAMP, []
+            )
+        return _as_utc(now)
+
 
 async def _day_status_list(
     connection: oracledb.AsyncConnection, days: tuple[DayStatus, ...]
@@ -125,3 +217,25 @@ def _bind_timestamp(cursor: oracledb.AsyncCursor, timestamp: datetime) -> oracle
     variable = cursor.var(oracledb.DB_TYPE_TIMESTAMP)
     variable.setvalue(0, timestamp.astimezone(UTC).replace(tzinfo=None))
     return variable
+
+
+def _as_utc(timestamp: datetime) -> datetime:
+    return timestamp.replace(tzinfo=UTC)
+
+
+def _as_date(value: date | datetime) -> date:
+    return value.date() if isinstance(value, datetime) else value
+
+
+def _finding_from_row(row: tuple[Any, ...]) -> Finding:
+    rule, severity, valid_date, maturity, version_id, value, explanation, evidence = row
+    return Finding(
+        rule=Rule(str(rule)),
+        severity=Severity(str(severity)),
+        valid_date=_as_date(valid_date),
+        maturity=str(maturity) if maturity is not None else None,
+        version_id=int(version_id) if version_id is not None else None,
+        value=Decimal(str(value)) if value is not None else None,
+        explanation=str(explanation),
+        evidence=str(evidence),
+    )

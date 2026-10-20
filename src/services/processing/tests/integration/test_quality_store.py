@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -72,17 +73,24 @@ def sample_check(
     )
 
 
-def record(oracle: OracleDatabase, check: QualityCheck) -> None:
-    async def store() -> None:
-        pool = create_pool(
-            DatabaseSettings(dsn=oracle.dsn, password=SecretStr(APP_PASSWORD)),
-        )
-        try:
-            await OracleQualityStore(pool, call_timeout_ms=30_000).record(check)
-        finally:
-            await pool.close()
+async def _with_store[T](
+    oracle: OracleDatabase, action: Callable[[OracleQualityStore], Awaitable[T]]
+) -> T:
+    pool = create_pool(
+        DatabaseSettings(dsn=oracle.dsn, password=SecretStr(APP_PASSWORD)),
+    )
+    store = OracleQualityStore(pool, call_timeout_ms=30_000)
+    try:
+        return await action(store)
+    finally:
+        await pool.close()
 
-    asyncio.run(store())
+
+def record(oracle: OracleDatabase, check: QualityCheck) -> None:
+    async def action(store: OracleQualityStore) -> None:
+        await store.record(check)
+
+    asyncio.run(_with_store(oracle, action))
 
 
 def table_counts(oracle: OracleDatabase) -> tuple[int, int, int, int]:
@@ -185,3 +193,69 @@ def test_a_later_knowledge_time_adds_a_new_run(oracle: OracleDatabase) -> None:
     assert after_days == before_runs * 3 + 3
     assert after_values == before_runs * 2 + 2
     assert after_findings == before_runs * 2 + 2
+
+
+def test_value_statuses_come_from_the_latest_check_known_at_as_of(
+    oracle: OracleDatabase,
+) -> None:
+    early = CHECKED_AS_OF
+    later = CHECKED_AS_OF + timedelta(hours=1)
+    record(oracle, sample_check(checked_as_of=early))
+    record(
+        oracle,
+        QualityCheck(
+            run_id=RUN_ID,
+            curve_id=CURVE_ID,
+            valid_from=VALID_FROM,
+            valid_to=VALID_TO,
+            checked_as_of=later,
+            rule_set_version=RULE_SET_VERSION,
+            days=(
+                DayStatus(VALID_FROM, Status.PASSED),
+                DayStatus(OCT_07, Status.WARN),
+                DayStatus(VALID_TO, Status.PASSED),
+            ),
+            values=(
+                ValueStatus(1, "10Y", VALID_FROM, Status.PASSED),
+                ValueStatus(2, "10Y", VALID_TO, Status.PASSED),
+            ),
+            findings=(),
+        ),
+    )
+
+    async def read() -> None:
+        between = early + timedelta(minutes=30)
+
+        async def at_between(store: OracleQualityStore) -> list[ValueStatus]:
+            return await store.value_statuses(CURVE_ID, VALID_TO, VALID_TO, between)
+
+        async def at_later_time(store: OracleQualityStore) -> list[ValueStatus]:
+            return await store.value_statuses(CURVE_ID, VALID_TO, VALID_TO, later)
+
+        assert await _with_store(oracle, at_between) == [
+            ValueStatus(2, "10Y", VALID_TO, Status.WARN)
+        ]
+        assert await _with_store(oracle, at_later_time) == [
+            ValueStatus(2, "10Y", VALID_TO, Status.PASSED)
+        ]
+
+    asyncio.run(read())
+
+
+def test_findings_filter_by_maturity(oracle: OracleDatabase) -> None:
+    record(oracle, sample_check())
+
+    async def read() -> None:
+        async def all_for_day(store: OracleQualityStore) -> list[Finding]:
+            return await store.findings(CURVE_ID, OCT_07, OCT_07, CHECKED_AS_OF)
+
+        async def ten_year_only(store: OracleQualityStore) -> list[Finding]:
+            return await store.findings(CURVE_ID, OCT_07, OCT_07, CHECKED_AS_OF, maturity="10Y")
+
+        all_findings = await _with_store(oracle, all_for_day)
+        ten_year = await _with_store(oracle, ten_year_only)
+        assert len(all_findings) == 1
+        assert all_findings[0].maturity == "10Y"
+        assert ten_year == all_findings
+
+    asyncio.run(read())
