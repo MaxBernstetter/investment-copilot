@@ -29,6 +29,15 @@ def test_compiles_the_ing_delivery_package(oracle: OracleDatabase) -> None:
         assert cursor.fetchall() == [("PACKAGE", "VALID"), ("PACKAGE BODY", "VALID")]
 
 
+def test_compiles_the_ing_run_package(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select object_type, status from user_objects"
+            " where object_name = 'ING_RUN' order by object_type"
+        )
+        assert cursor.fetchall() == [("PACKAGE", "VALID"), ("PACKAGE BODY", "VALID")]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 
@@ -50,7 +59,19 @@ def test_the_service_user_records_a_delivery_through_the_package(oracle: OracleD
         )
         connection.commit()
 
-    assert delivery_id > 0
+        assert delivery_id > 0
+
+
+def test_the_service_user_starts_a_run_through_the_package(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_app() as connection, connection.cursor() as cursor:
+        attempt = cursor.callfunc(
+            "ing.ing_run.start_run",
+            oracledb.DB_TYPE_NUMBER,
+            ["it-migrations-run", "daily"],
+        )
+        connection.commit()
+
+    assert attempt == 1
 
 
 @pytest.mark.parametrize(
@@ -58,6 +79,8 @@ def test_the_service_user_records_a_delivery_through_the_package(oracle: OracleD
     [
         "select count(*) from ing.delivery",
         "delete from ing.delivery",
+        "select count(*) from ing.run",
+        "delete from ing.run",
     ],
 )
 def test_the_service_user_cannot_touch_the_table_directly(

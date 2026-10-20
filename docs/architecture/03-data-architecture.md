@@ -28,6 +28,10 @@ Every version of an observation is a row; rows are never updated in place except
 - **Reproducibility:** each version references the run that wrote it. The run records the source schema version, normalization version, method version, reference-data version and image SHA (see [[12-data-pipeline]]).
 - **Concurrency:** write packages lock per curve and valid-date range, so overlapping writers serialize.
 
+## Ingestion (`ING`)
+
+- `run`: one row per job attempt; `ing_run` is its PL/SQL interface.
+
 ## PL/SQL as the schema API
 
 - Each schema exposes **PL/SQL packages** as its interface, for example `core_observation.record_versions`, `core_observation.get_as_of`, and `core_observation.diff`.
