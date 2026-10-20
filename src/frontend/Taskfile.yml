@@ -71,15 +71,21 @@ tasks:
 
   e2e:
     desc: Playwright visual, accessibility, layout and keyboard checks
-    deps: [build]
+    deps: [generate]
+    env:
+      VITE_COMMIT: dev
     cmds:
+      - npm run build
       - npx playwright install chromium
       - npm run e2e
 
   e2e:update:
     desc: Re-baseline Playwright screenshots (designer approval required)
-    deps: [build]
+    deps: [generate]
+    env:
+      VITE_COMMIT: dev
     cmds:
+      - npm run build
       - npx playwright install chromium
       - npm run e2e:update
 
