@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import AwareDatetime
 
+from processing.application.check_quality import UnknownCurveError
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
 from processing.domain.read import FutureAsOfError, InvalidRangeError
@@ -61,7 +62,8 @@ def _add_routes(app: FastAPI) -> None:
         v1.QUALITY_DAYS_PATH,
         response_model=v1.QualityDaysResponse,
         responses={
-            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"}
+            status.HTTP_404_NOT_FOUND: {"description": "The curve is unknown"},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
         },
     )
     async def quality_days(
@@ -85,7 +87,8 @@ def _add_routes(app: FastAPI) -> None:
         v1.VALUE_QUALITY_PATH,
         response_model=v1.ValueQualityResponse,
         responses={
-            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"}
+            status.HTTP_404_NOT_FOUND: {"description": "The curve is unknown"},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
         },
     )
     async def value_quality(
@@ -146,6 +149,10 @@ def _add_problem_handlers(app: FastAPI) -> None:
     @app.exception_handler(FutureAsOfError)
     async def future_as_of(_: Request, error: FutureAsOfError) -> JSONResponse:
         return _problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "Invalid as_of", str(error))
+
+    @app.exception_handler(UnknownCurveError)
+    async def unknown_curve(_: Request, error: UnknownCurveError) -> JSONResponse:
+        return _problem(status.HTTP_404_NOT_FOUND, "Not found", str(error))
 
 
 def _problem(status_code: int, title: str, detail: str, **extensions: Any) -> JSONResponse:
