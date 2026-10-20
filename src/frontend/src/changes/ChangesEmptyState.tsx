@@ -1,4 +1,4 @@
-import { Stack, Text, Title } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 
 type ChangesEmptyStateProps = {
   title: string
@@ -9,7 +9,7 @@ type ChangesEmptyStateProps = {
 export default function ChangesEmptyState({ title, description }: ChangesEmptyStateProps) {
   return (
     <Stack gap="xs" role="status">
-      <Title order={3}>{title}</Title>
+      <Text fw={600}>{title}</Text>
       <Text c="dimmed">{description}</Text>
     </Stack>
   )

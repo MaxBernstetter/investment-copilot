@@ -3,6 +3,7 @@ import {
   ActionIcon,
   Alert,
   Badge,
+  type BadgeProps,
   Card,
   Group,
   Input,
@@ -30,6 +31,13 @@ type ChangesViewProps = {
 const REASON_COLORS: Record<string, string> = {
   correction: 'orange',
   revision: 'blue',
+}
+
+function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant'> {
+  if (reason === 'correction') {
+    return { color: 'orange.8', variant: 'filled' }
+  }
+  return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light' }
 }
 
 const COMPARE_FROM_TOOLTIP =
@@ -142,7 +150,7 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
                     <Table.Td ta="right">{row.newValue}</Table.Td>
                     <Table.Td ta="right">{row.delta}</Table.Td>
                     <Table.Td>
-                      <Badge color={REASON_COLORS[row.reason] ?? 'gray'} variant="light">
+                      <Badge {...reasonBadgeProps(row.reason)}>
                         {row.reason}
                       </Badge>
                     </Table.Td>
