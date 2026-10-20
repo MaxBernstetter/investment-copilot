@@ -15,6 +15,9 @@ includes:
   access:
     taskfile: ./src/services/access
     dir: ./src/services/access
+  processing:
+    taskfile: ./src/services/processing
+    dir: ./src/services/processing
   ingestion:
     taskfile: ./src/services/ingestion
     dir: ./src/services/ingestion

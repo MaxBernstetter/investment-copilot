@@ -1,0 +1,46 @@
+# Processing service tasks (uv project in this directory). Glue only: every command is a single
+# binary call (see docs/architecture/13-build-and-ci.md).
+version: "3"
+
+# Local-only defaults for the development database. Override them through the environment;
+# never reuse them outside your machine.
+env:
+  PROCESSING_DB__DSN: '{{.PROCESSING_DB__DSN | default "localhost:1521/FREEPDB1"}}'
+  PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
+
+vars:
+  PORT: '{{.PORT | default "8002"}}'
+
+tasks:
+  setup:
+    desc: Create the virtual environment from the lockfile
+    cmds:
+      - uv sync --locked
+
+  fmt:
+    desc: Format and auto-fix the Python code
+    cmds:
+      - uv run --locked ruff format
+      - uv run --locked ruff check --fix
+
+  lint:
+    desc: Lint the Python code, check its formatting and the layer rules
+    cmds:
+      - uv run --locked ruff check
+      - uv run --locked ruff format --check
+      - uv run --locked lint-imports
+
+  typecheck:
+    desc: Type-check with mypy (strict)
+    cmds:
+      - uv run --locked mypy
+
+  test:unit:
+    desc: Run the unit tests (domain, use cases, REST facade, configuration; no real I/O)
+    cmds:
+      - uv run --locked pytest tests/unit
+
+  run:
+    desc: Run the api process locally on PORT (default 8002) against the processing database
+    cmds:
+      - uv run --locked uvicorn --factory processing.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
