@@ -1,6 +1,7 @@
 """Run attempt outcomes for ingestion jobs."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 
@@ -22,6 +23,22 @@ class RunCounts:
     delivered_count: int = 0
     recorded_count: int = 0
     unchanged_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class RunAttempt:
+    """One stored attempt of a run, as read back from the run history (UTC times)."""
+
+    attempt_id: int
+    run_id: str
+    attempt: int
+    operation: Operation
+    status: RunStatus
+    started_at: datetime
+    finished_at: datetime | None
+    counts: RunCounts
+    error_type: str | None
+    error_message: str | None
 
 
 @dataclass(frozen=True, slots=True)

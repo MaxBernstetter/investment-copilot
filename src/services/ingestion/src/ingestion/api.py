@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from ingestion.config import ApiSettings, DatabaseSettings
 from ingestion.facade.rest.app import Services, create_app
-from ingestion.infrastructure.ing.pool import OracleHealth, create_pool
+from ingestion.infrastructure.ing import OracleHealth, OracleRunHistory, create_pool
 
 
 def create_app_from_environment() -> FastAPI:
@@ -22,6 +22,9 @@ def create_app_from_environment() -> FastAPI:
 async def ing_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
     pool = create_pool(settings)
     try:
-        yield Services(OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable)
+        yield Services(
+            OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable,
+            OracleRunHistory(pool, call_timeout_ms=settings.call_timeout_ms),
+        )
     finally:
         await pool.close()

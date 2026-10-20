@@ -77,5 +77,5 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 
 ## Not yet in place
 
-- The transparency api over the run history (`GET /v1/runs`, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32); see [[06-run-history]]), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
+- Alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
 - OpenLineage events and `traceparent` propagation from the task.

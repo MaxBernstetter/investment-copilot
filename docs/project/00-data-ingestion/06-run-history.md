@@ -21,5 +21,13 @@ Each `daily`, `history` and `replay` job opens an attempt with `start_run` befor
 
 ## Not yet in place
 
-- Ingestion api `GET /v1/runs` and `GET /v1/runs/{run_id}` (PR-5/6).
 - Business alerts ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
+
+## Ingestion api
+
+Two `GET` endpoints of the transparency interface serve this history as `contracts.transparency.v1` runs with `service = "ingestion"`:
+
+- `GET /v1/runs`: attempts newest first. `from` and `to` are inclusive UTC dates on `started_at` (`from` is 00:00 UTC of its day, `to` runs to the end of its day). `limit` is 1 to 200, default 50. `cursor` is the last `attempt_id` of the previous page (`meta.next_cursor`, null on the last page); the next page continues before it. A running attempt has `finished_at` and `duration_seconds` null.
+- `GET /v1/runs/{run_id}`: every attempt of one run id in attempt order.
+
+Errors are RFC 9457 problem details (`application/problem+json`): `422` for an invalid query, including `from` after `to`, and `404` when no attempt of the run id exists.
