@@ -40,6 +40,12 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 - **Escalation:** if a script outgrows Bash (complex parsing, data handling), it becomes a small Python CLI with tests instead.
 - **Analysis scripts:** read-only, manually run analyses that document how a decision was derived may be a single standard-library Python file (formatted and linted with ruff), e.g. `src/scripts/plausibility_thresholds.py` for [[01-plausibility-thresholds]]. They are not run in CI.
 
+## Versioning
+
+- **SemVer:** the frontend (`src/frontend/package.json`) follows [Semantic Versioning](https://semver.org/). It stays on `0.x` during the phases of the project.
+- **Deliberate bumps:** the version is changed by hand in a pull request, never by a build. A release PR states the new version.
+- **Shown in the app:** the footer shows `v{version} · {commit}`. The version comes from `package.json` at build time (`vite.config.ts`); the commit is `VITE_COMMIT`, which the `frontend:build` task sets from `git rev-parse --short HEAD` (`dev` when git is unavailable, e.g. in `frontend:dev`).
+
 ## CI
 
 - **Thin workflows:** a job checks out the repo, provisions the devbox toolchain, restores caches, and calls tasks. No tool installs, scripts or logic in workflow YAML.

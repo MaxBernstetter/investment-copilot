@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Skeleton } from '@mantine/core'
+import { CHART_COLORS } from '../theme'
 import { seriesChart, type SeriesPoint } from './seriesData'
 
 const LineChart = lazy(() => import('@mantine/charts').then((m) => ({ default: m.LineChart })))
@@ -15,7 +16,7 @@ export default function SeriesChart({ points }: SeriesChartProps) {
         h={320}
         data={seriesChart(points)}
         dataKey="valid_date"
-        series={[{ name: 'value', label: 'Yield', color: 'indigo.6' }]}
+        series={[{ name: 'value', label: 'Yield', color: CHART_COLORS[0] }]}
         withDots={false}
         withBrush
         xAxisProps={{ minTickGap: 32 }}

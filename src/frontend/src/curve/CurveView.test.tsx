@@ -74,10 +74,6 @@ describe('CurveView', () => {
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
-    expect(screen.getByRole('link', { name: 'ECB statistics' })).toHaveAttribute(
-      'href',
-      'https://data.ecb.europa.eu/',
-    )
   })
 
   it('marks missing points', async () => {

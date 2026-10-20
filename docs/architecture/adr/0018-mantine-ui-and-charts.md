@@ -19,6 +19,13 @@ The frontend is a React SPA ([[0005-react-spa-on-github-pages]]) that started wi
 - Mantine 9 needs React ^19.2; the project pins React 19.3.1.
 - Tests wrap renders in `MantineProvider` (`src/test/render.tsx`).
 
+## Addendum: icons (2026-10-20)
+Decided by the user on 2026-10-20.
+- **Tabler icons** (`@tabler/icons-react`, pinned) are accepted as the icon set, because Mantine recommends it.
+- Named imports only (`import { IconSun } from '@tabler/icons-react'`), never the whole package.
+- At most about 12 icons in the app. Each new icon is a deliberate choice, checked against the bundle budget.
+- No icon fonts and no other icon sets.
+
 ## Rejected
 - **shadcn/ui:** copies component code into the repository that we then own and maintain.
 - **Chakra UI:** Emotion runtime cost and no charts package.

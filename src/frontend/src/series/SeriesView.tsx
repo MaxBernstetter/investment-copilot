@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Anchor, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Alert, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
 import { readAsOf, writeAsOf } from '../asOf'
+import PageHeader from '../layout/PageHeader'
 import AsOfControl from '../curve/AsOfControl'
 import { curveById } from '../curve/curves'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
@@ -38,7 +39,7 @@ export default function SeriesView({ curveId }: SeriesViewProps) {
 
   return (
     <Stack component="section" gap="md">
-      <Title order={2}>{curveById(curveId).label} time series</Title>
+      <PageHeader title={`${curveById(curveId).label} time series`} />
       <Group gap="sm" align="flex-end">
         <NativeSelect
           label="Maturity"
@@ -100,11 +101,6 @@ export default function SeriesView({ curveId }: SeriesViewProps) {
         <Alert color="red" role="alert">
           {result.detail}
         </Alert>
-      )}
-      {!curveById(curveId).isSimulated && (
-        <Text size="xs" c="dimmed">
-          Source: <Anchor href="https://data.ecb.europa.eu/">ECB statistics</Anchor>
-        </Text>
       )}
     </Stack>
   )

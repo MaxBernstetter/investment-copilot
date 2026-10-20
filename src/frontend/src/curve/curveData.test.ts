@@ -33,8 +33,8 @@ describe('curveData', () => {
         { label: '2026-10-01', points: [points[0]] },
       ]),
     ).toEqual([
-      { name: '2026-10-16', color: 'indigo.6' },
-      { name: '2026-10-01', color: 'teal.6' },
+      { name: '2026-10-16', color: 'blue.8' },
+      { name: '2026-10-01', color: 'orange.8' },
     ])
   })
 })
