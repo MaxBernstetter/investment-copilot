@@ -33,7 +33,7 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 
 ## How the task runs the job
 
-The ingestion service has no image and no `job` container yet, so the task runs the job's command line `ingestion-load-ecb daily --valid-date … --run-id …` as a subprocess on the Airflow worker. The command must be on the worker's `PATH` and the worker needs the job's environment (`INGESTION_PERSISTENCE__URL`, `INGESTION_SOURCES__ECB__*`). Once the ingestion image exists, the task starts it as a `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
+The ingestion service has an image; the DAG still runs the job as a subprocess on the Airflow worker until Airflow starts it as a container, so the task runs the job's command line `ingestion-load-ecb daily --valid-date … --run-id …` on the worker. The command must be on the worker's `PATH` and the worker needs the job's environment (`INGESTION_PERSISTENCE__URL`, `INGESTION_SOURCES__ECB__*`). Once the ingestion image exists, the task starts it as a `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
 
 ## Backfill
 

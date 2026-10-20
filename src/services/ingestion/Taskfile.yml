@@ -13,6 +13,9 @@ env:
   INGESTION_DB__PASSWORD: '{{.INGESTION_DB__PASSWORD | default "LocalIngApp_1"}}'
   INGESTION_DB__DSN: '{{.INGESTION_DB__DSN | default "localhost:1521/FREEPDB1"}}'
 
+vars:
+  PORT: '{{.PORT | default "8003"}}'
+
 tasks:
   setup:
     desc: Create the virtual environment from the lockfile
@@ -79,3 +82,13 @@ tasks:
       vars: [NAME]
     cmds:
       - uv run --locked ingestion-scenario {{.NAME}}
+
+  openapi:
+    desc: Export the ingestion OpenAPI document
+    cmds:
+      - uv run --locked ingestion-openapi ../../contracts/openapi/ingestion/v1.json
+
+  run:
+    desc: Run the api process locally on PORT (default 8003) against the ING database
+    cmds:
+      - uv run --locked uvicorn --factory ingestion.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
