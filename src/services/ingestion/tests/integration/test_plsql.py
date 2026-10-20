@@ -94,14 +94,18 @@ def utplsql(oracle: OracleDatabase) -> OracleDatabase:
     return oracle
 
 
-def test_ing_delivery_package_suite_passes(utplsql: OracleDatabase) -> None:
+@pytest.mark.parametrize(
+    ("suite", "expected_tests"),
+    [("ut_ing_delivery", 6), ("ut_ing_run", 13)],
+)
+def test_package_suite_passes(utplsql: OracleDatabase, suite: str, expected_tests: int) -> None:
     with utplsql.connect_as_owner() as connection:
         deploy_test_packages(connection)
         with connection.cursor() as cursor:
-            cursor.execute("select * from table(ut.run('ut_ing_delivery'))")
+            cursor.execute(f"select * from table(ut.run('{suite}'))")
             report = "\n".join(line or "" for (line,) in cursor)
 
     summary = SUMMARY.search(report)
     assert summary, report
     tests, failed, errored = (int(count) for count in summary.groups())
-    assert (tests, failed, errored) == (6, 0, 0), report
+    assert (tests, failed, errored) == (expected_tests, 0, 0), report
