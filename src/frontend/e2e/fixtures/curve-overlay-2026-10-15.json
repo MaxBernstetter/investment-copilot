@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T10:00:00Z",
+    "source_attribution": "Source: ECB statistics"
+  },
+  "valid_date": "2026-10-15",
+  "points": [
+    { "maturity": "3M", "months": 3, "value": 2.05, "origin": "published" },
+    { "maturity": "6M", "months": 6, "value": 2.1, "origin": "published" },
+    { "maturity": "1Y", "months": 12, "value": 2.15, "origin": "published" },
+    { "maturity": "2Y", "months": 24, "value": 2.3, "origin": "published" },
+    { "maturity": "3Y", "months": 36, "value": 2.4, "origin": "published" },
+    { "maturity": "5Y", "months": 60, "value": 2.5, "origin": "published" },
+    { "maturity": "7Y", "months": 84, "value": 2.6, "origin": "published" },
+    { "maturity": "10Y", "months": 120, "value": 2.8, "origin": "published" },
+    { "maturity": "15Y", "months": 180, "value": 2.85, "origin": "published" },
+    { "maturity": "20Y", "months": 240, "value": 2.9, "origin": "published" },
+    { "maturity": "30Y", "months": 360, "value": 2.95, "origin": "published" }
+  ]
+}

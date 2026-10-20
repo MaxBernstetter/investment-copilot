@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T10:00:00Z",
+    "source_attribution": "Source: ECB statistics"
+  },
+  "points": [
+    { "valid_date": "2026-09-01", "value": 2.55 },
+    { "valid_date": "2026-09-15", "value": 2.6 },
+    { "valid_date": "2026-10-01", "value": 2.7 },
+    { "valid_date": "2026-10-10", "value": 2.82 },
+    { "valid_date": "2026-10-16", "value": 2.871 }
+  ]
+}

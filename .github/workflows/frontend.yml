@@ -67,3 +67,35 @@ jobs:
 
       - name: Bundle size
         run: devbox run -- task frontend:size
+
+  e2e:
+    name: "frontend: e2e"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.51.1-noble
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Cache npm packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+
+      - name: Set up
+        run: devbox run -- task frontend:setup
+
+      - name: Build
+        run: devbox run -- task frontend:build
+
+      - name: End-to-end checks
+        run: devbox run -- task frontend:e2e
