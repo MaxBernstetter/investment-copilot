@@ -69,7 +69,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `persistence.yml` | Pull requests; pushes to `main` changing `src/services/persistence/`, `src/contracts/`, the root Taskfile or devbox; manual | `persistence:` `setup`, `lint`, `typecheck`, `test:unit`; `test:integration` in its own job | `devbox run -- task persistence:<task>` |
 | `ingestion.yml` | Pull requests; pushes to `main` changing `src/services/ingestion/`, `src/contracts/`, the root Taskfile or devbox; manual | `ingestion:setup`, `ingestion:lint`, `ingestion:typecheck`, `ingestion:test:unit` | `devbox run -- task ingestion:<task>` |
 | `orchestration.yml` | Pull requests; pushes to `main` changing `src/orchestration/`, the root Taskfile or devbox; manual | `orchestration:setup`, `orchestration:lint`, `orchestration:typecheck`, `orchestration:test:unit` | `devbox run -- task orchestration:<task>` |
-| `processing.yml` | Pull requests; pushes to `main` changing `src/services/processing/`, `src/contracts/`, the root Taskfile or devbox; manual | `processing:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task processing:<task>` |
+| `processing.yml` | Pull requests; pushes to `main` changing `src/services/processing/`, `src/contracts/`, the root Taskfile or devbox; manual | `processing:` `setup`, `lint`, `typecheck`, `test:unit`; `test:integration` in its own job | `devbox run -- task processing:<task>` |
 | `access.yml` | Pull requests; pushes to `main` changing `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
 | `frontend.yml` | Pull requests; pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build`, `size` | `devbox run -- task frontend:<task>` |
 | `e2e.yml` | Pull requests; pushes to `main` changing `src/`, the workflow, the root Taskfile or devbox; manual | `dev:reset`, `dev:up`, `dev:e2e` (the corrected-yield test on a fresh stack), `dev:reset` again at the end | `devbox run -- task dev:e2e` after `dev:reset` and `dev:up` |
@@ -87,6 +87,7 @@ Branch protection needs stable check names. Each job below has a fixed `name:` t
 - `orchestration: lint, typecheck, unit tests`
 - `persistence: lint, types, unit tests`
 - `persistence: integration tests`
+- `processing: integration tests`
 - `processing: lint, types, unit tests`
 - `e2e: corrected yield` (`e2e.yml`)
 
@@ -104,17 +105,17 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-The local development stack (Oracle, the `CORE` and `ING` migrations, persistence and access apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
+The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, persistence, processing and access apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
 
 | Task | Does |
 |---|---|
-| `dev:up` | Start Oracle, apply the `CORE` and `ING` migrations and start the persistence api; waits until healthy (idempotent) |
+| `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence and processing apis; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
 | `dev:e2e` | End-to-end corrected-yield test (`src/e2e`) against the running stack; run `dev:reset` and `dev:up` first |
 
-Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]). `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
+Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]); `processing` has `db:migrate` for its `PROC` schema. `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 
 The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `audit`, `fmt`, `lint`, `typecheck`, `test:unit`, `build`, `size` (the bundle budget, after `build`) and `dev` (see [[01-frontend]]).
 

@@ -62,6 +62,8 @@ jobs:
           PERSISTENCE_DB_PASSWORD: LocalApp_1
           INGESTION_DB_OWNER_PASSWORD: LocalIngOwner_1
           INGESTION_DB__PASSWORD: LocalIngApp_1
+          PROCESSING_DB_OWNER_PASSWORD: LocalProcOwner_1
+          PROCESSING_DB__PASSWORD: LocalProcApp_1
         run: docker compose -f src/deploy/compose.yaml -p yieldlens-dev logs --no-color
 
       - name: Tear down the stack

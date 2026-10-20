@@ -20,6 +20,8 @@ One image, two process types (see [[09-deployment]]):
 | `api` | skeleton: health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
 | `job` | follows | `processing-check-quality` (not yet available) |
 
+The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`) is created by the Liquibase changelogs in `db/` (`db/admin` as SYSTEM, then `db/proc` as the owner `proc`). The runtime user `proc_app` has `CREATE SESSION` and nothing else until the check use case adds its grants. Its integration tests start Oracle Free with Testcontainers and check the migrations, the privileges and the readiness probe.
+
 `/health` answers `{"status": "ok"}` while the process is up. `/ready` answers `{"status": "ready"}` when a connection to the processing database succeeds, and 503 `{"status": "unavailable"}` otherwise.
 
 Logs are JSON lines on stderr (`log_config.json`).
@@ -47,4 +49,6 @@ Run from the repository root (namespace `processing`, see [[13-build-and-ci]]):
 - `task processing:lint`: ruff, format check and import-linter
 - `task processing:typecheck`: mypy (strict)
 - `task processing:test:unit`: unit tests, no I/O
+- `task processing:test:integration`: integration tests against Oracle Free (Testcontainers; applies the PROC migrations)
+- `task processing:db:migrate`: apply the PROC changelogs to the local database started by `persistence:db:start`
 - `task processing:run`: run the `api` process on port 8002

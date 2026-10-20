@@ -1,0 +1,7 @@
+# PROC changelog: the quality check results and their storage.
+# Runs as the schema owner PROC. Never edit an applied changeset; add a new one
+# (expand/contract).
+databaseChangeLog:
+  - include:
+      file: check_run.sql
+      relativeToChangelogFile: true

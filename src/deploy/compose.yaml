@@ -1,6 +1,6 @@
 # Local development stack: the services of the VM, started by `task dev:*` (see
 # docs/architecture/09-deployment.md). Oracle is extended from its service compose file;
-# migrations, the persistence and access apis and the ingestion job are defined here.
+# migrations, the persistence, processing and access apis and the ingestion job are defined here.
 # Passwords come from the environment (the Taskfile sets local-only defaults).
 name: yieldlens-dev
 
@@ -74,6 +74,55 @@ services:
     depends_on:
       ing-migrate-admin:
         condition: service_completed_successfully
+
+  # PROC schema: the same changelogs as src/services/processing/compose.yaml, run here
+  # against the local Oracle. The SYSTEM password is the one Oracle is started with.
+  proc-migrate-admin:
+    <<: *liquibase
+    volumes:
+      - ../services/processing/db:/liquibase/changelog:ro
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: system
+      LIQUIBASE_COMMAND_PASSWORD: ${PERSISTENCE_DB_ADMIN_PASSWORD:?set PERSISTENCE_DB_ADMIN_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: admin/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+      PROC_PASSWORD: ${PROCESSING_DB_OWNER_PASSWORD:?set PROCESSING_DB_OWNER_PASSWORD}
+      PROC_APP_PASSWORD: ${PROCESSING_DB__PASSWORD:?set PROCESSING_DB__PASSWORD}
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  proc-migrate:
+    <<: *liquibase
+    volumes:
+      - ../services/processing/db:/liquibase/changelog:ro
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: proc
+      LIQUIBASE_COMMAND_PASSWORD: ${PROCESSING_DB_OWNER_PASSWORD:?set PROCESSING_DB_OWNER_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: proc/changelog.yaml
+      LIQUIBASE_SHOW_BANNER: "false"
+    depends_on:
+      proc-migrate-admin:
+        condition: service_completed_successfully
+
+  processing:
+    build:
+      context: ..
+      dockerfile: services/processing/Dockerfile
+    environment:
+      PROCESSING_DB__DSN: oracle:1521/FREEPDB1
+      PROCESSING_DB__PASSWORD: ${PROCESSING_DB__PASSWORD:?set PROCESSING_DB__PASSWORD}
+    ports:
+      - 127.0.0.1:8002:8002
+    depends_on:
+      oracle:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/ready', timeout=2)"]
+      interval: 5s
+      retries: 30
 
   persistence:
     build:

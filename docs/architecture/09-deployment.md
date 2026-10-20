@@ -25,7 +25,7 @@ Browser ──▶ GitHub Pages (React SPA)
 ## Environments
 
 - **Local:** the same Docker Compose stack as the VM (dev/prod parity), defined in `src/deploy/compose.yaml`. The frontend runs on the Vite dev server against local `access`.
-  - `task dev:up` starts Oracle Free, applies the Liquibase migrations for `CORE` and `ING` and builds and starts the persistence and access apis. It is idempotent and waits until the services are healthy. The local stack does not include the spool (Garage); ingestion's spool is run separately (`ingestion:spool:*`).
+  - `task dev:up` starts Oracle Free, applies the Liquibase migrations for `CORE`, `ING` and `PROC` and builds and starts the persistence, processing and access apis. It is idempotent and waits until the services are healthy. The local stack does not include the spool (Garage); ingestion's spool is run separately (`ingestion:spool:*`).
   - `task dev:seed` runs the ingestion job (`src/scripts/dev-seed.sh`) to load ECB history from `START` (default `2024-01-01`) in two steps, with a knowledge time between them, so time travel can be tried locally. It makes live ECB calls and is never run in CI.
   - `task dev:down` stops the stack and keeps its data; `task dev:reset` also removes the volumes.
   - Ports on localhost: 1521 (Oracle), 8001 (persistence api), 8000 (access api, read-only; the frontend calls it).
