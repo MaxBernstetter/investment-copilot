@@ -15,7 +15,7 @@ Apache Airflow (3.x) schedules and sequences the pipeline. It is a platform comp
 
 `daily_load` is one DAG per source, named `daily_load_<source>`, because each source has its own schedule.
 
-**In place today:** `daily_load_ecb` runs the ingest step only, Monday to Friday at 13:15 Europe/Berlin, for the previous TARGET business day (see [[04-daily-schedule]]). Until the ingestion image exists, its task runs the job's command line as a subprocess instead of a `job` container. DAGs and pools live in `src/orchestration/` (`dags/`, `pools.json`).
+**In place today:** `daily_load_ecb` runs ingest then a quality check on the loaded curve, Monday to Friday at 13:15 Europe/Berlin, for the previous TARGET business day (see [[04-daily-schedule]]). Until the service images exist, each task runs the job's command line as a subprocess instead of a `job` container. DAGs and pools live in `src/orchestration/` (`dags/`, `pools.json`).
 
 ## Airflow standards
 

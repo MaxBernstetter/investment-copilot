@@ -2,7 +2,7 @@
 
 The Airflow DAG `daily_load_ecb` runs the [[03-ecb-load|ECB curve load]] every TARGET business day after the ECB has published, and retries transient failures within the [[12-data-pipeline#Source access policy|source access policy]].
 
-Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: `src/orchestration/dags/daily_load_ecb.py`, with its steps in `src/orchestration/src/orchestration/ecb_daily_load.py` and the calendar in `orchestration/target_calendar.py`.
+Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: `src/orchestration/dags/daily_load_ecb.py`, with load steps in `src/orchestration/src/orchestration/ecb_daily_load.py`, quality-check commands in `orchestration/quality_check.py`, and the calendar in `orchestration/target_calendar.py`.
 
 ## When it runs and what it loads
 
@@ -31,9 +31,16 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 - The job's JSON output (`load_finished`, `load_failed`) goes into the task log.
 - When the task has failed for good, the failure callback logs one JSON line at `ERROR`: `event = task_failed`, `dag_id`, `task_id`, `run_id`, `try_number`, `error`, `message`. The failed task and run also stay in Airflow's run history.
 
-## How the task runs the job
+## How the tasks run the jobs
 
-The ingestion service has an image; the DAG still runs the job as a subprocess on the Airflow worker until Airflow starts it as a container, so the task runs the job's command line `ingestion-load-ecb daily --valid-date … --run-id …` on the worker. The command must be on the worker's `PATH` and the worker needs the job's environment (`INGESTION_PERSISTENCE__URL`, `INGESTION_SOURCES__ECB__*`). Once the ingestion image exists, the task starts it as a `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
+The ingestion and processing services have images; the DAG still runs each job as a subprocess on the Airflow worker until Airflow starts them as containers.
+
+| Task | Command | Run id |
+|---|---|---|
+| `load_ecb` | `ingestion-load-ecb daily --valid-date … --run-id …` | `daily_load_ecb-<valid date>` |
+| `check_quality` | `processing-check-quality ecb-aaa-spot --from <valid date − 21d> --to <valid date> --run-id …` | `daily_load_ecb-check-<valid date>` |
+
+`check_quality` runs after `load_ecb` in the default pool (not `ecb`), with the same retry and failure rules. The commands must be on the worker's `PATH` with the job environment (`INGESTION_*`, `PROCESSING_*`). Once the images exist, each task starts its `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
 
 ## Backfill
 
@@ -45,8 +52,8 @@ Trigger it from the Airflow UI with the parameters `start` and `end` (inclusive 
 airflow dags trigger backfill_ecb --conf '{"start":"2004-09-06","end":"2024-12-31"}'
 ```
 
-- The range is split into one chunk per calendar year. The first and last chunk are clipped to `start` and `end`. Each chunk is one `ingestion-load-ecb history --start … --end … --run-id backfill_ecb-<start>-<end>` run.
-- The chunks run one after another in the `ecb` pool, so a backfill never runs next to the daily load. The retry and failure rules of the daily load apply to each chunk.
+- The range is split into one chunk per calendar year. The first and last chunk are clipped to `start` and `end`. Each chunk is one `ingestion-load-ecb history --start … --end … --run-id backfill_ecb-<start>-<end>` run, then `processing-check-quality ecb-aaa-spot --from <start> --to <end> --run-id backfill_ecb-check-<start>-<end>`.
+- Loads run one after another in the `ecb` pool; quality checks for each chunk run after its load in the default pool. A backfill never runs next to the daily load. The retry and failure rules of the daily load apply to each task.
 - Rerunning a range is safe: a value that is already stored and unchanged is a no-op, thanks to versioning ([[03-ecb-load#Not yet in place]], [#15](https://github.com/MaxBernstetter/yield-lens/issues/15)).
 - `start` after `end` is rejected by the planning task before any chunk runs.
 
@@ -60,9 +67,10 @@ Pools are created from `src/orchestration/pools.json` with `task orchestration:p
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; the backfill is manual (no schedule) with one run and one year at a time in the same pool |
+| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`; the backfill is manual with load then quality check per year chunk |
 | `tests/unit/test_ecb_backfill.py` | The year split (clipped first and last chunk, one chunk within a year, `start` after `end` rejected) and the `history` command |
 | `tests/unit/test_ecb_daily_load.py` | Valid date per run day, skip on TARGET holidays, the job command, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
+| `tests/unit/test_quality_check.py` | The daily three-week window and the range check argv |
 | `tests/unit/test_target_calendar.py` | TARGET closing days, moving Easter, previous business day across weekends, holidays and the year end |
 
 ## Not yet in place
