@@ -9,6 +9,7 @@ env:
   PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
   PROCESSING_DB__DSN: '{{.PROCESSING_DB__DSN | default "localhost:1521/FREEPDB1"}}'
   PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
+  PROCESSING_PERSISTENCE__URL: '{{.PROCESSING_PERSISTENCE__URL | default "http://localhost:8001"}}'
 
 vars:
   PORT: '{{.PORT | default "8002"}}'
@@ -56,3 +57,8 @@ tasks:
     desc: Run the api process locally on PORT (default 8002) against the processing database
     cmds:
       - uv run --locked uvicorn --factory processing.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
+
+  check-quality:
+    desc: Run a quality check for CURVE between FROM and TO (inclusive valid dates)
+    cmds:
+      - uv run --locked processing-check-quality {{.CURVE}} --from {{.FROM}} --to {{.TO}}

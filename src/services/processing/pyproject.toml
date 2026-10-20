@@ -30,6 +30,9 @@ dev = [
 [tool.uv.sources]
 yieldlens-contracts = { path = "../../contracts", editable = true }
 
+[project.scripts]
+processing-check-quality = "processing.job:main"
+
 [build-system]
 requires = ["uv_build>=0.9,<0.14"]
 build-backend = "uv_build"
@@ -65,7 +68,7 @@ include_external_packages = true
 name = "Hexagonal layers point inward"
 type = "layers"
 layers = [
-    "processing.api",
+    "processing.api | processing.job",
     "processing.facade | processing.infrastructure",
     "processing.application",
     "processing.domain",
