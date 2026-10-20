@@ -41,7 +41,6 @@ x-airflow-volumes: &airflow-volumes
   - ../orchestration/dags:/opt/airflow/dags:ro
   - ../orchestration/src:/opt/airflow/python_src:ro
   - ../orchestration/pools.json:/opt/airflow/pools/pools.json:ro
-  - /var/run/docker.sock:/var/run/docker.sock
 
 services:
   oracle:
@@ -270,8 +269,6 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: airflow
       _PIP_ADDITIONAL_REQUIREMENTS: ""
     volumes: *airflow-volumes
-    # Host docker group (DOCKER_GID, set by task dev:airflow:up): the socket is root:docker 660.
-    group_add: ["${DOCKER_GID:-0}"]
     depends_on:
       airflow-postgres:
         condition: service_healthy
@@ -289,8 +286,13 @@ services:
     image: apache/airflow:3.3.2
     user: "${AIRFLOW_UID:-50000}:0"
     environment: *airflow-env
-    volumes: *airflow-volumes
+    # Only the scheduler starts job containers (LocalExecutor), so only it mounts the socket.
     # Host docker group (DOCKER_GID, set by task dev:airflow:up): the socket is root:docker 660.
+    volumes:
+      - ../orchestration/dags:/opt/airflow/dags:ro
+      - ../orchestration/src:/opt/airflow/python_src:ro
+      - ../orchestration/pools.json:/opt/airflow/pools/pools.json:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     group_add: ["${DOCKER_GID:-0}"]
     command: scheduler
     depends_on:
@@ -305,8 +307,6 @@ services:
     user: "${AIRFLOW_UID:-50000}:0"
     environment: *airflow-env
     volumes: *airflow-volumes
-    # Host docker group (DOCKER_GID, set by task dev:airflow:up): the socket is root:docker 660.
-    group_add: ["${DOCKER_GID:-0}"]
     command: dag-processor
     depends_on:
       airflow-postgres:
@@ -320,8 +320,6 @@ services:
     user: "${AIRFLOW_UID:-50000}:0"
     environment: *airflow-env
     volumes: *airflow-volumes
-    # Host docker group (DOCKER_GID, set by task dev:airflow:up): the socket is root:docker 660.
-    group_add: ["${DOCKER_GID:-0}"]
     command: api-server
     ports:
       - 127.0.0.1:8088:8080
