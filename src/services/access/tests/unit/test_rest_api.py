@@ -36,6 +36,7 @@ class FakeCurveReader:
         self.versions_calls: list[tuple[str, str, date, datetime | None]] = []
         self.changes_calls: list[tuple[str, date, date, datetime, datetime | None]] = []
         self.error: Exception | None = None
+        self.value: float = 2.61
 
     async def changes(
         self,
@@ -108,7 +109,7 @@ class FakeCurveReader:
             curve_id=curve_id,
             maturity=maturity,
             as_of=AS_OF,
-            points=(SeriesPoint(valid_date=date(2026, 3, 12), value=2.61, version_id=7),),
+            points=(SeriesPoint(valid_date=date(2026, 3, 12), value=self.value, version_id=7),),
         )
 
     async def curve_as_of(
@@ -123,7 +124,7 @@ class FakeCurveReader:
             as_of=AS_OF,
             points=(
                 CurvePoint(maturity="3M", months=3, value=None, version_id=None),
-                CurvePoint(maturity="10Y", months=120, value=2.61, version_id=7),
+                CurvePoint(maturity="10Y", months=120, value=self.value, version_id=7),
             ),
         )
 
@@ -735,12 +736,19 @@ def test_points_carry_version_id_and_origin_published(client: TestClient) -> Non
     assert [(point["version_id"], point["origin"]) for point in series] == [(7, "published")]
 
 
-def test_values_are_returned_unmodified(client: TestClient) -> None:
-    curve_points = client.get(CURVE_PATH).json()["data"]["points"]
-    series_points = client.get(SERIES_PATH).json()["data"]["points"]
+def test_values_are_returned_unmodified(client: TestClient, services: FakeServices) -> None:
+    services.curves.value = 2.871234567890123
 
-    assert [point["value"] for point in curve_points] == [None, 2.61]
-    assert [point["value"] for point in series_points] == [2.61]
+    curve = client.get(CURVE_PATH)
+    series = client.get(SERIES_PATH)
+
+    assert [point["value"] for point in curve.json()["data"]["points"]] == [
+        None,
+        2.871234567890123,
+    ]
+    assert [point["value"] for point in series.json()["data"]["points"]] == [2.871234567890123]
+    assert "2.871234567890123" in curve.text
+    assert "2.871234567890123" in series.text
 
 
 @pytest.mark.parametrize(
@@ -760,10 +768,29 @@ def test_real_curve_answers_carry_the_ecb_attribution(client: TestClient, path: 
     assert response.json()["meta"]["source_attribution"] == "Source: ECB statistics"
 
 
-def test_simulated_curve_answers_carry_the_simulated_note(client: TestClient) -> None:
-    response = client.get("/v1/curves/ecb-aaa-spot-sim/observations")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/curves/ecb-aaa-spot-sim/observations",
+        "/v1/curves/ecb-aaa-spot-sim/maturities/10Y/observations",
+        "/v1/curves/ecb-aaa-spot-sim/maturities/10Y/observations/2026-03-12/versions",
+        "/v1/curves/ecb-aaa-spot-sim/changes",
+    ],
+)
+def test_simulated_curve_answers_carry_the_simulated_note(client: TestClient, path: str) -> None:
+    params = {"from": "2026-03-12", "to": "2026-03-14", "since": SINCE.isoformat()}
+    response = client.get(path, params=params)
 
     assert response.status_code == 200
     assert response.json()["meta"]["source_attribution"] == (
         "Simulated scenario based on ECB statistics"
     )
+
+
+def test_a_curve_without_attribution_is_not_found(client: TestClient) -> None:
+    response = client.get("/v1/curves/unknown/observations")
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+    assert response.json()["detail"] == "no curve named unknown"

@@ -33,11 +33,14 @@ class CurvePoint(BaseModel):
         examples=[2.61],
     )
     version_id: int | None = Field(
-        description="Version id of the visible version, the lineage reference; "
-        "null exactly when value is null",
+        description="Version id of the visible version, the lineage reference: the version_id "
+        "the versions endpoint lists for this value; null exactly when value is null",
         examples=[7],
     )
-    origin: Origin = Field(description="published: the value is the source value, unmodified")
+    origin: Origin = Field(
+        description="published: the source value, unmodified; derived: computed by the service "
+        "(none yet)"
+    )
 
 
 class CurveObservations(BaseModel):

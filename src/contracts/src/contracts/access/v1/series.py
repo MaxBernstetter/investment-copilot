@@ -23,8 +23,14 @@ class SeriesPoint(BaseModel):
 
     valid_date: date = Field(description="Valid time: the business date of the value")
     value: float = Field(allow_inf_nan=False, description="Yield in percent", examples=[2.61])
-    version_id: int = Field(description="Version id of the visible version, the lineage reference")
-    origin: Origin = Field(description="published: the value is the source value, unmodified")
+    version_id: int = Field(
+        description="Version id of the visible version, the lineage reference: the version_id "
+        "the versions endpoint lists for this value"
+    )
+    origin: Origin = Field(
+        description="published: the source value, unmodified; derived: computed by the service "
+        "(none yet)"
+    )
 
 
 class SeriesObservations(BaseModel):
