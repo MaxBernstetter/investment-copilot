@@ -13,9 +13,11 @@ import pytest
 from contracts.persistence import v1
 
 from ingestion.domain.delivery import RawDelivery
+from ingestion.domain.run import Operation, RunCounts, RunStatus
 from ingestion.infrastructure.http import USER_AGENT
 from ingestion.job import main
 from tests.fake_deliveries import FakeDeliveryStore
+from tests.fake_run_log import FakeRunLog
 from tests.recorded import (
     DAILY,
     EMPTY_WINDOW,
@@ -80,12 +82,14 @@ def run(
     ecb: StubEcb,
     persistence: StubPersistence,
     deliveries: FakeDeliveryStore | None = None,
+    run_log: FakeRunLog | None = None,
 ) -> Run:
     exit_code = main(
         argv,
         source_transport=ecb.transport,
         persistence_transport=persistence.transport,
         delivery_store=deliveries or FakeDeliveryStore(),
+        run_log=run_log or FakeRunLog(),
     )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
@@ -441,3 +445,187 @@ def test_invalid_arguments_are_usage_errors(argv: list[str]) -> None:
         main(argv)
 
     assert raised.value.code == 2
+
+
+def test_a_daily_run_records_one_succeeded_attempt_with_its_counts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        ecb,
+        StubPersistence(),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 0
+    assert result.summary["attempt"] == 1
+    [recorded] = runs.attempts
+    assert recorded.operation == Operation.DAILY
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.SUCCEEDED
+    assert recorded.outcome.counts == RunCounts(121, 121, 0)
+
+
+def test_a_rerun_of_the_same_run_id_is_its_next_attempt(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    runs = FakeRunLog()
+    argv = ["daily", "--valid-date", "2026-10-15", "--run-id", "dag-run-7"]
+
+    run(capsys, argv, ecb, StubPersistence(), run_log=runs)
+    result = run(capsys, argv, ecb, StubPersistence(), run_log=runs)
+
+    assert [a.attempt for a in runs.attempts] == [1, 2]
+    assert result.summary["attempt"] == 2
+
+
+def test_the_kill_switch_records_a_failed_attempt(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("INGESTION_SOURCES__ECB__ENABLED", "false")
+    runs = FakeRunLog()
+
+    argv = ["daily", "--valid-date", "2026-10-15"]
+    result = run(capsys, argv, StubEcb({}), StubPersistence(), run_log=runs)
+
+    assert result.exit_code == 1
+    [recorded] = runs.attempts
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.FAILED
+    assert recorded.outcome.counts == RunCounts()
+    assert recorded.outcome.error_type == "SourceDisabledError"
+
+
+def test_a_rejected_write_records_a_failed_daily_attempt(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        ecb,
+        StubPersistence(statuses=[422]),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 1
+    [recorded] = runs.attempts
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.FAILED
+    assert recorded.outcome.error_type == "PersistenceWriteError"
+
+
+def test_a_history_run_failing_in_its_second_window_is_partial(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb(
+        {("2025-12-22", "2025-12-31"): HISTORY_2025, ("2026-01-01", "2026-01-09"): HISTORY_2026}
+    )
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["history", "--start", "2025-12-22", "--end", "2026-01-09"],
+        ecb,
+        StubPersistence(statuses=[200, 422]),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 1
+    [recorded] = runs.attempts
+    assert recorded.operation == Operation.HISTORY
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.PARTIAL
+    assert (
+        recorded.outcome.counts.delivered_count,
+        recorded.outcome.counts.recorded_count,
+        recorded.outcome.counts.unchanged_count,
+    ) == (66, 66, 0)
+    assert recorded.outcome.error_type == "PersistenceWriteError"
+
+
+def test_a_history_run_failing_in_its_first_window_is_failed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2025-12-22", "2025-12-31"): HISTORY_2025})
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["history", "--start", "2025-12-22", "--end", "2025-12-31"],
+        ecb,
+        StubPersistence(statuses=[422]),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 1
+    assert runs.attempts[0].outcome is not None
+    assert runs.attempts[0].outcome.status == RunStatus.FAILED
+
+
+def test_a_replay_records_a_succeeded_attempt_with_its_counts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-16", "--fetched-to", "2026-10-16"],
+        NoSource({}),
+        StubPersistence(),
+        stored_deliveries(payload(HISTORY_2025), None, payload(HISTORY_2026)),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 0
+    [recorded] = runs.attempts
+    assert recorded.operation == Operation.REPLAY
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.SUCCEEDED
+    assert (
+        recorded.outcome.counts.delivered_count,
+        recorded.outcome.counts.recorded_count,
+        recorded.outcome.counts.unchanged_count,
+    ) == (132, 132, 0)
+    assert result.summary["attempt"] == 1
+
+
+def test_a_replay_failing_after_a_replayed_delivery_is_partial(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runs = FakeRunLog()
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-16", "--fetched-to", "2026-10-16"],
+        NoSource({}),
+        StubPersistence(),
+        stored_deliveries(payload(HISTORY_2025), payload(MALFORMED)),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 1
+    [recorded] = runs.attempts
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.PARTIAL
+    assert recorded.outcome.error_type == "InvalidPayloadError"
+
+
+def test_a_configuration_error_records_no_attempt(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("INGESTION_PERSISTENCE__URL")
+    runs = FakeRunLog()
+
+    argv = ["daily", "--valid-date", "2026-10-15"]
+    result = run(capsys, argv, StubEcb({}), StubPersistence(), run_log=runs)
+
+    assert result.exit_code == 2
+    assert runs.attempts == []

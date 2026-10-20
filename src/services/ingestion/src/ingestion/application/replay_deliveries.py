@@ -30,10 +30,19 @@ class ReplayedDelivery:
     """Observations parsed from the stored payload."""
     batches: tuple[RecordedBatch, ...]
 
+    @property
+    def recorded_count(self) -> int:
+        return sum(batch.recorded_count for batch in self.batches)
+
+    @property
+    def unchanged_count(self) -> int:
+        return sum(batch.unchanged_count for batch in self.batches)
+
 
 @dataclass(frozen=True, slots=True)
 class ReplayResult:
     run_id: str
+    attempt: int
     deliveries: tuple[ReplayedDelivery, ...]
 
     @property
@@ -67,12 +76,11 @@ class ReplayDeliveries:
         self._deliveries = deliveries
         self._store = store
 
-    async def __call__(self, fetched_from: date, fetched_to: date, run_id: str) -> ReplayResult:
-        replayed = [
-            await self._replay(stored, run_id)
-            async for stored in self._deliveries.stored(self._source_id, fetched_from, fetched_to)
-        ]
-        return ReplayResult(run_id, tuple(replayed))
+    async def __call__(
+        self, fetched_from: date, fetched_to: date, run_id: str
+    ) -> AsyncIterator[ReplayedDelivery]:
+        async for stored in self._deliveries.stored(self._source_id, fetched_from, fetched_to):
+            yield await self._replay(stored, run_id)
 
     async def _replay(self, stored: StoredDelivery, run_id: str) -> ReplayedDelivery:
         observations = self._parse(stored.delivery)

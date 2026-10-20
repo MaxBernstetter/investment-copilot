@@ -15,9 +15,12 @@ Tracked in [#32](https://github.com/MaxBernstetter/yield-lens/issues/32). Code: 
 - Table `run`: one row per attempt (`attempt_id` is the paging cursor; unique `(run_id, attempt)`).
 - Package `ing_run`: `start_run`, `finish_run`, `fail_unfinished_run`, `get_runs`, `get_run`. The runtime user `ING_APP` may only execute the package, not read the table directly.
 
+## Recording
+
+Each `daily`, `history` and `replay` job opens an attempt with `start_run` before its steps and closes it with `finish_run` when the use case finishes or fails. The run summary JSON includes `attempt`. Usage and configuration errors (exit `2`) and `ingestion-scenario` are not recorded. An error after at least one committed window or replayed delivery is `partial`; before any step it is `failed`. A `daily` run has one window, so it is never `partial`.
+
 ## Not yet in place
 
-- Job wiring that calls `start_run` / `finish_run` ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32) PR-3).
 - Airflow callback that runs `fail-unfinished` on killed attempts (PR-4).
 - Ingestion api `GET /v1/runs` and `GET /v1/runs/{run_id}` (PR-5/6).
 - Business alerts ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).

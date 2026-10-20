@@ -1,6 +1,6 @@
 """Use case: load a published curve from its source into the bitemporal core."""
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -66,10 +66,19 @@ class WindowResult:
     last_modified: datetime | None
     """Delivery metadata from the source; not a knowledge time."""
 
+    @property
+    def recorded_count(self) -> int:
+        return sum(batch.recorded_count for batch in self.batches)
+
+    @property
+    def unchanged_count(self) -> int:
+        return sum(batch.unchanged_count for batch in self.batches)
+
 
 @dataclass(frozen=True, slots=True)
 class LoadResult:
     run_id: str
+    attempt: int
     windows: tuple[WindowResult, ...]
 
     @property
@@ -88,12 +97,12 @@ class LoadResult:
 class LoadPublishedCurve:
     """Fetch each window from the source, in order, and record what it delivered.
 
-    Windows run one after another (the source access policy allows no fan-out). Each
-    answer is stored as a raw delivery before it is parsed, and every value recorded
-    from it names that delivery. A window without data is a successful step with zero
-    rows (its empty delivery is stored too). An invalid payload or a failed write stops
-    the load; deliveries and windows stored before it stay stored, the invalid payload
-    included.
+    Yields one ``WindowResult`` per window after it is stored and recorded. Windows run
+    one after another (the source access policy allows no fan-out). Each answer is stored
+    as a raw delivery before it is parsed, and every value recorded from it names that
+    delivery. A window without data is a successful step with zero rows (its empty
+    delivery is stored too). An invalid payload or a failed write stops the load;
+    deliveries and windows stored before it stay stored, the invalid payload included.
     """
 
     def __init__(
@@ -103,9 +112,11 @@ class LoadPublishedCurve:
         self._deliveries = deliveries
         self._store = store
 
-    async def __call__(self, windows: Sequence[DateWindow], run_id: str) -> LoadResult:
-        results = [await self._load(window, run_id) for window in windows]
-        return LoadResult(run_id, tuple(results))
+    async def __call__(
+        self, windows: Sequence[DateWindow], run_id: str
+    ) -> AsyncIterator[WindowResult]:
+        for window in windows:
+            yield await self._load(window, run_id)
 
     async def _load(self, window: DateWindow, run_id: str) -> WindowResult:
         delivery = await self._source.fetch(window)

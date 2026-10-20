@@ -38,7 +38,7 @@ ingestion-load-ecb replay --fetched-from 2026-10-01 --fetched-to 2026-10-18 [--r
 | `replay` | 0 | The deliveries stored in `ING` that were fetched on these days (UTC), see [[04-raw-deliveries#Replay]] |
 
 - **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
-- **Output:** one JSON line on stdout (`load_finished`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message).
+- **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message).
 - **Exit status:** `0` the load finished, also with zero rows; `1` the load failed (kill switch, request failed, delivery not stored, payload invalid, write rejected); `2` usage or configuration error.
 - **Locally:** `devbox run -- task ingestion:load:ecb:daily VALID_DATE=2026-10-15` or `task ingestion:load:ecb:history START=… END=…` against a running persistence api (`task persistence:run`). These call the live ECB API: manual use only, never in CI.
 
@@ -101,13 +101,13 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 ## Not yet in place
 
 - **Reruns over stored dates rely on versioning** ([#15](https://github.com/MaxBernstetter/yield-lens/issues/15), PR [#71](https://github.com/MaxBernstetter/yield-lens/pull/71)). A daily load re-fetches its lookback window. With versioning, an unchanged value is a `200` no-op (`unchanged_count`) and a changed value becomes a new version. Without it, persistence answers `409` for dates already stored and the run fails. Ingestion does not filter on its side.
-- Late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), conditional requests (`If-Modified-Since`), quarantine, run records in the transparency interface (with the normalization version, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32)) and domain metrics beyond the request counter.
+- Late-data handling ([#28](https://github.com/MaxBernstetter/yield-lens/issues/28)), conditional requests (`If-Modified-Since`), quarantine, the transparency api over run history ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32); see [[06-run-history]]), and domain metrics beyond the request counter.
 
 ## Tests
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store): request shape, raw delivery kept byte for byte and named by every value, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors |
+| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store): request shape, raw delivery kept byte for byte and named by every value, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors, run history per attempt |
 | `tests/unit/infrastructure/ecb/test_payload.py` | The declared schema against the recorded payload and a set of broken ones |
 | `tests/unit/infrastructure/persistence/test_client.py` | Contract requests, batching at 10 000, unchanged values, responses with and without `unchanged_count`, bounded `409` retry, other rejected writes |
 | `tests/unit/infrastructure/ecb/test_source.py` | The no-data answer; a delivered answer keeps body, status, URL and `ETag`; `404`, `304` and an empty `200` are deliveries without payload |
