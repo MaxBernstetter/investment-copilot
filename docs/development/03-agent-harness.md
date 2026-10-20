@@ -30,7 +30,7 @@ flowchart LR
 2. **Plan** it. The plan holds every design decision, so the worker does not have to make any. A UI issue gets a `designer` spec in spec mode before planning, so the plan takes its components, states and copy from that spec.
 3. **Work**: one `worker` per work unit, each in the worktree of its merge request (see `AGENTS.md`, Worktrees). Independent units can run in parallel.
 4. **Validate** the result. On a failure, the fix list goes back to a `worker` as the next work unit.
-4b. **Visual review** (`designer`, review mode). It runs after the validator passes and before the pull request, and only when the diff touches `src/frontend/src/**` or `theme.ts`. It checks the screenshot acceptance list, axe, the 390 px layout and the rules in [[design-guidelines]]. The result is `VISUAL REVIEW: PASS` or `FAIL` with a fix list; a FAIL goes back to a `worker` like a validator failure. Baseline snapshots are updated only after a PASS that approves them.
+   - **4b Visual review** (`designer`, review mode). It runs after the validator passes and before the pull request, and only when the diff touches `src/frontend/src/**` or `theme.ts`. It checks the screenshot acceptance list, axe, the 390 px layout and the rules in [[design-guidelines]]. The result is `VISUAL REVIEW: PASS` or `FAIL` with a fix list; a FAIL goes back to a `worker` like a validator failure. Baseline snapshots are updated only after a PASS that approves them.
 5. Mechanical steps after that also go to a `worker`: push, open the pull request, update the board, rebase stacks.
 
 Trivial changes (typos, a one-line fix) skip the harness.
