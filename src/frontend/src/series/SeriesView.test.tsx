@@ -1,10 +1,11 @@
+import { formatYield } from '../format'
 import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesView from './SeriesView'
 
 vi.mock('./SeriesChart', () => ({
-  default: () => null,
+  default: () => <div data-testid="series-chart" />,
 }))
 
 vi.mock('./fetchSeries', () => ({
@@ -19,7 +20,10 @@ const okResult: SeriesResult = {
     data: {
       curve_id: 'ecb-aaa-spot',
       maturity: '10Y',
-      points: [{ valid_date: '2026-10-16', value: 2.6, version_id: 3, origin: 'published' }],
+      points: [
+        { valid_date: '2026-10-01', value: 2.5, version_id: 1, origin: 'published' },
+        { valid_date: '2026-10-16', value: 2.6, version_id: 3, origin: 'published' },
+      ],
     },
     meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
   },
@@ -74,6 +78,48 @@ describe('SeriesView', () => {
 
     expect(await screen.findByLabelText('Maturity')).toHaveValue('10Y')
     expect(mockedFetch).toHaveBeenCalledWith(expect.objectContaining({ asOf: '2026-10-01T12:00:00Z' }))
+  })
+
+  it('shows stat cards from the loaded points', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByText('Last')).toBeInTheDocument()
+    expect(screen.getByText('2.500 %')).toBeInTheDocument()
+    expect(screen.getByText('Change over range')).toBeInTheDocument()
+    expect(screen.getByText('+10.0 bp')).toBeInTheDocument()
+  })
+
+  it('shows a negative change over range', async () => {
+    mockedFetch.mockResolvedValue({
+      kind: 'ok',
+      series: {
+        data: {
+          curve_id: 'ecb-aaa-spot',
+          maturity: '10Y',
+          points: [
+            { valid_date: '2026-10-01', value: 3, version_id: 1, origin: 'published' },
+            { valid_date: '2026-10-16', value: 2.5, version_id: 2, origin: 'published' },
+          ],
+        },
+        meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
+      },
+    })
+
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByText('−50.0 bp')).toBeInTheDocument()
+  })
+
+  it('toggles between chart and table', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByTestId('series-chart')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Table' }))
+    expect(screen.queryByTestId('series-chart')).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Valid date' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: formatYield(2.6) })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Chart' }))
+    expect(screen.getByTestId('series-chart')).toBeInTheDocument()
   })
 
   it('shows the offline alert', async () => {

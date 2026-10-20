@@ -1,13 +1,30 @@
-import { useEffect, useState } from 'react'
-import { Alert, Group, NativeSelect, Paper, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
-import { formatUtc } from '../format'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Alert,
+  Card,
+  Group,
+  NativeSelect,
+  SegmentedControl,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Table,
+  TextInput,
+  Text,
+  Title,
+  VisuallyHidden,
+} from '@mantine/core'
+import StatCard from '../components/StatCard'
+import { formatBp, formatUtc, formatYield } from '../format'
 import PageHeader from '../layout/PageHeader'
-import { curveById } from '../curve/curves'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesChart from './SeriesChart'
-import { defaultRange, MATURITIES } from './seriesData'
+import { defaultRange, MATURITIES, seriesStats } from './seriesData'
 
 const DEFAULT_MATURITY = '10Y'
+const EMPTY = '–'
+
+type SeriesDisplay = 'chart' | 'table'
 
 type SeriesViewProps = {
   curveId: string
@@ -18,6 +35,7 @@ type SeriesViewProps = {
 export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
   const [maturity, setMaturity] = useState(DEFAULT_MATURITY)
   const [range, setRange] = useState(() => defaultRange(new Date()))
+  const [display, setDisplay] = useState<SeriesDisplay>('chart')
   const [result, setResult] = useState<SeriesResult | undefined>(undefined)
 
   useEffect(() => {
@@ -30,45 +48,106 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
     }
   }, [curveId, maturity, range, asOf])
 
+  const points = useMemo(
+    () => (result?.kind === 'ok' ? result.series.data.points : []),
+    [result],
+  )
+  const stats = useMemo(() => seriesStats(points), [points])
+
+  const headerActions = (
+    <>
+      <NativeSelect
+        label="Maturity"
+        data={MATURITIES}
+        value={maturity}
+        onChange={(event) => setMaturity(event.currentTarget.value)}
+      />
+      <TextInput
+        type="date"
+        label="From"
+        value={range.from}
+        onChange={(event) => {
+          if (event.currentTarget.value) setRange({ ...range, from: event.currentTarget.value })
+        }}
+      />
+      <TextInput
+        type="date"
+        label="To"
+        value={range.to}
+        onChange={(event) => {
+          if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
+        }}
+      />
+    </>
+  )
+
   return (
-    <Stack component="section" gap="md">
-      <PageHeader title={`${curveById(curveId).label} time series`} />
-      <Group gap="sm" align="flex-end">
-        <NativeSelect
-          label="Maturity"
-          data={MATURITIES}
-          value={maturity}
-          onChange={(event) => setMaturity(event.currentTarget.value)}
-        />
-        <TextInput
-          type="date"
-          label="From"
-          value={range.from}
-          onChange={(event) => {
-            if (event.currentTarget.value) setRange({ ...range, from: event.currentTarget.value })
-          }}
-        />
-        <TextInput
-          type="date"
-          label="To"
-          value={range.to}
-          onChange={(event) => {
-            if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
-          }}
-        />
-      </Group>
+    <Stack component="section" gap="lg">
+      <PageHeader
+        title="Time series"
+        subtitle={`${maturity} yield over valid dates (%)`}
+        actions={headerActions}
+      />
       {result === undefined && (
         <>
           <Skeleton h={320} />
           <VisuallyHidden>Loading…</VisuallyHidden>
         </>
       )}
-      {result?.kind === 'ok' && result.series.data.points.length > 0 && (
-        <Paper withBorder p="md">
-          <SeriesChart points={result.series.data.points} />
-        </Paper>
+      {result?.kind === 'ok' && points.length > 0 && (
+        <>
+          <SimpleGrid cols={{ base: 2, sm: 4 }}>
+            <StatCard label="Last" value={stats.last === undefined ? EMPTY : formatYield(stats.last)} />
+            <StatCard label="Min" value={stats.min === undefined ? EMPTY : formatYield(stats.min)} />
+            <StatCard label="Max" value={stats.max === undefined ? EMPTY : formatYield(stats.max)} />
+            <StatCard
+              label="Change over range"
+              value={stats.changeBp === undefined ? EMPTY : formatBp(stats.changeBp)}
+            />
+          </SimpleGrid>
+          <Card padding={0}>
+            <Card.Section withBorder inheritPadding py="sm">
+              <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                <Title order={2}>{maturity} yield (%)</Title>
+                <SegmentedControl
+                  size="xs"
+                  value={display}
+                  onChange={(value) => setDisplay(value as SeriesDisplay)}
+                  data={[
+                    { label: 'Chart', value: 'chart' },
+                    { label: 'Table', value: 'table' },
+                  ]}
+                />
+              </Group>
+            </Card.Section>
+            <Card.Section inheritPadding py="md">
+              {display === 'chart' ? (
+                <SeriesChart points={points} />
+              ) : (
+                <Table.ScrollContainer minWidth={400}>
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th scope="col">Valid date</Table.Th>
+                        <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {points.map((point) => (
+                        <Table.Tr key={point.valid_date}>
+                          <Table.Td>{point.valid_date}</Table.Td>
+                          <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Card.Section>
+          </Card>
+        </>
       )}
-      {result?.kind === 'ok' && result.series.data.points.length === 0 && (
+      {result?.kind === 'ok' && points.length === 0 && (
         <Alert variant="light" color="blue" role="status">
           No values in this range.
         </Alert>
