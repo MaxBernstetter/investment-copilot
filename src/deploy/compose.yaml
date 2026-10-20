@@ -2,6 +2,7 @@
 # docs/architecture/09-deployment.md). Oracle is extended from its service compose file;
 # migrations, the persistence, processing and access apis, the ingestion api and job are defined here.
 # Passwords come from the environment (the Taskfile sets local-only defaults).
+# The observability profile (task dev:obs:up) is opt-in: see observability/ and compose.observability.yaml.
 name: yieldlens-dev
 
 x-liquibase: &liquibase
@@ -329,6 +330,53 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # Opt-in observability (profile observability, task dev:obs:up): ADR 0009 without logs.
+  # compose.observability.yaml adds OTEL_* to the api and job services.
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.163.1
+    command: [--config=/etc/otelcol/config.yaml]
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 127.0.0.1:9090:9090
+
+  tempo:
+    profiles: [observability]
+    image: grafana/tempo:3.1.0
+    command: [-config.file=/etc/tempo/tempo.yaml]
+    volumes:
+      - ../observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - 127.0.0.1:3200:3200
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:13.2.4
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ../observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    ports:
+      # 3300 on the host: port 3000 is often taken by other local Grafana stacks
+      - 127.0.0.1:3300:3000
+
 volumes:
   oracle-data:
   airflow-postgres-data:
+  prometheus-data:
+  tempo-data:

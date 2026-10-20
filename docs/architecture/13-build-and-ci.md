@@ -124,6 +124,9 @@ The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, pe
 | `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence, processing, access and ingestion apis; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
+| `dev:obs:up` | Start the observability profile (collector, Prometheus, Tempo, Grafana) on top of `dev:up` and restart the apis with `OTEL_*` (opt-in) |
+| `dev:obs:down` | Stop the observability profile (keeps its data) and restart the apis without `OTEL_*` |
+| `dev:obs:smoke` | Check the observability profile: `OTEL_*` wiring, Grafana datasources, OTLP metrics and a trace via telemetrygen (after `dev:obs:up`) |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
 | `dev:check-quality` | Run `processing-check-quality` for `CURVE`, `FROM` and `TO` in the `processing-job` container |
 | `dev:scenario:corrected-yield` | Run the corrected-yield scenario and check quality for `ecb-aaa-spot-sim` on 2026-10-05..2026-10-08 |

@@ -26,7 +26,7 @@ src/
     dags/                  # DAG files (the Airflow DAG folder)
     src/orchestration/     # helpers the DAGs import, e.g. the TARGET calendar; no business logic
     tests/unit/
-  observability/           # platform: OTel Collector, Prometheus, Loki, Tempo, Grafana provisioning
+  observability/           # platform: OTel Collector, Prometheus, (Loki later), Tempo, Grafana provisioning
   deploy/                  # docker-compose, Caddyfile, env templates
   toolchain/               # repository-wide tasks: static analysis, git hooks
   scripts/                 # Bash scripts called by tasks
