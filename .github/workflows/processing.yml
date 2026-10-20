@@ -1,0 +1,60 @@
+# Processing service: lint, type check and unit tests. Integration tests follow with the PROC schema.
+# Thin by design: provision the devbox toolchain, then run the same tasks
+# developers run locally. See docs/architecture/13-build-and-ci.md.
+#
+# Local equivalent: devbox run -- task processing:<task>
+name: Processing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/services/processing/**
+      - src/contracts/**
+      - .github/workflows/processing.yml
+      - Taskfile.yml
+      - devbox.json
+      - devbox.lock
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: processing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: "processing: lint, types, unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Cache uv packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: uv-processing-${{ runner.os }}-${{ hashFiles('src/services/processing/uv.lock') }}
+
+      - name: Set up environment
+        run: devbox run -- task processing:setup
+
+      - name: Lint
+        run: devbox run -- task processing:lint
+
+      - name: Type check
+        run: devbox run -- task processing:typecheck
+
+      - name: Unit tests
+        run: devbox run -- task processing:test:unit
