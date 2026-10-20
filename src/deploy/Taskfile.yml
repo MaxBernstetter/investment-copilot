@@ -16,14 +16,15 @@ env:
   PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
   PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
   GRAFANA_ADMIN_PASSWORD: '{{.GRAFANA_ADMIN_PASSWORD | default "LocalGrafana_1"}}'
-  # Compose files of the stack: the observability override applies only while the collector runs,
-  # so the apis get OTEL_* exactly when the observability profile is up (task dev:obs:up).
-  COMPOSE_FILE:
-    sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
 
 tasks:
   up:
     desc: Start the local stack and wait until it is healthy (idempotent)
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose up --detach --wait oracle
       - docker compose --profile tools run --rm core-migrate
@@ -33,27 +34,52 @@ tasks:
 
   down:
     desc: Stop the local stack (keeps its data)
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile tools down
 
   reset:
     desc: Remove the local stack and its data
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile tools down --volumes --remove-orphans
 
   scenario:corrected-yield:
     desc: Run the corrected-yield scenario on the simulated curve ecb-aaa-spot-sim (no source call; real curves untouched)
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile tools run --rm --build --entrypoint ingestion-scenario ingestion corrected-yield
       - docker compose --profile tools run --rm --build processing-job ecb-aaa-spot-sim --from 2026-10-05 --to 2026-10-08
 
   check-quality:
     desc: Run a quality check for CURVE between FROM and TO on the local stack
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile tools run --rm --build processing-job {{.CURVE}} --from {{.FROM}} --to {{.TO}}
 
   e2e:
     desc: End-to-end corrected-yield test against a fresh running stack (task dev:reset dev:up first)
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - uv run --project ../e2e --locked pytest ../e2e/tests
 
@@ -61,6 +87,10 @@ tasks:
     desc: Load ECB history at two knowledge times (live ECB calls)
     vars:
       START: '{{.START | default "2024-01-01"}}'
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - ../scripts/dev-seed.sh {{.START}}
 
@@ -74,8 +104,11 @@ tasks:
     vars:
       DOCKER_GID:
         sh: stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
     env:
       DOCKER_GID: '{{.DOCKER_GID}}'
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile airflow build ingestion processing-job
       - docker compose --profile airflow up --detach --wait airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
@@ -85,8 +118,11 @@ tasks:
     vars:
       DOCKER_GID:
         sh: stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
     env:
       DOCKER_GID: '{{.DOCKER_GID}}'
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - docker compose --profile airflow down airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
 
@@ -103,5 +139,10 @@ tasks:
 
   obs:smoke:
     desc: 'Check the observability profile: OTEL_* wiring, Grafana datasources, OTLP metrics and a trace via telemetrygen (after dev:obs:up)'
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - ../scripts/dev-obs-smoke.sh

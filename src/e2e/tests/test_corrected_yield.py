@@ -13,7 +13,7 @@ import httpx
 import pytest
 
 ACCESS_URL = os.environ.get("E2E_ACCESS_URL", "http://localhost:8000")
-COMPOSE_FILE = os.environ.get("E2E_COMPOSE_FILE", "compose.yaml")
+E2E_COMPOSE_FILE = os.environ.get("E2E_COMPOSE_FILE")
 SIM = "ecb-aaa-spot-sim"
 REAL = "ecb-aaa-spot"
 VALID_DATE = "2026-10-08"
@@ -21,14 +21,22 @@ PREVIOUS_DATE = "2026-10-07"
 TIMEOUT_SECONDS = 10.0
 
 
+def compose_command() -> list[str]:
+    """``docker compose``, with an explicit file only when E2E_COMPOSE_FILE is set.
+
+    Otherwise compose reads COMPOSE_FILE, which ``task dev:e2e`` sets (it adds the observability
+    override while the profile runs, so the jobs get OTEL_*).
+    """
+    if E2E_COMPOSE_FILE:
+        return ["docker", "compose", "-f", E2E_COMPOSE_FILE]
+    return ["docker", "compose"]
+
+
 def run_event(name: str) -> None:
     """Run one event of the corrected-yield scenario in the ingestion container."""
     subprocess.run(
         [
-            "docker",
-            "compose",
-            "-f",
-            COMPOSE_FILE,
+            *compose_command(),
             "--profile",
             "tools",
             "run",
@@ -50,10 +58,7 @@ def run_quality_check() -> None:
     """Run the processing quality check for the scenario curve over the event window."""
     subprocess.run(
         [
-            "docker",
-            "compose",
-            "-f",
-            COMPOSE_FILE,
+            *compose_command(),
             "--profile",
             "tools",
             "run",

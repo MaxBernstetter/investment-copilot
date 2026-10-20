@@ -79,33 +79,44 @@ check_grafana_port() {
 }
 
 prometheus_ready() {
-	curl -fsS -o /dev/null "$prometheus/-/ready"
+	curl -fsS --max-time 5 -o /dev/null "$prometheus/-/ready"
 }
 
 tempo_ready() {
-	curl -fsS -o /dev/null "$tempo/ready"
+	curl -fsS --max-time 5 -o /dev/null "$tempo/ready"
 }
 
 grafana_datasource() {
-	curl -fsS -o /dev/null -u "admin:$GRAFANA_ADMIN_PASSWORD" "$grafana/api/datasources/uid/$1"
+	curl -fsS --max-time 5 -o /dev/null -u "admin:$GRAFANA_ADMIN_PASSWORD" "$grafana/api/datasources/uid/$1"
 }
 
 check_retention() {
 	local flags
-	flags=$(curl -fsS "$prometheus/api/v1/status/flags")
+	flags=$(curl -fsS --max-time 5 "$prometheus/api/v1/status/flags")
 	grep -q '"storage.tsdb.retention.time":"15d"' <<<"$flags" || fail "Prometheus retention is not 15d"
 	echo "ok: Prometheus retention 15d"
 }
 
+# telemetrygen v0.163.0 with --metrics 3 (Sum, delta) adds 3 to the cumulative sum per run: each
+# point has value 1 (measured on the local stack).
+per_run_sum=3
+
+sum_covers_both_runs() {
+	local result value
+	result=$(curl -fsSG --max-time 5 "$prometheus/api/v1/query" --data-urlencode "query=sum({__name__=~\"yl_obs_smoke.*\",job=\"$service\"})")
+	value=$(sed -nE 's/.*"value":\[[0-9.]+,"([0-9.]+)"\].*/\1/p' <<<"$result")
+	[[ -n "$value" ]] && awk -v v="$value" -v min="$((2 * per_run_sum))" 'BEGIN { exit !(v + 0 >= min) }'
+}
+
 metric_visible() {
 	local result
-	result=$(curl -fsSG "$prometheus/api/v1/query" --data-urlencode "query=count({__name__=~\"yl_obs_smoke.*\",job=\"$service\",instance!~\"run-.*\"})")
+	result=$(curl -fsSG --max-time 5 "$prometheus/api/v1/query" --data-urlencode "query=count({__name__=~\"yl_obs_smoke.*\",job=\"$service\",instance!~\"run-.*\"})")
 	grep -qE '"value":\[[0-9.]+,"1"\]' <<<"$result"
 }
 
 trace_visible() {
 	local result
-	result=$(curl -fsSG "$tempo/api/search" --data-urlencode "q={resource.service.name=\"$service\"}")
+	result=$(curl -fsSG --max-time 5 "$tempo/api/search" --data-urlencode "q={resource.service.name=\"$service\"}")
 	grep -q '"traceID"' <<<"$result"
 }
 
@@ -120,6 +131,7 @@ check_metrics() {
 			--metrics 3
 	done
 	wait_for "metrics of runs 1 and 2 in Prometheus" metric_visible
+	wait_for "sum of both runs in Prometheus" sum_covers_both_runs
 }
 
 check_trace() {
