@@ -9,6 +9,7 @@ telemetry is flushed before the process exits.
 
 import asyncio
 import sys
+import time
 from collections.abc import Sequence
 
 import httpx
@@ -20,6 +21,7 @@ from processing.application.check_quality import CheckQuality, CheckSummary, Unk
 from processing.application.ports import QualityStore
 from processing.config import DatabaseSettings, JobSettings
 from processing.facade.jobs.check_quality import CheckCommand, failure, parse_command, summary
+from processing.infrastructure.metrics import JobMetrics
 from processing.infrastructure.persistence import PersistenceClient, PersistenceReadError
 from processing.infrastructure.proc import OracleQualityStore, create_pool
 from processing.infrastructure.telemetry import Telemetry, setup_telemetry, trace_fields
@@ -54,11 +56,13 @@ def _run(
         print(failure(None, error, {}), file=sys.stderr)
         return 2
     command = parse_command(argv)
+    metrics = JobMetrics(telemetry.meter)
     with telemetry.tracer.start_as_current_span(
         "processing-check-quality",
         attributes={"run_id": command.run_id, "curve_id": command.curve_id},
     ) as span:
         trace = trace_fields()
+        started = time.monotonic()
         try:
             result = asyncio.run(
                 _check(command, settings, persistence_transport, quality_store, telemetry),
@@ -69,10 +73,12 @@ def _run(
             print(failure(command.run_id, error, trace), file=sys.stderr)
             return 2
         except JOB_ERRORS as error:
+            metrics.failed(command.curve_id, time.monotonic() - started)
             span.record_exception(error)
             span.set_status(StatusCode.ERROR)
             print(failure(command.run_id, error, trace), file=sys.stderr)
             return 1
+        metrics.checked(result, time.monotonic() - started)
         print(summary(result, trace))
     return 0
 

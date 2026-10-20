@@ -1,11 +1,12 @@
 """Use case: read published values and assess their quality in bounded chunks."""
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from processing.application.ports import ObservationReader, QualityStore
 from processing.domain.assessment import QualityCheck, assess
-from processing.domain.quality import Severity, Value
+from processing.domain.quality import Rule, Severity, Status, Value
 from processing.domain.rule_config import THRESHOLDS_BY_CURVE
 
 CHUNK_DAYS = 366
@@ -14,6 +15,13 @@ LEAD_IN_DAYS = 31
 
 class UnknownCurveError(LookupError):
     """The curve has no configured quality thresholds."""
+
+
+@dataclass(frozen=True, slots=True)
+class FindingCount:
+    rule: Rule
+    severity: Severity
+    count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +34,28 @@ class CheckSummary:
     values: int
     warn_count: int
     info_count: int
+    worst_status: Status
+    finding_counts: tuple[FindingCount, ...]
+
+
+def _worst_day_status(checks: list[QualityCheck]) -> Status:
+    statuses = {day.status for check in checks for day in check.days}
+    if Status.WARN in statuses:
+        return Status.WARN
+    if Status.INFO in statuses:
+        return Status.INFO
+    return Status.PASSED
+
+
+def _finding_counts(checks: list[QualityCheck]) -> tuple[FindingCount, ...]:
+    counts = Counter(
+        (finding.rule, finding.severity) for check in checks for finding in check.findings
+    )
+    ordered = sorted(counts.items(), key=lambda item: (item[0][0].value, item[0][1].value))
+    return tuple(
+        FindingCount(rule=rule, severity=severity, count=count)
+        for (rule, severity), count in ordered
+    )
 
 
 class CheckQuality:
@@ -93,4 +123,6 @@ class CheckQuality:
                 for finding in check.findings
                 if finding.severity is Severity.INFO
             ),
+            worst_status=_worst_day_status(checks),
+            finding_counts=_finding_counts(checks),
         )
