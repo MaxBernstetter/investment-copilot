@@ -18,18 +18,21 @@ from access.domain.curve import (
     CurveNotFoundError,
     InvalidCurveQueryError,
     PersistenceUnavailableError,
+    ProcessingUnavailableError,
 )
 from access.domain.quality import quality_is_complete
 from access.facade.mapping import (
     to_changes_response,
+    to_quality_days_response,
     to_response,
     to_series_response,
     to_versions_response,
 )
-from access.facade.rest.caching import cache_control, json_with_etag
+from access.facade.rest.caching import NO_CACHE, cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
 UNAVAILABLE_DETAIL = "The curve store is not reachable; try again later."
+QUALITY_UNAVAILABLE_DETAIL = "The quality service is not reachable; try again later."
 NOT_MODIFIED = "Not modified: the ETag matches If-None-Match"
 
 
@@ -213,6 +216,36 @@ def _add_routes(app: FastAPI) -> None:
             cache_control=cache_control(as_of, changes.as_of),
         )
 
+    @app.get(
+        v1.QUALITY_PATH,
+        response_model=v1.QualityDaysResponse,
+        responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
+            status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
+            status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
+        },
+    )
+    async def quality_days(
+        request: Request,
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        valid_from: Annotated[date, Query(alias="from")],
+        valid_to: Annotated[date, Query(alias="to")],
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> Response:
+        """Quality of each TARGET business day of a curve as known at ``meta.as_of``.
+
+        ``from`` and ``to`` bound the valid-date range (inclusive). Without ``as_of`` processing
+        picks its default; the answer reports the knowledge time it used in ``meta.as_of``.
+        """
+        days = await services.quality.quality_days(curve_id, valid_from, valid_to, as_of)
+        return json_with_etag(
+            request,
+            to_quality_days_response(days),
+            cache_control=NO_CACHE,
+        )
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         """Liveness: the process is up."""
@@ -257,6 +290,14 @@ def _add_problem_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         return _problem(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Service unavailable", UNAVAILABLE_DETAIL
+        )
+
+    @app.exception_handler(ProcessingUnavailableError)
+    async def processing_unavailable(
+        _: Request, _error: ProcessingUnavailableError
+    ) -> JSONResponse:
+        return _problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Service unavailable", QUALITY_UNAVAILABLE_DETAIL
         )
 
 

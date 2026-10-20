@@ -155,3 +155,39 @@ def test_curve_changes_round_trip() -> None:
     assert response.data.changes[0].change_reason is v1.ChangeReason.CORRECTION
     assert response.meta.since < response.meta.as_of
     assert v1.CurveChangesResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_quality_days_response_round_trips() -> None:
+    body: dict[str, Any] = {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-10-05",
+            "valid_to": "2026-10-08",
+            "days": [
+                {
+                    "valid_date": "2026-10-07",
+                    "status": "warn",
+                    "run_id": "check-quality-ecb-aaa-spot-sim-2026-10-07",
+                    "checked_as_of": "2026-10-08T06:00:00Z",
+                    "rules": [{"rule": "missing-maturity", "outcome": "warn", "finding_count": 2}],
+                    "findings": [
+                        {
+                            "rule": "missing-maturity",
+                            "severity": "warn",
+                            "maturity": "10Y",
+                            "version_id": None,
+                            "value": None,
+                            "explanation": "No published value for this maturity.",
+                            "evidence": "10Y missing on 2026-10-07",
+                        }
+                    ],
+                }
+            ],
+        },
+        "meta": {"as_of": "2026-10-08T06:00:00Z"},
+    }
+
+    response = v1.QualityDaysResponse.model_validate(body)
+
+    assert response.data.days[0].status is v1.QualityStatus.WARN
+    assert v1.QualityDaysResponse.model_validate_json(response.model_dump_json()) == response

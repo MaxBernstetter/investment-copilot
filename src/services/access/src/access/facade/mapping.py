@@ -9,6 +9,7 @@ from access.domain.attribution import source_attribution
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.quality import ValueQuality, quality_for
+from access.domain.quality_days import QualityDays
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
 
@@ -89,6 +90,46 @@ def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
             as_of=versions.as_of.astimezone(UTC),
             source_attribution=source_attribution(versions.curve_id),
         ),
+    )
+
+
+def to_quality_days_response(days: QualityDays) -> v1.QualityDaysResponse:
+    return v1.QualityDaysResponse(
+        data=v1.QualityDays(
+            curve_id=days.curve_id,
+            valid_from=days.valid_from,
+            valid_to=days.valid_to,
+            days=[
+                v1.QualityDay(
+                    valid_date=day.valid_date,
+                    status=v1.QualityStatus(day.status),
+                    run_id=day.run_id,
+                    checked_as_of=day.checked_as_of,
+                    rules=[
+                        v1.RuleOutcome(
+                            rule=v1.Rule(rule.rule),
+                            outcome=v1.QualityStatus(rule.outcome),
+                            finding_count=rule.finding_count,
+                        )
+                        for rule in day.rules
+                    ],
+                    findings=[
+                        v1.QualityFinding(
+                            rule=v1.Rule(finding.rule),
+                            severity=v1.Severity(finding.severity),
+                            maturity=finding.maturity,
+                            version_id=finding.version_id,
+                            value=finding.value,
+                            explanation=finding.explanation,
+                            evidence=finding.evidence,
+                        )
+                        for finding in day.findings
+                    ],
+                )
+                for day in days.days
+            ],
+        ),
+        meta=v1.QualityMeta(as_of=days.as_of.astimezone(UTC)),
     )
 
 

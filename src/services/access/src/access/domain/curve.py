@@ -42,3 +42,7 @@ class InvalidCurveQueryError(Exception):
 
 class PersistenceUnavailableError(Exception):
     """The curve store could not answer."""
+
+
+class ProcessingUnavailableError(Exception):
+    """The processing service could not answer."""

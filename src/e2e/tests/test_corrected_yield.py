@@ -100,6 +100,10 @@ def versions_path(curve_id: str, maturity: str, valid_date: str) -> str:
     return f"/v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions"
 
 
+def quality_path(curve_id: str) -> str:
+    return f"/v1/curves/{curve_id}/quality"
+
+
 def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
     for event in ("publish", "gap", "bad-value", "late-value"):
         run_event(event)
@@ -148,6 +152,28 @@ def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
         previous = body(client.get(curve_path(SIM), params={"valid_date": PREVIOUS_DATE}))
         assert value_of(previous, "10Y") is not None
         assert value_of(previous, "30Y") is not None
+
+
+def test_gap_day_quality_lists_missing_maturities_at_that_knowledge_time() -> None:
+    run_event("publish")
+    run_event("gap")
+
+    with httpx.Client(base_url=ACCESS_URL, timeout=TIMEOUT_SECONDS) as client:
+        t_gap = body(client.get(curve_path(SIM), params={"valid_date": PREVIOUS_DATE}))["meta"][
+            "as_of"
+        ]
+        response = client.get(
+            quality_path(SIM),
+            params={"from": "2026-10-05", "to": "2026-10-08", "as_of": t_gap},
+        )
+        assert response.status_code == 200
+        days = {day["valid_date"]: day for day in body(response)["data"]["days"]}
+        gap_day = days[PREVIOUS_DATE]
+        assert gap_day["status"] == "warn"
+        missing = [
+            finding for finding in gap_day["findings"] if finding["rule"] == "missing-maturity"
+        ]
+        assert {finding["maturity"] for finding in missing} == {"10Y", "30Y"}
 
 
 def test_the_scenario_never_touches_the_real_curve() -> None:
