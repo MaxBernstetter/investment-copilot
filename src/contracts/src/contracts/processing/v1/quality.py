@@ -2,8 +2,8 @@
 
 A consumer asks for the quality of one curve over a range of valid dates, either per
 valid date (``QUALITY_DAYS_PATH``) or per published value (``VALUE_QUALITY_PATH``).
-Results describe the knowledge state ``meta.as_of`` of the persistence service. A date
-or value without a result is ``unchecked``, which is never the same as ``passed``.
+Results describe the knowledge time ``meta.as_of`` (UTC); a date or value without a
+result known at that time is ``unchecked``, which is never the same as ``passed``.
 """
 
 from datetime import date
@@ -85,10 +85,13 @@ class QualityDay(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    valid_date: date
+    valid_date: date = Field(description="Valid time: the business date of the value")
     status: QualityStatus
     run_id: str | None = Field(
-        default=None, description="Identifier of the check run; null if unchecked"
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Identifier of the check run; null if unchecked",
     )
     checked_as_of: AwareDatetime | None = Field(
         default=None, description="Knowledge time the check run assessed; null if unchecked"
@@ -103,8 +106,8 @@ class QualityDays(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     curve_id: str = Field(min_length=1, max_length=64, examples=["ecb-aaa-spot"])
-    valid_from: date
-    valid_to: date
+    valid_from: date = Field(description="Valid time: first valid date of the range (inclusive)")
+    valid_to: date = Field(description="Valid time: last valid date of the range (inclusive)")
     days: list[QualityDay]
 
 
@@ -134,7 +137,7 @@ class ValueQuality(BaseModel):
 
     version_id: int = Field(description="Lineage reference of the value")
     maturity: str = Field(min_length=1, max_length=16, examples=["10Y"])
-    valid_date: date
+    valid_date: date = Field(description="Valid time: the business date of the value")
     status: QualityStatus
     flags: list[Finding]
 
@@ -145,8 +148,8 @@ class ValueQualities(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     curve_id: str = Field(min_length=1, max_length=64, examples=["ecb-aaa-spot"])
-    valid_from: date
-    valid_to: date
+    valid_from: date = Field(description="Valid time: first valid date of the range (inclusive)")
+    valid_to: date = Field(description="Valid time: last valid date of the range (inclusive)")
     values: list[ValueQuality]
 
 
