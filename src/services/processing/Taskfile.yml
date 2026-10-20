@@ -62,3 +62,25 @@ tasks:
     desc: Run a quality check for CURVE between FROM and TO (inclusive valid dates)
     cmds:
       - uv run --locked processing-check-quality {{.CURVE}} --from {{.FROM}} --to {{.TO}}
+
+  image:
+    desc: Build the image IMAGE:TAG (default the commit) for PLATFORMS (default the host) to OUTPUT (type=docker loads it locally, type=cacheonly only builds, type=registry pushes)
+    vars:
+      HEAD:
+        sh: git rev-parse HEAD
+      IMAGE: '{{.IMAGE | default "ghcr.io/maxbernstetter/yield-lens-processing"}}'
+      TAG: '{{.TAG | default .HEAD}}'
+      PLATFORMS: '{{.PLATFORMS | default (print "linux/" ARCH)}}'
+      OUTPUT: '{{.OUTPUT | default "type=docker"}}'
+    cmds:
+      - docker buildx build --platform {{.PLATFORMS}} --output {{.OUTPUT}} --tag {{.IMAGE}}:{{.TAG}} --file Dockerfile ../..
+
+  image:scan:
+    desc: Scan the image IMAGE:TAG (default the commit) with Trivy; fails on fixable HIGH or CRITICAL vulnerabilities
+    vars:
+      HEAD:
+        sh: git rev-parse HEAD
+      IMAGE: '{{.IMAGE | default "ghcr.io/maxbernstetter/yield-lens-processing"}}'
+      TAG: '{{.TAG | default .HEAD}}'
+    cmds:
+      - trivy image --config ../../../trivy.yaml {{.IMAGE}}:{{.TAG}}

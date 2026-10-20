@@ -22,7 +22,7 @@ How changes get from a commit to the live system, and the security rules every p
 - One least-privilege DB user per schema.
 - Only `access` is public: read-only, rate-limited, CORS restricted to the Pages origin.
 - Internal APIs and the Airflow UI are reachable only through an SSH tunnel.
-- Dependency and image scanning in CI (Dependabot, Trivy).
+- Dependency and image scanning in CI (Dependabot, Trivy); an image with a fixable HIGH or CRITICAL vulnerability is not published.
 - Workflows pin actions to commit SHAs, use least-privilege token permissions, and never persist checkout credentials.
 
 ## Checks when planning a piece

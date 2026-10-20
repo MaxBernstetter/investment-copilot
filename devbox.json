@@ -6,7 +6,8 @@
     "pre-commit@latest",
     "go-task@latest",
     "uv@0.13.0",
-    "gh@latest"
+    "gh@latest",
+    "trivy@0.76.0"
   ],
   "shell": {
     "init_hook": [

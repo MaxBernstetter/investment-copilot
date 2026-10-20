@@ -73,6 +73,17 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `access.yml` | Pull requests; pushes to `main` changing `src/services/access/`, `src/contracts/`, the root Taskfile or devbox; manual | `access:` `setup`, `lint`, `typecheck`, `test:unit` | `devbox run -- task access:<task>` |
 | `frontend.yml` | Pull requests; pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build`, `size` | `devbox run -- task frontend:<task>` |
 | `e2e.yml` | Pull requests; pushes to `main` changing `src/`, the workflow, the root Taskfile or devbox; manual | `dev:reset`, `dev:up`, `dev:e2e` (the corrected-yield test on a fresh stack), `dev:reset` again at the end | `devbox run -- task dev:e2e` after `dev:reset` and `dev:up` |
+| `images.yml` | Pull requests, pushes to `main` (no path filter), manual | PRs and manual: `<service>:image` for amd64 and arm64 (build only), then `image` and `image:scan`. Pushes to `main`: `image`, `image:scan`, then `image` with `OUTPUT=type=registry` for amd64 and arm64 | `devbox run -- task <service>:image` and `devbox run -- task <service>:image:scan` |
+
+### Images
+
+- Container images are named `ghcr.io/maxbernstetter/yield-lens-<service>` for `persistence`, `access`, `ingestion` and `processing`, tagged only with the full 40-character commit SHA.
+- Published images are multi-arch (`linux/amd64` and `linux/arm64`); CI uses Docker Buildx with QEMU for arm64.
+- Pull requests build and scan images but never push; only the `publish` job on pushes to `main` gets `packages: write` and pushes to GHCR.
+- There is no path filter: every commit on `main` gets a complete set of four images under the same SHA so deploys can pin any commit with one tag.
+- After the amd64 image is built locally in Docker, Trivy scans it using `trivy.yaml` at the repository root (fixable HIGH and CRITICAL vulnerabilities fail the job). Accepted exceptions go in `.trivyignore` with a reason.
+- The `images: build and scan <service>` checks are not required on `main` yet; add them to the ruleset after they have been green for a while.
+- Locally, `task <service>:image` builds the host platform by default. A multi-platform build needs a `docker-container` builder (`docker buildx create --use`) and binfmt/QEMU support.
 
 ### Required checks
 
@@ -117,7 +128,7 @@ The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, pe
 | `dev:scenario:corrected-yield` | Run the corrected-yield scenario and check quality for `ecb-aaa-spot-sim` on 2026-10-05..2026-10-08 |
 | `dev:e2e` | End-to-end corrected-yield test (`src/e2e`) against the running stack; run `dev:reset` and `dev:up` first |
 
-Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]); `processing` has `db:migrate` for its `PROC` schema. `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
+Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. The four deployable services (`persistence`, `access`, `ingestion`, `processing`) also implement `image` and `image:scan`, with task variables `IMAGE`, `TAG`, `PLATFORMS` and `OUTPUT`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]); `processing` has `db:migrate` for its `PROC` schema. `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 
 The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `audit`, `fmt`, `lint`, `typecheck`, `test:unit`, `build`, `size` (the bundle budget, after `build`) and `dev` (see [[01-frontend]]).
 
