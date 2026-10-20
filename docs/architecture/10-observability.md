@@ -12,7 +12,7 @@ Transparency is not a separate domain. **Every service is responsible for its ow
 
 ## Transparency interface (every service)
 
-Every domain service implements the same contract (`contracts/transparency/v1`), next to its own domain interface:
+Every domain service implements the same contract (`contracts.transparency.v1`, `src/contracts/src/contracts/transparency/v1/`), next to its own domain interface:
 
 | Endpoint | Content |
 |---|---|
