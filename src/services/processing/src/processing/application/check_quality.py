@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from processing.application.ports import ObservationReader, QualityStore
-from processing.domain.assessment import assess
+from processing.domain.assessment import QualityCheck, assess
 from processing.domain.quality import Severity, Value
 from processing.domain.rule_config import THRESHOLDS_BY_CURVE
 
@@ -43,63 +43,54 @@ class CheckQuality:
 
         thresholds = THRESHOLDS_BY_CURVE[curve_id]
         grid_read = await self._reader.grid(curve_id)
-        if grid_read is None:
-            return CheckSummary(
-                curve_id=curve_id,
-                run_id=run_id,
-                checked_as_of=None,
-                chunks=0,
-                days=0,
-                values=0,
-                warn_count=0,
-                info_count=0,
-            )
+        checked_as_of = grid_read.as_of if grid_read is not None else None
+        checks: list[QualityCheck] = []
 
-        checked_as_of = grid_read.as_of
-        maturities = grid_read.maturities
-        chunk_count = 0
-        day_count = 0
-        value_count = 0
-        warn_count = 0
-        info_count = 0
+        if grid_read is not None:
+            as_of = grid_read.as_of
+            maturities = grid_read.maturities
+            chunk_start = valid_from
+            while chunk_start <= valid_to:
+                chunk_end = min(chunk_start + timedelta(days=CHUNK_DAYS - 1), valid_to)
+                series_from = chunk_start - timedelta(days=LEAD_IN_DAYS)
+                series: dict[str, list[Value]] = {}
+                for maturity in maturities:
+                    series[maturity] = await self._reader.series(
+                        curve_id, maturity, series_from, chunk_end, as_of
+                    )
 
-        chunk_start = valid_from
-        while chunk_start <= valid_to:
-            chunk_end = min(chunk_start + timedelta(days=CHUNK_DAYS - 1), valid_to)
-            series_from = chunk_start - timedelta(days=LEAD_IN_DAYS)
-            series: dict[str, list[Value]] = {}
-            for maturity in maturities:
-                series[maturity] = await self._reader.series(
-                    curve_id, maturity, series_from, chunk_end, checked_as_of
+                check = assess(
+                    run_id=run_id,
+                    curve_id=curve_id,
+                    valid_from=chunk_start,
+                    valid_to=chunk_end,
+                    checked_as_of=as_of,
+                    grid=maturities,
+                    series=series,
+                    thresholds=thresholds,
                 )
+                await self._store.record(check)
+                checks.append(check)
 
-            check = assess(
-                run_id=run_id,
-                curve_id=curve_id,
-                valid_from=chunk_start,
-                valid_to=chunk_end,
-                checked_as_of=checked_as_of,
-                grid=maturities,
-                series=series,
-                thresholds=thresholds,
-            )
-            await self._store.record(check)
-
-            chunk_count += 1
-            day_count += len(check.days)
-            value_count += len(check.values)
-            warn_count += sum(1 for finding in check.findings if finding.severity is Severity.WARN)
-            info_count += sum(1 for finding in check.findings if finding.severity is Severity.INFO)
-
-            chunk_start = chunk_end + timedelta(days=1)
+                chunk_start = chunk_end + timedelta(days=1)
 
         return CheckSummary(
             curve_id=curve_id,
             run_id=run_id,
             checked_as_of=checked_as_of,
-            chunks=chunk_count,
-            days=day_count,
-            values=value_count,
-            warn_count=warn_count,
-            info_count=info_count,
+            chunks=len(checks),
+            days=sum(len(check.days) for check in checks),
+            values=sum(len(check.values) for check in checks),
+            warn_count=sum(
+                1
+                for check in checks
+                for finding in check.findings
+                if finding.severity is Severity.WARN
+            ),
+            info_count=sum(
+                1
+                for check in checks
+                for finding in check.findings
+                if finding.severity is Severity.INFO
+            ),
         )

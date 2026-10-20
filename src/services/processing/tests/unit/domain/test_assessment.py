@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from processing.domain.assessment import assess
+from processing.domain.assessment import QualityCheck, assess
 from processing.domain.quality import Rule, Status, Value
 from processing.domain.rule_config import ECB_AAA_SPOT
 
@@ -24,22 +24,32 @@ def point(valid_date: date, maturity: str, number: str, version_id: int = 1) -> 
     )
 
 
+def assess_chunk(
+    series: dict[str, list[Value]],
+    valid_from: date,
+    valid_to: date,
+    *,
+    grid: tuple[str, ...] = GRID,
+) -> QualityCheck:
+    return assess(
+        run_id=RUN_ID,
+        curve_id=CURVE_ID,
+        valid_from=valid_from,
+        valid_to=valid_to,
+        checked_as_of=CHECKED_AS_OF,
+        grid=grid,
+        series=series,
+        thresholds=ECB_AAA_SPOT,
+    )
+
+
 def test_every_value_in_range_gets_a_status() -> None:
     series = {
         "10Y": [point(OCT_06, "10Y", "2.62", 1), point(OCT_08, "10Y", "2.64", 2)],
         "30Y": [point(OCT_06, "30Y", "2.70", 3), point(OCT_08, "30Y", "2.71", 4)],
     }
 
-    check = assess(
-        run_id=RUN_ID,
-        curve_id=CURVE_ID,
-        valid_from=OCT_06,
-        valid_to=OCT_08,
-        checked_as_of=CHECKED_AS_OF,
-        grid=GRID,
-        series=series,
-        thresholds=ECB_AAA_SPOT,
-    )
+    check = assess_chunk(series, OCT_06, OCT_08)
 
     assert len(check.values) == 4
     assert {value.status for value in check.values} == {Status.PASSED}
@@ -53,16 +63,7 @@ def test_lead_in_values_feed_jumps_but_are_not_assessed() -> None:
         ],
     }
 
-    check = assess(
-        run_id=RUN_ID,
-        curve_id=CURVE_ID,
-        valid_from=OCT_08,
-        valid_to=OCT_08,
-        checked_as_of=CHECKED_AS_OF,
-        grid=("10Y",),
-        series=series,
-        thresholds=ECB_AAA_SPOT,
-    )
+    check = assess_chunk(series, OCT_08, OCT_08, grid=("10Y",))
 
     assert len(check.values) == 1
     assert check.values[0].status is Status.WARN
@@ -78,16 +79,7 @@ def test_value_status_is_the_worst_severity_of_its_findings() -> None:
         ],
     }
 
-    check = assess(
-        run_id=RUN_ID,
-        curve_id=CURVE_ID,
-        valid_from=OCT_06,
-        valid_to=OCT_08,
-        checked_as_of=CHECKED_AS_OF,
-        grid=("10Y",),
-        series=series,
-        thresholds=ECB_AAA_SPOT,
-    )
+    check = assess_chunk(series, OCT_06, OCT_08, grid=("10Y",))
 
     flagged = next(value for value in check.values if value.valid_date == OCT_08)
     assert flagged.status is Status.WARN
@@ -105,16 +97,7 @@ def test_day_status_includes_completeness_findings() -> None:
         "30Y": [point(OCT_06, "30Y", "2.70", 3), point(OCT_08, "30Y", "2.71", 4)],
     }
 
-    check = assess(
-        run_id=RUN_ID,
-        curve_id=CURVE_ID,
-        valid_from=OCT_06,
-        valid_to=OCT_08,
-        checked_as_of=CHECKED_AS_OF,
-        grid=GRID,
-        series=series,
-        thresholds=ECB_AAA_SPOT,
-    )
+    check = assess_chunk(series, OCT_06, OCT_08)
 
     day_statuses = {day.valid_date: day.status for day in check.days}
     assert day_statuses[OCT_07] is Status.WARN
