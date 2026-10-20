@@ -24,7 +24,7 @@ tasks:
       - docker compose --profile tools run --rm core-migrate
       - docker compose --profile tools run --rm ing-migrate
       - docker compose --profile tools run --rm proc-migrate
-      - docker compose up --detach --wait --build persistence access processing
+      - docker compose up --detach --wait --build persistence access processing ingestion-api
 
   down:
     desc: Stop the local stack (keeps its data)

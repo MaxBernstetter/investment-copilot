@@ -4,8 +4,9 @@ Naming scheme: ``INGESTION_<FIELD>``, nested with ``__``. Per-source settings ar
 ``INGESTION_SOURCES__<SOURCE>__<SETTING>``, for example
 ``INGESTION_SOURCES__ECB__MIN_INTERVAL_SECONDS=2``; the persistence service is
 ``INGESTION_PERSISTENCE__<SETTING>``; ingestion's own database schema ``ING`` is
-``INGESTION_DB__<SETTING>``. Unknown sources or settings are
-rejected, so a typo fails at startup instead of being ignored.
+``INGESTION_DB__<SETTING>``. The ``api`` process uses ``ApiSettings`` (only ``db``);
+the job uses ``IngestionSettings``. Unknown sources or settings are rejected, so a
+typo fails at startup instead of being ignored.
 """
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr
@@ -57,7 +58,10 @@ class PersistenceSettings(BaseModel):
 
 
 class DatabaseSettings(BaseModel):
-    """Ingestion's own schema ``ING`` (raw deliveries), as its least-privilege runtime user."""
+    """Ingestion's own schema ``ING`` (raw deliveries), as its least-privilege runtime user.
+
+    Pool settings are used by the api only.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -65,7 +69,23 @@ class DatabaseSettings(BaseModel):
     """Oracle DSN, e.g. ``localhost:1521/FREEPDB1``."""
     user: str = Field(default="ing_app", min_length=1)
     password: SecretStr
+    pool_min: int = Field(default=1, ge=0)
+    pool_max: int = Field(default=4, ge=1)
+    acquire_timeout_ms: int = Field(default=5_000, gt=0)
     call_timeout_ms: int = Field(default=30_000, gt=0)
+
+
+class ApiSettings(BaseSettings):
+    """Settings of the ``api`` process (readiness against the ING schema only)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="INGESTION_",
+        env_nested_delimiter="__",
+        extra="forbid",
+        frozen=True,
+    )
+
+    db: DatabaseSettings
 
 
 class IngestionSettings(BaseSettings):

@@ -105,11 +105,11 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
 
-The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, persistence, processing and access apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
+The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, persistence, processing, access and ingestion apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
 
 | Task | Does |
 |---|---|
-| `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence, processing and access apis; waits until healthy (idempotent) |
+| `dev:up` | Start Oracle, apply the `CORE`, `ING` and `PROC` migrations and start the persistence, processing, access and ingestion apis; waits until healthy (idempotent) |
 | `dev:down` | Stop the local stack (keeps its data) |
 | `dev:reset` | Remove the local stack and its data |
 | `dev:seed` | Load ECB history from `START` (default `2024-01-01`) in two steps with a knowledge time between them, via `src/scripts/dev-seed.sh` (live ECB calls; manual only) |
@@ -132,6 +132,8 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:db:migrate` | Apply the `ING` changelogs to the local database started by `persistence:db:start` |
 | `ingestion:load:ecb:daily`, `ingestion:load:ecb:history` | Manual ECB loads against a running persistence api (see [[03-ecb-load]]); they call the live ECB API and never run in CI |
 | `ingestion:load:ecb:replay` | Manual replay of stored ECB deliveries (`FROM`, `TO`: fetch days) against a running persistence api; never calls the ECB (see [[04-raw-deliveries#Replay]]) |
+| `ingestion:run` | Run the ingestion api locally on port 8003 against the ING database |
+| `ingestion:openapi` | Export the ingestion OpenAPI document to `src/contracts/openapi/ingestion/v1.json` (committed; the unit test fails when it is stale) |
 | `access:openapi` | Export the access OpenAPI document to `src/contracts/openapi/access/v1.json` (committed; the unit test fails when it is stale) |
 
 ## Pre-commit hooks

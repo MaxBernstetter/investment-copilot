@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from ingestion.config import IngestionSettings, SourceSettings
+from ingestion.config import ApiSettings, IngestionSettings, SourceSettings
 
 PERSISTENCE_URL = "http://persistence.test:8001"
 
@@ -99,3 +99,26 @@ def test_invalid_or_unknown_settings_fail_at_startup(
 
     with pytest.raises(ValidationError):
         IngestionSettings()
+
+
+def test_api_settings_read_the_nested_db_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INGESTION_DB__DSN", "api.test:1521/FREEPDB1")
+    monkeypatch.setenv("INGESTION_DB__PASSWORD", "api-secret")
+    monkeypatch.setenv("INGESTION_DB__POOL_MAX", "8")
+
+    db = ApiSettings().db
+
+    assert (db.dsn, db.user, db.password.get_secret_value(), db.pool_max) == (
+        "api.test:1521/FREEPDB1",
+        "ing_app",
+        "api-secret",
+        8,
+    )
+
+
+def test_api_settings_need_no_persistence_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("INGESTION_PERSISTENCE__URL", raising=False)
+    monkeypatch.setenv("INGESTION_DB__DSN", "api.test:1521/FREEPDB1")
+    monkeypatch.setenv("INGESTION_DB__PASSWORD", "api-secret")
+
+    ApiSettings()

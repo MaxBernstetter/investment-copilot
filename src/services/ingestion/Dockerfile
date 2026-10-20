@@ -1,6 +1,7 @@
-# Ingestion job image (one-shot ECB loads, no server). Build context is src/ (the service
-# needs contracts/). Built by `task dev:up` and run by `task dev:seed` through
-# src/deploy/compose.yaml. Entry point: the ingestion-load-ecb console script.
+# Ingestion image: the `api` process (default CMD, port 8003) and the jobs
+# `ingestion-load-ecb` / `ingestion-scenario` (set as entrypoint by compose and Airflow).
+# Build context is src/ (the service needs contracts/). Built by `task dev:up` and run by
+# `task dev:seed` through src/deploy/compose.yaml.
 
 FROM python:3.13.9-slim-bookworm AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /bin/uv
@@ -18,6 +19,8 @@ FROM python:3.13.9-slim-bookworm
 
 RUN useradd --system --uid 10001 --no-create-home app
 COPY --from=build /app/.venv /app/.venv
+COPY services/ingestion/log_config.json /app/log_config.json
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
 USER 10001
-ENTRYPOINT ["ingestion-load-ecb"]
+EXPOSE 8003
+CMD ["uvicorn", "--factory", "ingestion.api:create_app_from_environment", "--host", "0.0.0.0", "--port", "8003", "--log-config", "/app/log_config.json"]
