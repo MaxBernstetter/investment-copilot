@@ -1,10 +1,18 @@
 import asyncio
+import io
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 import oracledb
+import pytest
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    InMemoryMetricReader,
+    MetricsData,
+    PeriodicExportingMetricReader,
+)
 
 from processing.application.alerts import LatestCheckRun
 from processing.infrastructure.proc_gauges import ALERT_ACTIVE, LAST_SUCCESS, register_proc_gauges
@@ -88,3 +96,36 @@ def test_collection_on_the_loop_thread_reports_no_points() -> None:
 
     assert points(data, ALERT_ACTIVE) == {}
     assert points(data, LAST_SUCCESS) == {}
+
+
+def test_a_closed_loop_reports_no_points(caplog: pytest.LogCaptureFixture) -> None:
+    async def read() -> list[LatestCheckRun]:
+        return RUNS
+
+    loop = asyncio.new_event_loop()
+    reader = InMemoryMetricReader()
+    register_proc_gauges(MeterProvider(metric_readers=[reader]).get_meter("test"), read, loop)
+    loop.close()
+
+    data = reader.get_metrics_data()
+
+    assert points(data, ALERT_ACTIVE) == {}
+    assert points(data, LAST_SUCCESS) == {}
+    assert "event loop is closed" in caplog.text
+
+
+def test_shutdown_off_the_loop_does_not_wait_for_the_loop() -> None:
+    async def read() -> list[LatestCheckRun]:
+        return RUNS
+
+    async def scenario() -> float:
+        reader = PeriodicExportingMetricReader(
+            ConsoleMetricExporter(out=io.StringIO()), export_interval_millis=60_000
+        )
+        provider = MeterProvider(metric_readers=[reader])
+        register_proc_gauges(provider.get_meter("test"), read, asyncio.get_running_loop())
+        started = time.monotonic()
+        await asyncio.to_thread(provider.shutdown)
+        return time.monotonic() - started
+
+    assert asyncio.run(scenario()) < 1.0
