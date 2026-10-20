@@ -1,4 +1,4 @@
-import { Card, Stack, Text, Title } from '@mantine/core'
+import { Card, rem, Stack, Text } from '@mantine/core'
 
 type StatCardProps = {
   label: string
@@ -14,7 +14,9 @@ export default function StatCard({ label, value, hint }: StatCardProps) {
         <Text size="xs" c="dimmed" tt="uppercase">
           {label}
         </Text>
-        <Title order={3}>{value}</Title>
+        <Text fw={600} fz={rem(15)} lh={1.4} style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {value}
+        </Text>
         {hint !== undefined && (
           <Text size="xs" c="dimmed">
             {hint}

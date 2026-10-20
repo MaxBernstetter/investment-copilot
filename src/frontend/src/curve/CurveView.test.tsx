@@ -88,6 +88,12 @@ function chartLabels(): string[] {
   return last ? last[0].curves.map((curve) => curve.label) : []
 }
 
+function expectStatValue(label: string, value: string | RegExp) {
+  const stack = screen.getByText(label).parentElement
+  expect(stack).not.toBeNull()
+  expect(within(stack!).getByText(value)).toBeInTheDocument()
+}
+
 describe('CurveView', () => {
   it('shows the latest curve on open', async () => {
     render(<CurveView curveId="ecb-aaa-spot" />)
@@ -124,10 +130,10 @@ describe('CurveView', () => {
   it('shows key figures with formatted yield and spread', async () => {
     await renderLoaded()
 
-    expect(screen.getByRole('heading', { level: 3, name: /2\.600/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 3, name: '+10.0 bp' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 3, name: '2026-10-16' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 3, name: 'Live' })).toBeInTheDocument()
+    expectStatValue('10Y yield', /2\.600/)
+    expectStatValue('2Y–10Y spread', '+10.0 bp')
+    expectStatValue('Curve date', '2026-10-16')
+    expectStatValue('Knowledge', 'Live')
   })
 
   it('shows a negative spread when 10Y is below 2Y', async () => {
@@ -136,7 +142,7 @@ describe('CurveView', () => {
     )
     await renderLoaded()
 
-    expect(screen.getByRole('heading', { level: 3, name: '−40.0 bp' })).toBeInTheDocument()
+    expectStatValue('2Y–10Y spread', '−40.0 bp')
   })
 
   it('marks missing points', async () => {
