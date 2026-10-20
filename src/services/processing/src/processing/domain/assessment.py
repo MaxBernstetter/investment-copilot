@@ -19,6 +19,16 @@ class DayStatus:
 
 
 @dataclass(frozen=True, slots=True)
+class CheckedDay:
+    """One business day as assessed by the latest check run known at the read time."""
+
+    valid_date: date
+    status: Status
+    run_id: str
+    checked_as_of: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ValueStatus:
     version_id: int
     maturity: str
