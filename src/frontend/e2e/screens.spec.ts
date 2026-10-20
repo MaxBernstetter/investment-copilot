@@ -15,6 +15,7 @@ async function captureSnapshots(
   page: Page,
   id: string,
   schemes: ('light' | 'dark')[],
+  fullPage = true,
 ) {
   for (const { width, height } of VIEWPORTS) {
     for (const scheme of schemes) {
@@ -23,7 +24,7 @@ async function captureSnapshots(
       if (width === 1280) {
         await assertNoHorizontalScroll(page)
       }
-      await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme), { fullPage: true })
+      await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme), { fullPage })
     }
   }
 }
@@ -110,7 +111,7 @@ test.describe('visual snapshots §7', () => {
     await setColorScheme(page, 'light')
     await page.getByRole('button', { name: 'History 10Y' }).click()
     await expect(drawerHeading).toBeVisible()
-    await captureSnapshots(page, 'S4', ['light'])
+    await captureSnapshots(page, 'S4', ['light'], false)
   })
 
   test('S5 time series chart', async ({ page }) => {

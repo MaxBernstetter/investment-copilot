@@ -29,6 +29,8 @@ export async function setColorScheme(page: Page, scheme: 'light' | 'dark') {
   if (current === scheme) return
   await page.getByRole('button', { name: 'Toggle colour scheme' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', scheme)
+  await page.mouse.move(0, 0)
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
 }
 
 export async function waitForCurveLoaded(page: Page) {
