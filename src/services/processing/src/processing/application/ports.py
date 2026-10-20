@@ -1,0 +1,34 @@
+"""Ports of the processing use cases: read observations and store quality results."""
+
+from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Protocol
+
+from processing.domain.assessment import QualityCheck
+from processing.domain.quality import Value
+
+
+@dataclass(frozen=True, slots=True)
+class Grid:
+    maturities: tuple[str, ...]
+    as_of: datetime
+
+
+class ObservationReader(Protocol):
+    async def grid(self, curve_id: str) -> Grid | None:
+        """The curve grid and persistence knowledge time, or nothing if the curve is unknown."""
+
+    async def series(
+        self,
+        curve_id: str,
+        maturity: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime,
+    ) -> list[Value]:
+        """One maturity between two valid dates as of a knowledge time."""
+
+
+class QualityStore(Protocol):
+    async def record(self, check: QualityCheck) -> None:
+        """Persist one assessed chunk of a quality check run."""

@@ -40,3 +40,11 @@ There are no other severities. Rules never block a value; they only flag it.
 - **Value status:** the worst severity of the value's findings (`warn` beats `info`), otherwise `passed`.
 - **Day status:** the worst severity over all findings of the day, otherwise `passed`.
 - **`unchecked`:** no check result exists yet for the value or day. It appears on the read side only.
+
+## Running a check
+
+A quality check loads the curve grid once from persistence (`GET /v1/curves/{id}/observations` with no query parameters). The `meta.as_of` of that response is the **checked knowledge time** for the whole run: every maturity series in the run is read as of that time.
+
+The requested valid-date range is processed in chunks of at most 366 days. For each chunk and each grid maturity, persistence returns the series from **31 days before the chunk start** through the chunk end (`from` = chunk start − 31d). That lead-in is used only for jump comparisons; value and day statuses are produced only for dates inside the chunk.
+
+If the grid call returns 404, nothing is known about the curve and no results are recorded.
