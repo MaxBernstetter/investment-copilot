@@ -1,0 +1,2 @@
+/* Hover tooltips are transient chrome, so they are hidden from visual baselines. */
+[role="tooltip"] { visibility: hidden !important; }

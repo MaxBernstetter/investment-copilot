@@ -26,7 +26,6 @@ async function captureSnapshots(
       }
       await page.mouse.move(0, 0)
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-      await expect(page.getByRole('tooltip')).toHaveCount(0)
       await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme), { fullPage })
     }
   }
