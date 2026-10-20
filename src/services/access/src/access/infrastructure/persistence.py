@@ -239,7 +239,7 @@ def _series_to_domain(body: v1.SeriesObservationsResponse) -> Series:
         maturity=body.data.maturity,
         as_of=body.meta.as_of,
         points=tuple(
-            SeriesPoint(valid_date=point.valid_date, value=point.value)
+            SeriesPoint(valid_date=point.valid_date, value=point.value, version_id=point.version_id)
             for point in body.data.points
         ),
     )
@@ -258,7 +258,12 @@ def _to_domain(body: v1.CurveObservationsResponse) -> CurveAsOf:
         valid_date=body.data.valid_date,
         as_of=body.meta.as_of,
         points=tuple(
-            CurvePoint(maturity=point.maturity, months=point.months, value=point.value)
+            CurvePoint(
+                maturity=point.maturity,
+                months=point.months,
+                value=point.value,
+                version_id=point.version_id,
+            )
             for point in body.data.points
         ),
     )

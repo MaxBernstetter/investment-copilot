@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { missingMaturities, overlayRows, overlaySeries, type CurvePoint } from './curveData'
 
 const points: CurvePoint[] = [
-  { maturity: '3M', months: 3, value: 2.1 },
-  { maturity: '1Y', months: 12, value: null },
-  { maturity: '10Y', months: 120, value: 2.6 },
+  { maturity: '3M', months: 3, value: 2.1, version_id: 1, origin: 'published' },
+  { maturity: '1Y', months: 12, value: null, version_id: null, origin: 'published' },
+  { maturity: '10Y', months: 120, value: 2.6, version_id: 3, origin: 'published' },
 ]
 
 describe('curveData', () => {

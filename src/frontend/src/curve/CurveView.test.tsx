@@ -31,9 +31,15 @@ function curveResult(validDate: string, values: (number | null)[]): CurveResult 
       data: {
         curve_id: 'ecb-aaa-spot',
         valid_date: validDate,
-        points: grid.map((maturity, i) => ({ maturity, months: months[i], value: values[i] })),
+        points: grid.map((maturity, i) => ({
+          maturity,
+          months: months[i],
+          value: values[i],
+          version_id: values[i] === null ? null : 1,
+          origin: 'published' as const,
+        })),
       },
-      meta: { as_of: '2026-10-19T10:00:00Z' },
+      meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
     },
   }
 }

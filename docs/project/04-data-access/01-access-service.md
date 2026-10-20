@@ -14,8 +14,10 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
 - `curve_id`: 1 to 64 characters. `valid_date`: ISO date. `as_of`: timezone-aware ISO datetime; a naive one is rejected.
-- `data` holds `curve_id`, `valid_date` and `points` in grid order (`maturity`, `months`, `value`); a maturity with no published value known as of `meta.as_of` has `value: null`.
+- `data` holds `curve_id`, `valid_date` and `points` in grid order (`maturity`, `months`, `value`, `version_id`, `origin`); a maturity with no published value known as of `meta.as_of` has `value: null` and `version_id: null`.
+- Series points carry `version_id` and `origin` too. `version_id` is the lineage reference of the visible version: it is the id the versions endpoint lists for that value. `origin` is `published` for every value the service returns: values are passed on unmodified.
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
+- `meta.source_attribution` is required on the curve, series, versions and changes answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an entry is a server error, not an answer without attribution.
 - Only `GET` is allowed (`405` otherwise).
 - CORS: only `GET` is allowed, from the origins in `ACCESS_CORS_ORIGINS`. Other origins get no `Access-Control-Allow-Origin` header.
 

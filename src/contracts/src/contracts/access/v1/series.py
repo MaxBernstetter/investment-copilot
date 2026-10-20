@@ -10,7 +10,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from contracts.access.v1.curves import CurveMeta
+from contracts.access.v1.curves import CurveMeta, Origin
 
 SERIES_OBSERVATIONS_PATH = "/v1/curves/{curve_id}/maturities/{maturity}/observations"
 """``GET`` endpoint that returns one maturity of a curve over valid dates."""
@@ -23,6 +23,8 @@ class SeriesPoint(BaseModel):
 
     valid_date: date = Field(description="Valid time: the business date of the value")
     value: float = Field(allow_inf_nan=False, description="Yield in percent", examples=[2.61])
+    version_id: int = Field(description="Version id of the visible version, the lineage reference")
+    origin: Origin = Field(description="published: the value is the source value, unmodified")
 
 
 class SeriesObservations(BaseModel):

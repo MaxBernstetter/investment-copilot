@@ -9,11 +9,23 @@ def curve_response(**overrides: Any) -> dict[str, Any]:
             "curve_id": "ecb-aaa-spot",
             "valid_date": "2026-03-12",
             "points": [
-                {"maturity": "3M", "months": 3, "value": None},
-                {"maturity": "10Y", "months": 120, "value": 2.61},
+                {
+                    "maturity": "3M",
+                    "months": 3,
+                    "value": None,
+                    "version_id": None,
+                    "origin": "published",
+                },
+                {
+                    "maturity": "10Y",
+                    "months": 120,
+                    "value": 2.61,
+                    "version_id": 7,
+                    "origin": "published",
+                },
             ],
         },
-        "meta": {"as_of": "2026-03-13T09:00:00Z"},
+        "meta": {"as_of": "2026-03-13T09:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
     return body | overrides
 
@@ -32,11 +44,11 @@ def test_series_response_round_trips_with_gaps_between_dates() -> None:
             "curve_id": "ecb-aaa-spot",
             "maturity": "10Y",
             "points": [
-                {"valid_date": "2026-03-12", "value": 2.61},
-                {"valid_date": "2026-03-14", "value": 2.7},
+                {"valid_date": "2026-03-12", "value": 2.61, "version_id": 7, "origin": "published"},
+                {"valid_date": "2026-03-14", "value": 2.7, "version_id": 9, "origin": "published"},
             ],
         },
-        "meta": {"as_of": "2026-03-15T09:00:00Z"},
+        "meta": {"as_of": "2026-03-15T09:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
     response = v1.SeriesObservationsResponse.model_validate(body)
@@ -76,7 +88,7 @@ def test_value_versions_response_round_trips() -> None:
                 },
             ],
         },
-        "meta": {"as_of": "2026-03-15T09:00:00Z"},
+        "meta": {"as_of": "2026-03-15T09:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
     response = v1.ValueVersionsResponse.model_validate(body)
@@ -116,7 +128,11 @@ def test_curve_changes_round_trip() -> None:
                 },
             ],
         },
-        "meta": {"since": "2026-03-12T08:00:00Z", "as_of": "2026-03-13T08:00:00Z"},
+        "meta": {
+            "since": "2026-03-12T08:00:00Z",
+            "as_of": "2026-03-13T08:00:00Z",
+            "source_attribution": "Source: ECB statistics",
+        },
     }
 
     response = v1.CurveChangesResponse.model_validate(body)

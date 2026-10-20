@@ -16,9 +16,9 @@ describe('seriesData', () => {
 
   it('series rows in valid-date order', () => {
     const points: SeriesPoint[] = [
-      { valid_date: '2026-10-15', value: 2.5 },
-      { valid_date: '2026-10-16', value: 2.6 },
-      { valid_date: '2026-10-19', value: 2.7 },
+      { valid_date: '2026-10-15', value: 2.5, version_id: 1, origin: 'published' },
+      { valid_date: '2026-10-16', value: 2.6, version_id: 2, origin: 'published' },
+      { valid_date: '2026-10-19', value: 2.7, version_id: 3, origin: 'published' },
     ]
 
     expect(seriesChart(points)).toEqual([

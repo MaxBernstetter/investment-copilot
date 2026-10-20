@@ -46,7 +46,7 @@ function okResult(versions: Version[]): VersionsResult {
         valid_date: '2026-10-16',
         versions,
       },
-      meta: { as_of: '2026-10-19T10:00:00Z' },
+      meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
     },
   }
 }

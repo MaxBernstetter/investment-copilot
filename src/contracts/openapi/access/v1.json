@@ -28,11 +28,20 @@
             "format": "date-time",
             "title": "Since",
             "type": "string"
+          },
+          "source_attribution": {
+            "description": "Required attribution of the source values (ESCB reuse terms); for simulated data a note that it is simulated",
+            "examples": [
+              "Source: ECB statistics"
+            ],
+            "title": "Source Attribution",
+            "type": "string"
           }
         },
         "required": [
           "since",
-          "as_of"
+          "as_of",
+          "source_attribution"
         ],
         "title": "ChangesMeta",
         "type": "object"
@@ -106,10 +115,19 @@
             "format": "date-time",
             "title": "As Of",
             "type": "string"
+          },
+          "source_attribution": {
+            "description": "Required attribution of the source values (ESCB reuse terms); for simulated data a note that it is simulated",
+            "examples": [
+              "Source: ECB statistics"
+            ],
+            "title": "Source Attribution",
+            "type": "string"
           }
         },
         "required": [
-          "as_of"
+          "as_of",
+          "source_attribution"
         ],
         "title": "CurveMeta",
         "type": "object"
@@ -185,6 +203,10 @@
             "title": "Months",
             "type": "integer"
           },
+          "origin": {
+            "$ref": "#/components/schemas/Origin",
+            "description": "published: the value is the source value, unmodified"
+          },
           "value": {
             "anyOf": [
               {
@@ -199,15 +221,41 @@
               2.61
             ],
             "title": "Value"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Version id of the visible version, the lineage reference; null exactly when value is null",
+            "examples": [
+              7
+            ],
+            "title": "Version Id"
           }
         },
         "required": [
           "maturity",
           "months",
-          "value"
+          "value",
+          "version_id",
+          "origin"
         ],
         "title": "CurvePoint",
         "type": "object"
+      },
+      "Origin": {
+        "description": "How a value came to be: published by its source, or derived by the service.",
+        "enum": [
+          "published",
+          "derived"
+        ],
+        "title": "Origin",
+        "type": "string"
       },
       "Problem": {
         "additionalProperties": true,
@@ -299,6 +347,10 @@
         "additionalProperties": false,
         "description": "One valid date with a published value known as of ``meta.as_of``.",
         "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/Origin",
+            "description": "published: the value is the source value, unmodified"
+          },
           "valid_date": {
             "description": "Valid time: the business date of the value",
             "format": "date",
@@ -312,11 +364,18 @@
             ],
             "title": "Value",
             "type": "number"
+          },
+          "version_id": {
+            "description": "Version id of the visible version, the lineage reference",
+            "title": "Version Id",
+            "type": "integer"
           }
         },
         "required": [
           "valid_date",
-          "value"
+          "value",
+          "version_id",
+          "origin"
         ],
         "title": "SeriesPoint",
         "type": "object"
