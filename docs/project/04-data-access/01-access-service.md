@@ -20,7 +20,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 - Curve and series answers call the processing service (`GET /v1/curves/{curve_id}/value-quality`) for the visible values and attach the result. When processing is unavailable, values are `unchecked` and the answer is not cached as immutable.
 - The quality endpoint relays processing (`GET /v1/curves/{curve_id}/quality`) per TARGET business day: each day lists overall status, per-rule outcomes and findings (rule, severity, maturity, explanation, evidence). Answers always send `Cache-Control: no-cache` even when `as_of` is settled.
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
-- `meta.source_attribution` is required on the curve, series, versions and changes answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an attribution entry is answered `404` (not found), never without attribution.
+- `meta.source_attribution` is required on the curve, series, versions, changes and quality answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an attribution entry is answered `404` (not found), never without attribution.
 - Only `GET` is allowed (`405` otherwise).
 - CORS: only `GET` is allowed, from the origins in `ACCESS_CORS_ORIGINS`. Other origins get no `Access-Control-Allow-Origin` header.
 
@@ -89,6 +89,6 @@ devbox run -- task access:run       # access api on http://localhost:8000
 
 - Rate limiting
 - Other read endpoints beyond curves, series, versions, changes and quality
-- Transparency (lineage and run status for the frontend)
+- Run status and alerts (#139)
 - Metrics
 - Traces

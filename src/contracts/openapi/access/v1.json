@@ -541,10 +541,19 @@
             "format": "date-time",
             "title": "As Of",
             "type": "string"
+          },
+          "source_attribution": {
+            "description": "Required attribution of the source values (ESCB reuse terms); for simulated data a note that it is simulated",
+            "examples": [
+              "Source: ECB statistics"
+            ],
+            "title": "Source Attribution",
+            "type": "string"
           }
         },
         "required": [
-          "as_of"
+          "as_of",
+          "source_attribution"
         ],
         "title": "QualityMeta",
         "type": "object"

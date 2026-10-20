@@ -130,6 +130,11 @@ class QualityMeta(BaseModel):
     as_of: AwareDatetime = Field(
         description="The effective knowledge time (UTC) the quality results describe"
     )
+    source_attribution: str = Field(
+        description="Required attribution of the source values (ESCB reuse terms); "
+        "for simulated data a note that it is simulated",
+        examples=["Source: ECB statistics"],
+    )
 
 
 class QualityDaysResponse(BaseModel):

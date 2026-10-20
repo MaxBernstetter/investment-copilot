@@ -1,6 +1,7 @@
 import re
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -205,7 +206,7 @@ class FakeQualityReader:
         self.days_calls.append((curve_id, valid_from, valid_to, as_of))
         if self.days_error is not None:
             raise self.days_error
-        return self.days_result
+        return replace(self.days_result, curve_id=curve_id)
 
 
 class FakeServices:
@@ -843,6 +844,7 @@ def test_values_are_returned_unmodified(client: TestClient, services: FakeServic
         "/v1/curves/ecb-aaa-spot/maturities/10Y/observations",
         "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions",
         "/v1/curves/ecb-aaa-spot/changes",
+        "/v1/curves/ecb-aaa-spot/quality",
     ],
 )
 def test_real_curve_answers_carry_the_ecb_attribution(client: TestClient, path: str) -> None:
@@ -860,6 +862,7 @@ def test_real_curve_answers_carry_the_ecb_attribution(client: TestClient, path: 
         "/v1/curves/ecb-aaa-spot-sim/maturities/10Y/observations",
         "/v1/curves/ecb-aaa-spot-sim/maturities/10Y/observations/2026-03-12/versions",
         "/v1/curves/ecb-aaa-spot-sim/changes",
+        "/v1/curves/ecb-aaa-spot-sim/quality",
     ],
 )
 def test_simulated_curve_answers_carry_the_simulated_note(client: TestClient, path: str) -> None:
