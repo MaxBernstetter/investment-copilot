@@ -8,10 +8,12 @@ from urllib.parse import quote
 
 import httpx
 from contracts.persistence import v1
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from pydantic import ValidationError
 
 from processing.application.ports import Grid
 from processing.domain.quality import Value
+from processing.infrastructure.telemetry import Telemetry
 
 
 class PersistenceReadError(RuntimeError):
@@ -27,10 +29,17 @@ class PersistenceClient:
         timeout_seconds: float,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        telemetry: Telemetry | None = None,
     ) -> None:
         self._http = httpx.AsyncClient(
             base_url=base_url, timeout=timeout_seconds, transport=transport
         )
+        if telemetry is not None:
+            HTTPXClientInstrumentor.instrument_client(
+                self._http,
+                tracer_provider=telemetry.tracer_provider,
+                meter_provider=telemetry.meter_provider,
+            )
 
     async def __aenter__(self) -> Self:
         return self

@@ -1,8 +1,14 @@
 import asyncio
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import SpanKind, Tracer, format_trace_id
 from pydantic import SecretStr
 
 from processing.config import DatabaseSettings
@@ -73,13 +79,19 @@ def sample_check(
     )
 
 
+_NOOP_TRACER = trace.NoOpTracer()
+
+
 async def _with_store[T](
-    oracle: OracleDatabase, action: Callable[[OracleQualityStore], Awaitable[T]]
+    oracle: OracleDatabase,
+    action: Callable[[OracleQualityStore], Awaitable[T]],
+    *,
+    tracer: Tracer = _NOOP_TRACER,
 ) -> T:
     pool = create_pool(
         DatabaseSettings(dsn=oracle.dsn, password=SecretStr(APP_PASSWORD)),
     )
-    store = OracleQualityStore(pool, call_timeout_ms=30_000)
+    store = OracleQualityStore(pool, call_timeout_ms=30_000, tracer=tracer)
     try:
         return await action(store)
     finally:
@@ -259,3 +271,33 @@ def test_findings_filter_by_maturity(oracle: OracleDatabase) -> None:
         assert ten_year == all_findings
 
     asyncio.run(read())
+
+
+def test_oracle_session_carries_the_trace_id(oracle: OracleDatabase) -> None:
+    spans = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(spans))
+    tracer = provider.get_tracer("test")
+    run_id = f"otel-{uuid.uuid4().hex}"
+
+    async def action(store: OracleQualityStore) -> tuple[str, str, str]:
+        with tracer.start_as_current_span("root") as root:
+            await store.record(sample_check(run_id=run_id))
+            async with store._session("probe") as connection:
+                cursor = connection.cursor()
+                await cursor.execute(
+                    "select sys_context('USERENV','CLIENT_IDENTIFIER'),"
+                    " sys_context('USERENV','CLIENT_INFO') from dual"
+                )
+                row = await cursor.fetchone()
+        trace_id = format_trace_id(root.get_span_context().trace_id)
+        return str(row[0]), str(row[1]), trace_id
+
+    client_identifier, client_info, trace_id = asyncio.run(
+        _with_store(oracle, action, tracer=tracer)
+    )
+
+    assert client_identifier == trace_id
+    assert client_info == trace_id
+    names = {span.name for span in spans.get_finished_spans() if span.kind is SpanKind.CLIENT}
+    assert "proc_quality.record_check" in names

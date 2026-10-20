@@ -305,10 +305,10 @@ def _root_spans(spans: list[ReadableSpan]) -> list[ReadableSpan]:
     return [span for span in spans if span.name == "processing-check-quality"]
 
 
-def test_a_successful_run_flushes_spans_before_exit(
+def test_a_successful_run_flushes_spans_and_metrics_before_exit(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    telemetry, spans, _ = job_telemetry()
+    telemetry, spans, metrics = job_telemetry()
 
     result = run(
         capsys,
@@ -324,12 +324,13 @@ def test_a_successful_run_flushes_spans_before_exit(
     assert roots[0].attributes is not None
     assert roots[0].attributes["run_id"] == f"check-quality-{CURVE_ID}-{FROM}-{TO}"
     assert roots[0].attributes["curve_id"] == CURVE_ID
+    assert metrics.exported
 
 
-def test_a_failed_run_flushes_spans_before_exit(
+def test_a_failed_run_flushes_spans_and_metrics_before_exit(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    telemetry, spans, _ = job_telemetry()
+    telemetry, spans, metrics = job_telemetry()
 
     result = run(
         capsys,
@@ -342,6 +343,7 @@ def test_a_failed_run_flushes_spans_before_exit(
     roots = _root_spans(list(spans.get_finished_spans()))
     assert len(roots) == 1
     assert roots[0].status.status_code is StatusCode.ERROR
+    assert metrics.exported
 
 
 def test_summary_and_failure_lines_carry_the_root_trace_id(

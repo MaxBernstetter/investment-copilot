@@ -1,14 +1,19 @@
 """Oracle adapter: the connection pool of the PROC schema and its health check."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
 import oracledb
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind, Tracer
 
 from processing.config import DatabaseSettings
 from processing.domain.assessment import CheckedDay, DayStatus, QualityCheck, ValueStatus
 from processing.domain.quality import Finding, Rule, Severity, Status
+from processing.infrastructure.telemetry import trace_fields
 
 
 def create_pool(settings: DatabaseSettings) -> oracledb.AsyncConnectionPool:
@@ -41,14 +46,41 @@ class OracleHealth:
         return True
 
 
+_NOOP_TRACER = trace.NoOpTracer()
+
+
 class OracleQualityStore:
-    def __init__(self, pool: oracledb.AsyncConnectionPool, *, call_timeout_ms: int) -> None:
+    def __init__(
+        self,
+        pool: oracledb.AsyncConnectionPool,
+        *,
+        call_timeout_ms: int,
+        tracer: Tracer = _NOOP_TRACER,
+    ) -> None:
         self._pool = pool
         self._call_timeout_ms = call_timeout_ms
+        self._tracer = tracer
+
+    @asynccontextmanager
+    async def _session(self, operation: str) -> AsyncIterator[oracledb.AsyncConnection]:
+        """A pooled connection inside a CLIENT span; the trace id goes to Oracle's session info.
+
+        Hand-written because no maintained instrumentation covers async oracledb pools or callfunc.
+        """
+        with self._tracer.start_as_current_span(
+            f"proc_quality.{operation}",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system.name": "oracle", "db.operation.name": operation},
+        ):
+            trace_id = trace_fields().get("trace_id") or None
+            async with self._pool.acquire() as connection:
+                connection.call_timeout = self._call_timeout_ms
+                connection.client_identifier = trace_id
+                connection.clientinfo = trace_id
+                yield connection
 
     async def record(self, check: QualityCheck) -> None:
-        async with self._pool.acquire() as connection:
-            connection.call_timeout = self._call_timeout_ms
+        async with self._session("record_check") as connection:
             days = await _day_status_list(connection, check.days)
             values = await _value_status_list(connection, check.values)
             findings = await _finding_list(connection, check.findings)
@@ -75,8 +107,7 @@ class OracleQualityStore:
     async def checked_days(
         self, curve_id: str, valid_from: date, valid_to: date, as_of: datetime
     ) -> list[CheckedDay]:
-        async with self._pool.acquire() as connection:
-            connection.call_timeout = self._call_timeout_ms
+        async with self._session("get_checked_days") as connection:
             cursor = connection.cursor()
             result = await cursor.callfunc(
                 "proc.proc_quality.get_checked_days",
@@ -103,8 +134,7 @@ class OracleQualityStore:
         *,
         maturity: str | None = None,
     ) -> list[Finding]:
-        async with self._pool.acquire() as connection:
-            connection.call_timeout = self._call_timeout_ms
+        async with self._session("get_findings") as connection:
             cursor = connection.cursor()
             result = await cursor.callfunc(
                 "proc.proc_quality.get_findings",
@@ -129,8 +159,7 @@ class OracleQualityStore:
         *,
         maturity: str | None = None,
     ) -> list[ValueStatus]:
-        async with self._pool.acquire() as connection:
-            connection.call_timeout = self._call_timeout_ms
+        async with self._session("get_value_quality") as connection:
             cursor = connection.cursor()
             result = await cursor.callfunc(
                 "proc.proc_quality.get_value_quality",
@@ -155,8 +184,7 @@ class OracleQualityStore:
         ]
 
     async def current_time(self) -> datetime:
-        async with self._pool.acquire() as connection:
-            connection.call_timeout = self._call_timeout_ms
+        async with self._session("current_time") as connection:
             now = await connection.cursor().callfunc(
                 "proc.proc_quality.current_time", oracledb.DB_TYPE_TIMESTAMP, []
             )

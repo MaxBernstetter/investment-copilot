@@ -8,22 +8,35 @@ from contextlib import asynccontextmanager
 from functools import partial
 
 from fastapi import FastAPI
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
 from processing.config import ApiSettings, DatabaseSettings
 from processing.facade.rest.app import Services, create_app
 from processing.infrastructure.proc import OracleHealth, OracleQualityStore, create_pool
+from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 
 
 def create_app_from_environment() -> FastAPI:
-    return create_app(partial(proc_services, ApiSettings().db))
+    telemetry = setup_telemetry()
+    app = create_app(partial(proc_services, ApiSettings().db, telemetry))
+    FastAPIInstrumentor.instrument_app(
+        app,
+        tracer_provider=telemetry.tracer_provider,
+        meter_provider=telemetry.meter_provider,
+    )
+    return app
 
 
 @asynccontextmanager
-async def proc_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
+async def proc_services(
+    settings: DatabaseSettings, telemetry: Telemetry
+) -> AsyncIterator[Services]:
     pool = create_pool(settings)
-    store = OracleQualityStore(pool, call_timeout_ms=settings.call_timeout_ms)
+    store = OracleQualityStore(
+        pool, call_timeout_ms=settings.call_timeout_ms, tracer=telemetry.tracer
+    )
     try:
         yield Services(
             OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable,
@@ -32,3 +45,4 @@ async def proc_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
         )
     finally:
         await pool.close()
+        telemetry.shutdown()
