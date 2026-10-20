@@ -97,7 +97,7 @@
           "version_id": null,
           "value": null,
           "explanation": "No value was published for this TARGET business day.",
-          "evidence": "No value was published for 2026-10-09."
+          "evidence": "No value for any maturity on 2026-10-09"
         }
       ]
     },
@@ -165,7 +165,7 @@
           "version_id": null,
           "value": null,
           "explanation": "No value for this maturity on a TARGET business day on which other maturities have one.",
-          "evidence": "No value for 7Y on 2026-10-13."
+          "evidence": "No 7Y value on 2026-10-13"
         }
       ]
     },
@@ -233,7 +233,7 @@
           "version_id": 1,
           "value": 1.74,
           "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
-          "evidence": "2Y moved \u221227.0 bp, from 2.010\u202f% to 1.740\u202f%."
+          "evidence": "1.74 % on 2026-10-15 after 2.01 % on 2026-10-14 (-27.0 bp)"
         }
       ]
     },
@@ -272,7 +272,7 @@
           "version_id": 1,
           "value": 3.375,
           "explanation": "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data.",
-          "evidence": "10Y moved +56.0 bp, from 2.815\u202f% to 3.375\u202f%."
+          "evidence": "3.38 % on 2026-10-16 after 2.81 % on 2026-10-15 (+56.0 bp)"
         },
         {
           "rule": "jump",
@@ -281,7 +281,7 @@
           "version_id": 1,
           "value": 3.43,
           "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
-          "evidence": "30Y moved +31.0 bp, from 3.120\u202f% to 3.430\u202f%."
+          "evidence": "3.43 % on 2026-10-16 after 3.12 % on 2026-10-15 (+31.0 bp)"
         }
       ]
     }
