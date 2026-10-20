@@ -3,7 +3,7 @@
 Nested values use ``__``, for example ``PROCESSING_DB__DSN`` and ``PROCESSING_DB__PASSWORD``.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,13 @@ class DatabaseSettings(BaseModel):
     pool_max: int = Field(default=4, ge=1)
     acquire_timeout_ms: int = Field(default=5_000, gt=0)
     call_timeout_ms: int = Field(default=30_000, gt=0)
+
+
+class PersistenceSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    url: AnyHttpUrl
+    timeout_seconds: float = Field(default=30.0, gt=0)
 
 
 class ApiSettings(BaseSettings):

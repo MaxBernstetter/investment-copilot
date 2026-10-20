@@ -5,6 +5,7 @@ description = "YieldLens processing service: quality checks on the published cur
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115",
+    "httpx>=0.28",
     "oracledb>=3.0",
     "pydantic-settings>=2.8",
     "python-dateutil>=2.9",
