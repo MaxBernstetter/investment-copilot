@@ -85,9 +85,31 @@ test.describe('visual snapshots §7', () => {
   test('S4 history drawer 10Y simulated', async ({ page }) => {
     await page.goto('/?curve=ecb-aaa-spot-sim')
     await waitForCurveLoaded(page)
+    const drawerHeading = page.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })
+    // Wait for finite CSS transitions and animations, so axe samples settled colours.
+    const settle = () =>
+      page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+            .map((a) => a.finished.catch(() => undefined)),
+        ),
+      )
+    for (const scheme of ['light', 'dark'] as const) {
+      await page.setViewportSize(AXE_VIEWPORT)
+      await setColorScheme(page, scheme)
+      await settle()
+      await page.getByRole('button', { name: 'History 10Y' }).click()
+      await expect(drawerHeading).toBeVisible()
+      await settle()
+      await runAxe(page)
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).toBeHidden()
+    }
+    await setColorScheme(page, 'light')
     await page.getByRole('button', { name: 'History 10Y' }).click()
-    await expect(page.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeVisible()
-    await assertAxeAt(page, ['light', 'dark'])
+    await expect(drawerHeading).toBeVisible()
     await captureSnapshots(page, 'S4', ['light'])
   })
 
