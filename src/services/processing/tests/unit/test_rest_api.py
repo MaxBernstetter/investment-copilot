@@ -1,14 +1,18 @@
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from functools import partial
 
+import pytest
 from contracts.processing.v1 import QUALITY_DAYS_PATH, VALUE_QUALITY_PATH
 from fastapi.testclient import TestClient
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.trace import SpanKind
+from pydantic import SecretStr
 
+from processing.api import create_app_from_environment, instrument_app, proc_services
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
+from processing.config import DatabaseSettings
 from processing.facade.rest.app import Services, create_app
 from processing.infrastructure.telemetry import Telemetry
 from tests.unit.fakes import FakeQualityStore, job_telemetry
@@ -39,11 +43,7 @@ def _client(
 
     app = create_app(services)
     if telemetry is not None:
-        FastAPIInstrumentor.instrument_app(
-            app,
-            tracer_provider=telemetry.tracer_provider,
-            meter_provider=telemetry.meter_provider,
-        )
+        instrument_app(app, telemetry)
     return TestClient(app)
 
 
@@ -143,3 +143,46 @@ def test_fastapi_requests_are_traced() -> None:
     servers = [span for span in spans.get_finished_spans() if span.kind is SpanKind.SERVER]
     assert len(servers) == 1
     telemetry.shutdown()
+
+
+class _FakePool:
+    async def close(self) -> None:
+        return None
+
+
+def test_the_lifespan_shuts_telemetry_down_after_the_spans_are_recorded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, spans, _ = job_telemetry()
+    shutdowns: list[bool] = []
+
+    class RecordingTelemetry(Telemetry):
+        def shutdown(self) -> None:
+            shutdowns.append(True)
+            super().shutdown()
+
+    telemetry = RecordingTelemetry(base.tracer_provider, base.meter_provider)
+    monkeypatch.setattr("processing.api.create_pool", lambda _settings: _FakePool())
+    settings = DatabaseSettings(dsn="oracle.test:1521/FREEPDB1", password=SecretStr("x"))
+    app = create_app(partial(proc_services, settings, telemetry))
+    instrument_app(app, telemetry)
+
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+    assert shutdowns == [True]
+    assert [span for span in spans.get_finished_spans() if span.kind is SpanKind.SERVER]
+
+
+def test_the_factory_instruments_the_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    monkeypatch.setenv("PROCESSING_DB__DSN", "oracle.test:1521/FREEPDB1")
+    monkeypatch.setenv("PROCESSING_DB__PASSWORD", "not-a-secret")
+    monkeypatch.setattr(
+        "processing.api.instrument_app", lambda app, telemetry: calls.append("instrumented")
+    )
+
+    create_app_from_environment()
+
+    assert calls == ["instrumented"]

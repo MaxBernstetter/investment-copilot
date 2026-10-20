@@ -21,16 +21,18 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import Tracer
 
-OTLP_ENDPOINT_VARIABLES = (
-    "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-    "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-)
+TRACES_ENDPOINT_VARIABLES = ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+METRICS_ENDPOINT_VARIABLES = ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
 
 
-def otlp_configured(environ: Mapping[str, str]) -> bool:
-    """True when any OTLP endpoint variable is set to a non-empty value."""
-    return any(environ.get(name) for name in OTLP_ENDPOINT_VARIABLES)
+def traces_configured(environ: Mapping[str, str]) -> bool:
+    """True when a trace endpoint variable is set to a non-empty value."""
+    return any(environ.get(name) for name in TRACES_ENDPOINT_VARIABLES)
+
+
+def metrics_configured(environ: Mapping[str, str]) -> bool:
+    """True when a metric endpoint variable is set to a non-empty value."""
+    return any(environ.get(name) for name in METRICS_ENDPOINT_VARIABLES)
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,16 +60,15 @@ def setup_telemetry(
     metric_readers: Sequence[MetricReader] = (),
     environ: Mapping[str, str] = os.environ,
 ) -> Telemetry:
-    configured = otlp_configured(environ)
     resource = Resource.create()
     tracer_provider = TracerProvider(resource=resource)
     if span_exporter is not None:
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-    elif configured:
+    elif traces_configured(environ):
         tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
 
     readers: list[MetricReader] = list(metric_readers)
-    if not readers and configured:
+    if not readers and metrics_configured(environ):
         readers.append(PeriodicExportingMetricReader(OTLPMetricExporter()))
     meter_provider = MeterProvider(resource=resource, metric_readers=readers)
     return Telemetry(tracer_provider, meter_provider)

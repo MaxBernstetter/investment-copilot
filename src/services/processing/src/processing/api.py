@@ -21,12 +21,17 @@ from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 def create_app_from_environment() -> FastAPI:
     telemetry = setup_telemetry()
     app = create_app(partial(proc_services, ApiSettings().db, telemetry))
+    instrument_app(app, telemetry)
+    return app
+
+
+def instrument_app(app: FastAPI, telemetry: Telemetry) -> None:
+    """Trace the requests of the app and record their metrics with the given providers."""
     FastAPIInstrumentor.instrument_app(
         app,
         tracer_provider=telemetry.tracer_provider,
         meter_provider=telemetry.meter_provider,
     )
-    return app
 
 
 @asynccontextmanager
