@@ -280,7 +280,7 @@ describe('App', () => {
     await user.keyboard('{Enter}')
     expect(screen.getByLabelText(/Known as of/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Now' })).toBeVisible()
-    expect(screen.getByText(/Later corrections are hidden/)).toBeVisible()
+    expect(screen.getByText(/Choose Now to see the latest knowledge/)).toBeVisible()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByLabelText(/Known as of/)).not.toBeInTheDocument()
