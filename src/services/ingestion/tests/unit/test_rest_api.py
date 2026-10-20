@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi.testclient import TestClient
 
 from ingestion.facade.rest.app import Services, create_app
+from tests.stub_run_history import StubRunHistory
 
 
 async def _reachable() -> bool:
@@ -17,7 +18,7 @@ async def _unreachable() -> bool:
 def _client(is_ready: Callable[[], Awaitable[bool]] = _reachable) -> TestClient:
     @asynccontextmanager
     async def services() -> AsyncIterator[Services]:
-        yield Services(is_ready)
+        yield Services(is_ready, StubRunHistory())
 
     return TestClient(create_app(services))
 
