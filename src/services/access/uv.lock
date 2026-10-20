@@ -9,6 +9,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "opentelemetry-api" },
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
     { name = "uvicorn" },
@@ -28,6 +29,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "opentelemetry-api", specifier = ">=1.30" },
     { name = "pydantic-settings", specifier = ">=2.8" },
     { name = "python-json-logger", specifier = ">=3.3" },
     { name = "uvicorn", specifier = ">=0.34" },

@@ -42,6 +42,9 @@ All errors are RFC 9457 problem details (`application/problem+json`).
 | `404` | Not found | The curve is unknown | Persistence (or processing, for the quality endpoint) `404`, detail passed through |
 | `422` | Invalid request | Malformed parameters (before persistence is called), or persistence rejects the query | Own validation, or persistence (or processing, for the quality endpoint) `422` with its detail |
 | `503` | Service unavailable | Persistence is unreachable, times out, answers `5xx` or sends an unexpected body; or the quality endpoint cannot reach processing | Transport errors and other statuses; quality reads use detail *The quality service is not reachable; try again later.* |
+| `500` | Internal server error | Any unexpected error | Own; generic detail, `trace_id` when traced |
+
+A `500` raised by an unexpected error skips the CORS middleware, so browsers cannot read its body; the frontend shows its generic error.
 
 The OpenAPI document is generated from the app (`task access:openapi`) and published at `src/contracts/openapi/access/v1.json`; a unit test fails when it is stale.
 
