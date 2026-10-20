@@ -184,7 +184,7 @@ def test_quality_days_response_round_trips() -> None:
                 }
             ],
         },
-        "meta": {"as_of": "2026-10-08T06:00:00Z"},
+        "meta": {"as_of": "2026-10-08T06:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
     response = v1.QualityDaysResponse.model_validate(body)

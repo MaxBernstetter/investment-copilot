@@ -129,7 +129,10 @@ def to_quality_days_response(days: QualityDays) -> v1.QualityDaysResponse:
                 for day in days.days
             ],
         ),
-        meta=v1.QualityMeta(as_of=days.as_of.astimezone(UTC)),
+        meta=v1.QualityMeta(
+            as_of=days.as_of.astimezone(UTC),
+            source_attribution=source_attribution(days.curve_id),
+        ),
     )
 
 
