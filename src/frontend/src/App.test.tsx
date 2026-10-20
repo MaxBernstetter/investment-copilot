@@ -1,20 +1,39 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { localInputToUtc } from './asOf'
 import CurveView from './curve/CurveView'
+import { formatUtc } from './format'
 import { METHODOLOGY_URL } from './config'
 import { render } from './test/render'
 
+// Each view shows the knowledge time it received, so the tests can check what every tab sees.
 vi.mock('./curve/CurveView', () => ({
-  default: vi.fn(() => <p>Curve view</p>),
+  default: vi.fn(({ asOf }: { asOf?: string }) => (
+    <>
+      <p>Curve view</p>
+      <p>{`Curve knows ${asOf ?? 'live'}`}</p>
+    </>
+  )),
 }))
 
 vi.mock('./series/SeriesView', () => ({
-  default: () => <p>Time series view</p>,
+  default: ({ asOf }: { asOf?: string }) => (
+    <>
+      <p>Time series view</p>
+      <p>{`Series knows ${asOf ?? 'live'}`}</p>
+    </>
+  ),
 }))
 
 vi.mock('./changes/ChangesView', () => ({
-  default: () => <p>Changes view</p>,
+  default: ({ asOf }: { asOf?: string }) => (
+    <>
+      <p>Changes view</p>
+      <p>{`Changes know ${asOf ?? 'live'}`}</p>
+    </>
+  ),
 }))
 
 /** The Simulated badge in the header (the curve control shows the same word as a radio label). */
@@ -230,6 +249,75 @@ describe('App', () => {
 
     fireEvent.click(toggle)
     expect(document.documentElement).toHaveAttribute('data-mantine-color-scheme', 'light')
+  })
+
+  it('shows Live in the header by default and the past time when one is set', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(screen.getByRole('button', { name: 'Live' })).toHaveAttribute('data-variant', 'light')
+
+    cleanup()
+    window.history.replaceState(null, '', '/?as_of=2026-10-19T18:49:25Z')
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('As of 19 Oct 2026, 18:49 UTC')
+    expect(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49 UTC' })).toHaveAttribute('data-variant', 'filled')
+    expect(screen.getByText('Curve knows 2026-10-19T18:49:25Z')).toBeInTheDocument()
+  })
+
+  it('opens the known-as-of popover with Enter and closes it with Esc', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    const user = userEvent.setup()
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    const status = screen.getByRole('button', { name: 'Live' })
+    status.focus()
+
+    await user.keyboard('{Enter}')
+    expect(screen.getByLabelText(/Known as of/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Now' })).toBeVisible()
+    expect(screen.getByText(/Later corrections are hidden/)).toBeVisible()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByLabelText(/Known as of/)).not.toBeInTheDocument()
+    expect(status).toHaveFocus()
+
+    await user.keyboard(' ')
+    expect(screen.getByLabelText(/Known as of/)).toBeVisible()
+  })
+
+  it('shares a change of the knowledge time with every view', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    const chosen = '2026-10-01T12:00:00'
+    const asOf = localInputToUtc(chosen)
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Live' }))
+    fireEvent.change(screen.getByLabelText(/Known as of/), { target: { value: chosen } })
+
+    expect(screen.getByText(`Curve knows ${asOf}`)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(`As of ${formatUtc(asOf, 'minutes')}`)
+    expect(new URLSearchParams(window.location.search).get('as_of')).toBe(asOf)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Time series' }))
+    expect(screen.getByText(`Series knows ${asOf}`)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Changes' }))
+    expect(screen.getByText(`Changes know ${asOf}`)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Now' }))
+
+    expect(screen.getByText('Changes know live')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(new URLSearchParams(window.location.search).has('as_of')).toBe(false)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Curve' }))
+    expect(screen.getByText('Curve knows live')).toBeInTheDocument()
   })
 
   it('passes the chosen curve to the curve view', async () => {

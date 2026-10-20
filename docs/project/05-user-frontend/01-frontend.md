@@ -40,7 +40,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 - **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date is listed with a "Remove <date>" button.
 - **Chart:** the shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
-- **Data:** each pinned date is fetched with the current `as_of`, and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
+- **Data:** each pinned date is fetched with the current `as_of` (from `App`), and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
 - **Scope:** overlays compare valid dates only; countries are not overlaid.
 
 | Path | Content |
@@ -57,7 +57,7 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 - **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
 - **Chart:** a Mantine line over valid dates, in valid-date order, with a brush below to narrow the range (`curveType` linear, colour `CHART_COLORS[0]`).
-- **Known as of:** the same control and `as_of` URL parameter as the curve view, so the choice carries across both views.
+- **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
 - **Navigation:** the header tabs "Curve", "Time series" and "Changes" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
@@ -85,7 +85,7 @@ The "Changes" tab shows which values differ between two knowledge states, via `G
 
 - **Range:** "From" and "To" are valid dates, defaulting to the last 365 days up to today (UTC).
 - **Compare from:** a required "Compare from (known as of)" `datetime-local` input, the earlier knowledge time. Until it is set the view asks for it and sends no request.
-- **To:** the shared "Known as of" control and `as_of` URL parameter; "Now" (the default) compares with the latest knowledge.
+- **To:** the shared "Known as of" status and `as_of` URL parameter; "Now" (the default) compares with the latest knowledge.
 - **Table:** one row per changed value in API order, with valid date, maturity, old and new value (yield in percent), change in basis points (signed, one decimal), reason, source and "Known from". Old value and source show "–" when absent; the change shows "–" when the value was not known at the earlier time. Reasons are badges: `correction` orange, `revision` blue, others gray.
 - **Empty:** "No changes between these knowledge times."
 - **Errors:** 404 and 422 show the problem `detail`; 503 or an unreachable API shows the offline alert.
@@ -108,7 +108,7 @@ The "Changes" tab shows which values differ between two knowledge states, via `G
 Each shown value can be traced to the versions it had, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions`.
 
 - **Entry:** the curve view has a "History <maturity>" button for each maturity with a value in the shown curve. The panel opens below the buttons and closes with "Close".
-- **Scope:** it shows the maturity, the valid date currently shown and the current "Known as of" time (`as_of`). It refetches when `as_of` changes.
+- **Scope:** it shows the maturity, the valid date currently shown and the current "Known as of" time (`as_of`, from `App`). It refetches when `as_of` changes.
 - **Table:** one row per version, oldest first as the API returns them, with value, "Known from", "Known until" ("current" while the version is still current), reason, source, run and delivery. Missing source or delivery shows "–".
 - **Errors:** as for the curve view; 404 shows "No data known for this value." (or "No data known as of …" with `as_of`); 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 
@@ -123,17 +123,20 @@ The version shown in the footer is `version` in `package.json` (`0.1.0`), define
 
 ## Time travel
 
-The "Known as of" control shows the curve as it was known at a chosen time (the API's `as_of`, the transaction-time axis, separate from the valid date).
+The "Known as of" time shows every view as it was known at a chosen time (the API's `as_of`, the transaction-time axis, separate from the valid date). `App` holds the one value and passes it to each view as the `asOf` prop, so a change on one tab applies to all tabs.
 
-- **Control:** a `datetime-local` input, read as local time and sent as UTC ISO. "Now" clears it and returns to the latest knowledge.
+- **Status:** a header button, shown once the backend is online, labelled "Live" (blue, light) when no time is set, or "As of 19 Oct 2026, 18:49 UTC" (yellow, filled) for a past time. Below `sm` the button shows only the clock time (`18:49 UTC`) to fit the header; its accessible name keeps the full label. It sits in a `role="status"` region, so changes are announced.
+- **Popover:** the button opens a Popover (focus is trapped inside it, Esc closes it and returns focus to the button; Enter or Space opens it) with the "Known as of" `datetime-local` input (read as local time, sent as UTC ISO; description "Your local time"), a "Now" button that returns to the latest knowledge, and an explanation of the choice.
 - **URL:** the choice is kept in the `as_of` query parameter, so a link reproduces the view. A missing or unparseable `as_of` is ignored. Changes use `history.replaceState`, so they add no history entries.
-- **Banner:** while `as_of` is set the page shows "Showing the curve as known on …" in UTC.
-- **No data:** if nothing was known at that time (404), the page shows "No data known as of …"; a 422 shows the problem `detail`.
+- **No data:** if nothing was known at that time (404), the view shows "No data known as of …"; a 422 shows the problem `detail`.
+- **Times:** knowledge times are shown in UTC by `formatUtc` (`src/format.ts`).
 
 | Path | Content |
 |---|---|
 | `src/asOf.ts` | Read and write `as_of` in the URL; local and UTC conversion |
-| `src/curve/AsOfControl.tsx` | "Known as of" input and "Now" button |
+| `src/layout/AsOfStatus.tsx` | Header status button and popover |
+| `src/curve/AsOfControl.tsx` | "Known as of" input and "Now" button (inside the popover) |
+| `src/format.ts` | `formatUtc`, `formatBp` (signed basis points, true minus) and `formatYield` (3 dp) |
 
 ## Curve choice
 
@@ -157,7 +160,7 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow footer. The default colour scheme is light; the header's toggle switches to dark and back.
 
 - **Display range:** desktop only, 1280–1920 px wide (decided by the user on 2026-10-20). Phone widths (390 px) are not supported. The Navbar below `sm` is legacy and kept as is.
-- **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs (a `nav` labelled "Views", from `sm`) and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, and the colour-scheme toggle, an `ActionIcon` with `aria-label` "Toggle colour scheme". The as-of status will go to the right of the toggle.
+- **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs (a `nav` labelled "Views", from `sm`) and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, the "Known as of" status (see Time travel), and the colour-scheme toggle, an `ActionIcon` with `aria-label` "Toggle colour scheme".
 - **Navbar (below `sm`):** a `nav` labelled "Views" with one Mantine `NavLink` per view (the active one has `aria-current="page"`) and the curve choice, opened by the Burger and closed after a choice.
 - **Body:** `Container` at 1200 px; the page title is its `h1` (`PageHeader`); sections are cards. The background comes from the theme.
 - **Footer:** below the body, not fixed. Left: the ECB source and copyright notice (or, for the simulated curve, that the data is scenario data). Right: API docs, Methodology (the plausibility note on GitHub), GitHub and `v{version} · {commit}`.
@@ -167,7 +170,7 @@ The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow fo
 |---|---|
 | `src/main.tsx` | Entry point, renders `App` (light colour scheme by default) |
 | `src/App.tsx` | App shell, backend state, simulated note, views |
-| `src/layout/AppHeader.tsx` | Header, curve choice, colour-scheme toggle, view tab list (`VIEWS`) |
+| `src/layout/AppHeader.tsx` | Header, curve choice, as-of status, colour-scheme toggle, view tab list (`VIEWS`) |
 | `src/layout/AppNavbar.tsx` | Navbar for small screens |
 | `src/layout/AppFooter.tsx` | Footer: source, links and version |
 | `src/layout/PageHeader.tsx` | Page title (`h1`), subtitle and actions |

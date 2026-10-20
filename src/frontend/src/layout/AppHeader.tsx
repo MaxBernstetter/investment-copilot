@@ -13,6 +13,7 @@ import {
 } from '@mantine/core'
 import { IconMoon, IconSun } from '@tabler/icons-react'
 import { CURVES } from '../curve/curves'
+import AsOfStatus from './AsOfStatus'
 
 /** The views, in tab order. The navbar on small screens lists the same views. */
 export const VIEWS = [
@@ -65,6 +66,8 @@ type AppHeaderProps = {
   curveId: string
   onCurveChange: (id: string) => void
   simulated: boolean
+  asOf: string | undefined
+  onAsOfChange: (asOf: string | undefined) => void
   navOpened: boolean
   onToggleNav: () => void
 }
@@ -74,6 +77,8 @@ export default function AppHeader({
   curveId,
   onCurveChange,
   simulated,
+  asOf,
+  onAsOfChange,
   navOpened,
   onToggleNav,
 }: AppHeaderProps) {
@@ -114,7 +119,7 @@ export default function AppHeader({
             Simulated
           </Badge>
         )}
-        {/* The as-of status goes here (MR 2). */}
+        {online && <AsOfStatus asOf={asOf} onChange={onAsOfChange} />}
         <ColorSchemeToggle />
       </Group>
     </Group>

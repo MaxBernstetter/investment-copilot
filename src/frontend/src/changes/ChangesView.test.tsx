@@ -76,9 +76,8 @@ describe('ChangesView', () => {
     expect(screen.getByText('correction')).toBeInTheDocument()
   })
 
-  it('passes curve, range, since and as_of to the fetch', async () => {
-    window.history.replaceState(null, '', '/?as_of=2026-10-18T09:00:00Z')
-    render(<ChangesView curveId="ecb-aaa-spot" />)
+  it('passes curve, range, since and asOf to the fetch', async () => {
+    render(<ChangesView curveId="ecb-aaa-spot" asOf="2026-10-18T09:00:00Z" />)
 
     fireEvent.change(screen.getByLabelText('Compare from (known as of)'), { target: { value: SINCE_INPUT } })
 

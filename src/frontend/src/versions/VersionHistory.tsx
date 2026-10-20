@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Paper, Stack, Table, Text, Title } from '@mantine/core'
+import { formatUtc } from '../format'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 
 type VersionHistoryProps = {
@@ -11,10 +12,6 @@ type VersionHistoryProps = {
 }
 
 const EMPTY = '–'
-
-function utc(iso: string): string {
-  return new Date(iso).toUTCString()
-}
 
 export default function VersionHistory({ curveId, maturity, validDate, asOf, onClose }: VersionHistoryProps) {
   const [result, setResult] = useState<VersionsResult | undefined>(undefined)
@@ -59,8 +56,8 @@ export default function VersionHistory({ curveId, maturity, validDate, asOf, onC
                 {result.versions.data.versions.map((version) => (
                   <Table.Tr key={version.version_id}>
                     <Table.Td>{version.value}</Table.Td>
-                    <Table.Td>{utc(version.known_from)}</Table.Td>
-                    <Table.Td>{version.known_to === null ? 'current' : utc(version.known_to)}</Table.Td>
+                    <Table.Td>{formatUtc(version.known_from)}</Table.Td>
+                    <Table.Td>{version.known_to === null ? 'current' : formatUtc(version.known_to)}</Table.Td>
                     <Table.Td>{version.change_reason}</Table.Td>
                     <Table.Td>{version.source_id ?? EMPTY}</Table.Td>
                     <Table.Td>{version.run_id}</Table.Td>
@@ -81,7 +78,7 @@ export default function VersionHistory({ curveId, maturity, validDate, asOf, onC
             No data known for this value.
           </Alert>
         )}
-        {result?.kind === 'not-found' && asOf && <Text>No data known as of {utc(asOf)}</Text>}
+        {result?.kind === 'not-found' && asOf && <Text>No data known as of {formatUtc(asOf)}</Text>}
         {(result?.kind === 'invalid' || result?.kind === 'error') && (
           <Alert color="red" role="alert">
             {result.detail}
