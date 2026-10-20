@@ -26,6 +26,10 @@ The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`)
 
 Logs are JSON lines on stderr (`log_config.json`). Every line logged inside a span carries `trace_id` and `span_id`; the job's summary and failure lines carry the ids of its root span.
 
+## Errors
+
+Errors are RFC 9457 problems. An unexpected error is a `500` problem (*Internal server error*) with a generic detail and `trace_id` when traced; the exception and traceback are logged at ERROR.
+
 ## Configuration
 
 Read from environment variables with the prefix `PROCESSING_`, validated at startup. The database settings are nested with `__`:
