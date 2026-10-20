@@ -24,11 +24,16 @@ def test_the_app_user_has_only_create_session(oracle: OracleDatabase) -> None:
     with oracle.connect_as_app() as connection, connection.cursor() as cursor:
         cursor.execute("select privilege from session_privs")
         session_privileges = {row[0] for row in cursor.fetchall()}
-        cursor.execute("select table_name from user_tab_privs")
-        table_privileges = cursor.fetchall()
+        # The default INHERIT PRIVILEGES entry on the user itself belongs to PUBLIC,
+        # so it is not something proc_app received: only rows granted to proc_app count.
+        cursor.execute(
+            "select privilege, owner || '.' || table_name from user_tab_privs"
+            " where grantee = 'PROC_APP'"
+        )
+        granted_to_app = cursor.fetchall()
 
     assert session_privileges == {"CREATE SESSION"}
-    assert table_privileges == []
+    assert granted_to_app == []
 
 
 def test_the_app_user_cannot_read_the_tables(oracle: OracleDatabase) -> None:
