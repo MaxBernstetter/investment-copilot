@@ -110,7 +110,7 @@ export default function AppHeader({
           </Box>
         )}
         {online && simulated && (
-          <Badge color="orange" variant="filled">
+          <Badge color="orange.6" variant="filled">
             Simulated
           </Badge>
         )}

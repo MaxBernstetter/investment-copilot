@@ -4,11 +4,11 @@ import { MantineProvider } from '@mantine/core'
 import '@mantine/core/styles.css'
 import '@mantine/charts/styles.css'
 import App from './App'
-import { theme } from './theme'
+import { cssVariablesResolver, theme } from './theme'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="light">
       <App />
     </MantineProvider>
   </StrictMode>,

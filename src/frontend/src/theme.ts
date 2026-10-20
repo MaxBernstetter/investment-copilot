@@ -1,10 +1,17 @@
-import { Alert, AppShell, Badge, Card, Table, Title, Tooltip, createTheme, rem } from '@mantine/core'
+import { Alert, AppShell, Badge, Card, Table, Title, Tooltip, createTheme, rem, type CSSVariablesResolver } from '@mantine/core'
 
 const sans =
   'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 
 /** Chart series colours in fixed order, the same in light and dark (design guidelines T5). */
 export const CHART_COLORS = ['blue.8', 'orange.8', 'teal.8', 'grape.8', 'pink.8', 'lime.9'] as const
+
+/** Dimmed text is darkened (light) or lightened (dark) so it meets 4.5:1 contrast (A1). */
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: { '--mantine-color-dimmed': 'var(--mantine-color-gray-7)' },
+  dark: { '--mantine-color-dimmed': 'var(--mantine-color-dark-1)' },
+})
 
 export const theme = createTheme({
   primaryColor: 'blue',

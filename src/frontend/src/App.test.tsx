@@ -37,13 +37,24 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Backend offline: the YieldLens API is not reachable. Try again later.',
-    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+    expect(screen.getByRole('alert')).toHaveTextContent('The YieldLens API is not reachable. Try again in a moment.')
+    expect(screen.getByRole('heading', { level: 1, name: 'Service unavailable' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.getByText('YieldLens')).toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
     expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  })
+
+  it('shows one h1 while the health check runs', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+
+    render(<App />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Connecting' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('exposes the page landmarks and no YieldLens heading', async () => {
@@ -165,6 +176,11 @@ describe('App', () => {
     expect(within(footer).getByRole('link', { name: 'ECB copyright notice' })).toHaveAttribute(
       'href',
       'https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html',
+    )
+    expect(within(footer).getByRole('link', { name: 'ECB statistics' })).toHaveAttribute('data-underline', 'always')
+    expect(within(footer).getByRole('link', { name: 'ECB copyright notice' })).toHaveAttribute(
+      'data-underline',
+      'always',
     )
     expect(within(footer).getByText('v0.1.0 · dev')).toBeInTheDocument()
   })

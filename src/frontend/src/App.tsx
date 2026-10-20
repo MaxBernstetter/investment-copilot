@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AppShell, Alert, Button, Container, Group, Loader, Stack, Tabs, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconInfoCircle } from '@tabler/icons-react'
+import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
 import ChangesView from './changes/ChangesView'
 import AppFooter from './layout/AppFooter'
 import AppHeader from './layout/AppHeader'
 import AppNavbar from './layout/AppNavbar'
+import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
 import { curveById, readCurveId, writeCurveId } from './curve/curves'
 import SeriesView from './series/SeriesView'
@@ -79,20 +80,26 @@ export default function App() {
         <AppShell.Main>
           <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
             {state === 'checking' && (
-              <Group gap="xs">
-                <Loader size="sm" />
-                <Text>Loading…</Text>
-              </Group>
+              <Stack gap="lg">
+                <PageHeader title="Connecting" />
+                <Group gap="xs">
+                  <Loader size="sm" />
+                  <Text>Loading…</Text>
+                </Group>
+              </Stack>
             )}
             {state === 'offline' && (
-              <Alert color="red" role="alert">
-                <Stack gap="xs" align="flex-start">
-                  <Text size="sm">Backend offline: the YieldLens API is not reachable. Try again later.</Text>
-                  <Button variant="light" size="xs" onClick={retry}>
-                    Try again
-                  </Button>
-                </Stack>
-              </Alert>
+              <Stack gap="lg">
+                <PageHeader title="Service unavailable" />
+                <Alert color="red" role="alert" title="Backend offline" icon={<IconAlertTriangle size={18} />}>
+                  <Stack gap="xs" align="flex-start">
+                    <Text size="sm">The YieldLens API is not reachable. Try again in a moment.</Text>
+                    <Button variant="light" size="xs" onClick={retry}>
+                      Try again
+                    </Button>
+                  </Stack>
+                </Alert>
+              </Stack>
             )}
             {online && (
               <Stack gap="lg">

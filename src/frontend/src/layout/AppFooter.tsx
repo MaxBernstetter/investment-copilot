@@ -17,9 +17,9 @@ export default function AppFooter({ simulated }: AppFooterProps) {
               'Scenario data, not published by the ECB.'
             ) : (
               <>
-                Source: <Anchor size="xs" href="https://data.ecb.europa.eu/">ECB statistics</Anchor>, euro area AAA
+                Source: <Anchor size="xs" href="https://data.ecb.europa.eu/" underline="always">ECB statistics</Anchor>, euro area AAA
                 government bond spot rates. Reuse with attribution, see the{' '}
-                <Anchor size="xs" href="https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html">
+                <Anchor size="xs" href="https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html" underline="always">
                   ECB copyright notice
                 </Anchor>
                 .
