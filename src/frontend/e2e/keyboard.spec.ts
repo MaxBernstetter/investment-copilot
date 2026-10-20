@@ -19,6 +19,7 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
   await page.keyboard.press('Tab')
   const live = page.getByRole('button', { name: 'Live' })
   await expect(live).toBeFocused()
+  expect(await live.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe('none')
 
   await page.keyboard.press('Enter')
   await expect(page.getByLabel(/Known as of/)).toBeVisible()

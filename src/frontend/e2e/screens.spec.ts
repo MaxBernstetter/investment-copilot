@@ -66,7 +66,7 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await expect(page.getByRole('status')).toContainText('As of 19 Oct 2026, 18:49:25 UTC')
     await expect(page.getByRole('note')).toBeVisible()
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S2', ['light'])
   })
 
@@ -85,9 +85,9 @@ test.describe('visual snapshots §7', () => {
   test('S4 history drawer 10Y simulated', async ({ page }) => {
     await page.goto('/?curve=ecb-aaa-spot-sim')
     await waitForCurveLoaded(page)
-    await assertAxeAt(page, ['light'])
     await page.getByRole('button', { name: 'History 10Y' }).click()
     await expect(page.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S4', ['light'])
   })
 
@@ -97,7 +97,7 @@ test.describe('visual snapshots §7', () => {
     await page.getByRole('tab', { name: 'Time series' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Time series' })).toBeVisible()
     await expect(page.locator('.mantine-Skeleton-root')).toHaveCount(0)
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S5', ['light'])
   })
 
@@ -108,7 +108,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Time series' })).toBeVisible()
     await page.locator('.mantine-SegmentedControl-label').filter({ hasText: 'Table' }).click()
     await expect(page.getByRole('columnheader', { name: 'Valid date' })).toBeVisible()
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S5t', ['light'])
   })
 
@@ -127,7 +127,7 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await page.getByRole('tab', { name: 'Changes' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Pick a starting point' })).toBeVisible()
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S7', ['light'])
   })
 
@@ -136,7 +136,7 @@ test.describe('visual snapshots §7', () => {
     await installApiMocks(page, 'offline')
     await page.goto('/')
     await expect(page.getByRole('alert')).toContainText('Backend offline')
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S8', ['light'])
   })
 
@@ -145,13 +145,8 @@ test.describe('visual snapshots §7', () => {
     await installApiMocks(page, 'loading')
     await page.goto('/')
     await expect(page.getByText('Loading…')).toBeVisible()
-    await page.setViewportSize(AXE_VIEWPORT)
-    await runAxe(page)
-    for (const { width, height } of VIEWPORTS) {
-      await page.setViewportSize({ width, height })
-      if (width === 1280) await assertNoHorizontalScroll(page)
-      await expect(page).toHaveScreenshot(screenshotName('S9', width, height, 'light'), { fullPage: true })
-    }
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S9', ['light'])
   })
 
   test('S10 no data 404', async ({ page }) => {
@@ -159,7 +154,7 @@ test.describe('visual snapshots §7', () => {
     await installApiMocks(page, 'not-found')
     await page.goto('/')
     await expect(page.getByText('No data known for this date.')).toBeVisible()
-    await assertAxeAt(page, ['light'])
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S10', ['light'])
   })
 })

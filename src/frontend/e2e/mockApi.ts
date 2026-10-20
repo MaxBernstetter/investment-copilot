@@ -44,6 +44,7 @@ function curveBody(curveId: string, fixture: CurveFixture, validDate?: string) {
       points: fixture.points.map((point) => ({
         ...point,
         version_id: point.value === null ? null : 1,
+        quality: point.value === null ? null : { status: 'passed', flags: [] },
       })),
     },
     meta: fixture.meta,
@@ -129,7 +130,12 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
           maturity,
           valid_from: url.searchParams.get('from') ?? '2025-10-19',
           valid_to: url.searchParams.get('to') ?? '2026-10-19',
-          points: series10y.points,
+          points: series10y.points.map((p) => ({
+            ...p,
+            version_id: 1,
+            origin: 'published',
+            quality: { status: 'passed', flags: [] },
+          })),
         },
         meta: series10y.meta,
       })
