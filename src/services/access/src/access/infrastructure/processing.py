@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 import httpx
 from contracts.processing import v1
+from pydantic import ValidationError
 
 from access.domain.curve import (
     CurveNotFoundError,
@@ -102,12 +103,19 @@ class ProcessingClient:
         except httpx.HTTPError as error:
             raise ProcessingUnavailableError from error
         if response.status_code == httpx.codes.OK:
-            return _days_to_domain(v1.QualityDaysResponse.model_validate_json(response.content))
+            return _days_to_domain(_parse_quality_days(response))
         if response.status_code == httpx.codes.NOT_FOUND:
             raise CurveNotFoundError(_problem_detail(response))
         if response.status_code == 422:
             raise InvalidCurveQueryError(_problem_detail(response))
         raise ProcessingUnavailableError(f"processing answered {response.status_code}")
+
+
+def _parse_quality_days(response: httpx.Response) -> v1.QualityDaysResponse:
+    try:
+        return v1.QualityDaysResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise ProcessingUnavailableError("processing sent an unexpected quality body") from error
 
 
 def _log_unavailable(

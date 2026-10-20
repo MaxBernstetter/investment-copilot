@@ -985,6 +985,20 @@ def test_quality_answers_are_never_immutable(client: TestClient) -> None:
     assert "etag" in response.headers
 
 
+def test_quality_answers_304_when_etag_matches(client: TestClient) -> None:
+    params = {"from": "2026-03-12", "to": "2026-03-14", "as_of": AS_OF.isoformat()}
+    first = client.get(QUALITY_PATH, params=params)
+
+    response = client.get(
+        QUALITY_PATH,
+        params=params,
+        headers={"If-None-Match": first.headers["etag"]},
+    )
+
+    assert response.status_code == 304
+    assert response.headers["cache-control"] == "no-cache"
+
+
 def test_an_unknown_curve_is_404(client: TestClient, services: FakeServices) -> None:
     services.quality.days_error = CurveNotFoundError("no curve named unknown")
 
