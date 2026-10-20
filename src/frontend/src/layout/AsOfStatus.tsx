@@ -11,14 +11,14 @@ type AsOfStatusProps = {
 
 /** The knowledge time shared by all views: a header status button that opens the choice. */
 export default function AsOfStatus({ asOf, onChange }: AsOfStatusProps) {
-  const label = asOf ? `As of ${formatUtc(asOf, 'minutes')}` : 'Live'
+  const label = asOf ? `As of ${formatUtc(asOf)}` : 'Live'
   return (
     <Box role="status">
       <Popover width={320} position="bottom-end" withArrow shadow="md" trapFocus returnFocus>
         <Popover.Target>
           <Button
-            variant={asOf ? 'filled' : 'light'}
-            color={asOf ? 'yellow' : 'blue'}
+            variant={asOf ? 'filled' : 'default'}
+            color={asOf ? 'yellow.5' : undefined}
             autoContrast={asOf !== undefined}
             size="xs"
             leftSection={<IconClock size={14} />}

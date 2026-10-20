@@ -24,6 +24,7 @@ describe('formatBp', () => {
   it('uses a true minus and a thousands separator for negative changes', () => {
     expect(formatBp(-2376)).toBe('−2,376.0 bp')
     expect(formatBp(-9.04)).toBe('−9.0 bp')
+    expect(formatBp(-0.5)).toBe('−0.5 bp')
   })
 
   it('shows zero without a sign', () => {

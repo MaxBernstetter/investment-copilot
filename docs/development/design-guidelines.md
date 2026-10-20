@@ -55,8 +55,8 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - Q2 Empty state: `EmptyState` (Mantine 9) with title + one-sentence description + action, wrapped `role="status"`.
 - Q3 Loading: `Skeleton` with the final element's size (chart 320, table 5 rows × 36) + VisuallyHidden "Loading…".
 - Q4 Error: `Alert color="red" title="…"` + `Button variant="light" size="xs"` "Try again".
-- Q5 Explanations: `Tooltip` (multiline, w 280) on an info `ActionIcon` next to a label, for "Valid date",
-  "Known as of", "Compare from".
+- Q5 Explanations: `Tooltip` (multiline, w 280) on an info `ActionIcon` next to a label, for "Valid date"
+  and "Compare from". "Known as of" uses dimmed helper text in the header as-of popover (see C3), not a tooltip on the label.
 
 ## Copy
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).

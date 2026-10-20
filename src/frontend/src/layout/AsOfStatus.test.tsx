@@ -15,14 +15,14 @@ describe('AsOfStatus', () => {
   it('reads the past knowledge time in UTC', () => {
     render(<AsOfStatus asOf="2026-10-19T18:49:25Z" onChange={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49 UTC' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49:25 UTC' })).toBeInTheDocument()
   })
 
   it('clears the knowledge time with Now', () => {
     const onChange = vi.fn()
     render(<AsOfStatus asOf="2026-10-19T18:49:25Z" onChange={onChange} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49 UTC' }))
+    fireEvent.click(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49:25 UTC' }))
     fireEvent.click(screen.getByRole('button', { name: 'Now' }))
 
     expect(onChange).toHaveBeenCalledWith(undefined)

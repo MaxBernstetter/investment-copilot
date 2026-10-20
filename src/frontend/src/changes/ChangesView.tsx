@@ -59,6 +59,7 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
           type="datetime-local"
           step={1}
           label="Compare from (known as of)"
+          description="Your local time, shown in UTC elsewhere"
           value={sinceInput}
           onChange={(event) => setSinceInput(event.currentTarget.value)}
         />

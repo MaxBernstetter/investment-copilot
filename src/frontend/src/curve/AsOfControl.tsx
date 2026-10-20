@@ -13,7 +13,7 @@ export default function AsOfControl({ asOf, onChange }: AsOfControlProps) {
         type="datetime-local"
         step={1}
         label="Known as of"
-        description="Your local time"
+        description="Your local time, shown in UTC elsewhere"
         value={asOf ? utcToLocalInput(asOf) : ''}
         onChange={(event) =>
           onChange(event.currentTarget.value ? localInputToUtc(event.currentTarget.value) : undefined)
