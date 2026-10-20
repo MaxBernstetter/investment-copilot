@@ -48,6 +48,7 @@ Oracle exporter, Airflow (OTel metrics), Caddy, node/container exporters ──�
 
 - **Instrumentation standard:** OpenTelemetry SDK in every service (FastAPI, HTTP client and oracledb auto-instrumentation, plus domain metrics). It is configured only via `OTEL_*` environment variables. There is no shared library: OpenTelemetry is the shared standard.
 - **Backends:** Prometheus, Loki, Tempo and Grafana, self-hosted in the Compose stack.
+  - Locally the stack runs as the opt-in Compose profile `observability` (see [[09-deployment]]); Loki and notifications are not set up yet.
   - Collectors and exporters are swappable: moving to a managed backend (e.g. Grafana Cloud) only changes the collector exporter config.
 
 ## What each service applies (its "instance")

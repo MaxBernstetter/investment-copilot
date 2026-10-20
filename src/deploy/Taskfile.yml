@@ -15,6 +15,11 @@ env:
   INGESTION_DB__PASSWORD: '{{.INGESTION_DB__PASSWORD | default "LocalIngApp_1"}}'
   PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
   PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
+  GRAFANA_ADMIN_PASSWORD: '{{.GRAFANA_ADMIN_PASSWORD | default "LocalGrafana_1"}}'
+  # Compose files of the stack: the observability override applies only while the collector runs,
+  # so the apis get OTEL_* exactly when the observability profile is up (task dev:obs:up).
+  COMPOSE_FILE:
+    sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
 
 tasks:
   up:
@@ -60,9 +65,9 @@ tasks:
       - ../scripts/dev-seed.sh {{.START}}
 
   compose:config:
-    desc: Validate the deploy compose file including the Airflow profile
+    desc: Validate the deploy compose files including the Airflow and observability profiles
     cmds:
-      - docker compose --profile airflow config
+      - docker compose -f compose.yaml -f compose.observability.yaml --profile airflow --profile observability config
 
   airflow:up:
     desc: Build job images and start the Airflow profile (opt-in; default stack unchanged)
@@ -84,3 +89,19 @@ tasks:
       DOCKER_GID: '{{.DOCKER_GID}}'
     cmds:
       - docker compose --profile airflow down airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
+
+  obs:up:
+    desc: Start the observability profile (collector, Prometheus, Tempo, Grafana) on top of dev:up and restart the apis with OTEL_* (opt-in)
+    cmds:
+      - docker compose -f compose.yaml -f compose.observability.yaml --profile observability up --detach --wait otel-collector prometheus tempo grafana persistence processing access ingestion-api
+
+  obs:down:
+    desc: Stop the observability profile (keeps its data) and restart the apis without OTEL_*
+    cmds:
+      - docker compose -f compose.yaml --profile observability down otel-collector prometheus tempo grafana
+      - docker compose -f compose.yaml up --detach --wait persistence processing access ingestion-api
+
+  obs:smoke:
+    desc: 'Check the observability profile: OTEL_* wiring, Grafana datasources, OTLP metrics and a trace via telemetrygen (after dev:obs:up)'
+    cmds:
+      - ../scripts/dev-obs-smoke.sh

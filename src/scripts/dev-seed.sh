@@ -8,8 +8,8 @@
 #   START  first valid date to load, YYYY-MM-DD (required)
 #
 # Environment:
-#   DEV_COMPOSE_FILE  compose file of the local stack (default: compose.yaml, relative to the
-#                     working directory; `task dev:seed` runs from src/deploy)
+#   COMPOSE_FILE  docker compose's own; task dev:seed sets it (adds compose.observability.yaml
+#                 while the observability profile runs)
 #
 # Makes live ECB calls through the ingestion job container. Needs GNU date.
 # Exit codes: 0 success, 1 a load failed, 2 usage error.
@@ -20,7 +20,6 @@ if [[ $# -lt 1 || -z "$1" ]]; then
 	exit 2
 fi
 start="$1"
-compose_file="${DEV_COMPOSE_FILE:-compose.yaml}"
 
 # Cutoff: the 20th business day counting back from yesterday (yesterday included).
 yesterday=$(date -u -d yesterday +%F)
@@ -40,11 +39,11 @@ done
 after_cutoff=$(date -u -d "$cutoff + 1 day" +%F)
 
 ingest() {
-	docker compose -f "$compose_file" --profile tools run --rm ingestion "$@"
+	docker compose --profile tools run --rm ingestion "$@"
 }
 
 check() {
-	docker compose -f "$compose_file" --profile tools run --rm processing-job ecb-aaa-spot --from "$1" --to "$2"
+	docker compose --profile tools run --rm processing-job ecb-aaa-spot --from "$1" --to "$2"
 }
 
 ingest history --start "$start" --end "$cutoff"
