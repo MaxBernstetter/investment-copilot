@@ -316,7 +316,7 @@ services:
     volumes: *airflow-volumes
     command: api-server
     ports:
-      - 127.0.0.1:8080:8080
+      - 127.0.0.1:8088:8080
     depends_on:
       airflow-postgres:
         condition: service_healthy
