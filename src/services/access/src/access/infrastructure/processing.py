@@ -1,16 +1,27 @@
-"""Client of the processing service: value quality reads."""
+"""Client of the processing service: value quality and per-day quality reads."""
 
 import json
 import logging
 from datetime import date, datetime
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 from urllib.parse import quote
 
 import httpx
 from contracts.processing import v1
 
+from access.domain.curve import (
+    CurveNotFoundError,
+    InvalidCurveQueryError,
+    ProcessingUnavailableError,
+)
 from access.domain.quality import QualityFlag, QualityStatus, Severity, ValueQuality
+from access.domain.quality_days import (
+    QualityDay,
+    QualityDays,
+    QualityFinding,
+    RuleOutcome,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +83,32 @@ class ProcessingClient:
             return None
         return _to_domain(v1.ValueQualityResponse.model_validate_json(response.content))
 
+    async def quality_days(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> QualityDays:
+        path = v1.QUALITY_DAYS_PATH.format(curve_id=quote(curve_id, safe=""))
+        params: dict[str, str] = {
+            "from": valid_from.isoformat(),
+            "to": valid_to.isoformat(),
+        }
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat()
+        try:
+            response = await self._http.get(path, params=params)
+        except httpx.HTTPError as error:
+            raise ProcessingUnavailableError from error
+        if response.status_code == httpx.codes.OK:
+            return _days_to_domain(v1.QualityDaysResponse.model_validate_json(response.content))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == 422:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise ProcessingUnavailableError(f"processing answered {response.status_code}")
+
 
 def _log_unavailable(
     curve_id: str,
@@ -111,3 +148,54 @@ def _to_flag(finding: v1.Finding) -> QualityFlag:
         explanation=finding.explanation,
         evidence=finding.evidence,
     )
+
+
+def _days_to_domain(response: v1.QualityDaysResponse) -> QualityDays:
+    return QualityDays(
+        curve_id=response.data.curve_id,
+        valid_from=response.data.valid_from,
+        valid_to=response.data.valid_to,
+        as_of=response.meta.as_of,
+        days=tuple(_day_to_domain(day) for day in response.data.days),
+    )
+
+
+def _day_to_domain(day: v1.QualityDay) -> QualityDay:
+    return QualityDay(
+        valid_date=day.valid_date,
+        status=QualityStatus(day.status),
+        run_id=day.run_id,
+        checked_as_of=day.checked_as_of,
+        rules=tuple(
+            RuleOutcome(
+                rule=rule.rule.value,
+                outcome=QualityStatus(rule.outcome),
+                finding_count=rule.finding_count,
+            )
+            for rule in day.rules
+        ),
+        findings=tuple(_day_finding(finding) for finding in day.findings),
+    )
+
+
+def _day_finding(finding: v1.Finding) -> QualityFinding:
+    return QualityFinding(
+        rule=finding.rule.value,
+        severity=Severity(finding.severity),
+        maturity=finding.maturity,
+        version_id=finding.version_id,
+        value=finding.value,
+        explanation=finding.explanation,
+        evidence=finding.evidence,
+    )
+
+
+def _problem_detail(response: httpx.Response) -> str:
+    try:
+        body: Any = response.json()
+    except ValueError:
+        return response.text
+    detail: object = body.get("detail") if isinstance(body, dict) else None
+    if isinstance(detail, str):
+        return detail
+    return response.text

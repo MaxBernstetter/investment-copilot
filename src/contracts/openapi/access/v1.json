@@ -299,6 +299,203 @@
         "title": "Problem",
         "type": "object"
       },
+      "QualityDay": {
+        "additionalProperties": false,
+        "description": "Quality of one valid date of a curve, with the rules that produced it.",
+        "properties": {
+          "checked_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Knowledge time the check run assessed; null if unchecked",
+            "title": "Checked As Of"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/QualityFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleOutcome"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Identifier of the check run; null if unchecked",
+            "title": "Run Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_date",
+          "status",
+          "rules",
+          "findings"
+        ],
+        "title": "QualityDay",
+        "type": "object"
+      },
+      "QualityDays": {
+        "additionalProperties": false,
+        "description": "Quality of a curve over a range of valid dates, in valid-date order.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/QualityDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "valid_from": {
+            "description": "Valid time: first valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Valid time: last valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_from",
+          "valid_to",
+          "days"
+        ],
+        "title": "QualityDays",
+        "type": "object"
+      },
+      "QualityDaysResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/quality``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/QualityDays"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/QualityMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "QualityDaysResponse",
+        "type": "object"
+      },
+      "QualityFinding": {
+        "additionalProperties": false,
+        "description": "One rule finding on a valid date, or on one published value.",
+        "properties": {
+          "evidence": {
+            "description": "What was found, with the numbers",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "explanation": {
+            "description": "Why the rule exists, in user language",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "maturity": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "10Y"
+            ],
+            "title": "Maturity"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Yield in percent the finding is about, if any",
+            "examples": [
+              2.61
+            ],
+            "title": "Value"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lineage reference of the value; null for date-level findings",
+            "title": "Version Id"
+          }
+        },
+        "required": [
+          "rule",
+          "severity",
+          "explanation",
+          "evidence"
+        ],
+        "title": "QualityFinding",
+        "type": "object"
+      },
       "QualityFlag": {
         "additionalProperties": false,
         "description": "One rule finding on a published value.",
@@ -335,6 +532,23 @@
         "title": "QualityFlag",
         "type": "object"
       },
+      "QualityMeta": {
+        "additionalProperties": false,
+        "description": "How the answer was determined.",
+        "properties": {
+          "as_of": {
+            "description": "The effective knowledge time (UTC) the quality results describe",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of"
+        ],
+        "title": "QualityMeta",
+        "type": "object"
+      },
       "QualityStatus": {
         "description": "Outcome of checks: ``unchecked`` means no result is known for the value.",
         "enum": [
@@ -345,6 +559,41 @@
         ],
         "title": "QualityStatus",
         "type": "string"
+      },
+      "Rule": {
+        "description": "A plausibility or completeness rule of the processing service.",
+        "enum": [
+          "range",
+          "jump",
+          "missing-date",
+          "missing-maturity"
+        ],
+        "title": "Rule",
+        "type": "string"
+      },
+      "RuleOutcome": {
+        "additionalProperties": false,
+        "description": "Outcome of one rule for one valid date.",
+        "properties": {
+          "finding_count": {
+            "minimum": 0.0,
+            "title": "Finding Count",
+            "type": "integer"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          }
+        },
+        "required": [
+          "rule",
+          "outcome",
+          "finding_count"
+        ],
+        "title": "RuleOutcome",
+        "type": "object"
       },
       "SeriesObservations": {
         "additionalProperties": false,
@@ -1224,6 +1473,108 @@
           }
         },
         "summary": "Curve Observations"
+      }
+    },
+    "/v1/curves/{curve_id}/quality": {
+      "get": {
+        "description": "Quality of each TARGET business day of a curve as known at ``meta.as_of``.\n\n``from`` and ``to`` bound the valid-date range (inclusive). Without ``as_of`` processing\npicks its default; the answer reports the knowledge time it used in ``meta.as_of``.",
+        "operationId": "quality_days_v1_curves__curve_id__quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityDaysResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Quality Days"
       }
     }
   }

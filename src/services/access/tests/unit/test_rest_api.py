@@ -15,6 +15,7 @@ from access.domain.curve import (
     CurvePoint,
     InvalidCurveQueryError,
     PersistenceUnavailableError,
+    ProcessingUnavailableError,
 )
 from access.domain.quality import (
     QualityFlag,
@@ -22,6 +23,7 @@ from access.domain.quality import (
     Severity,
     ValueQuality,
 )
+from access.domain.quality_days import QualityDay, QualityDays, QualityFinding, RuleOutcome
 from access.domain.series import Series, SeriesPoint
 from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 from access.facade.rest.app import Services, create_app
@@ -33,6 +35,7 @@ CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
 SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
 CHANGES_PATH = "/v1/curves/ecb-aaa-spot/changes"
+QUALITY_PATH = "/v1/curves/ecb-aaa-spot/quality"
 SINCE = datetime(2026, 3, 12, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -140,10 +143,44 @@ class FakeCurveReader:
 class FakeQualityReader:
     def __init__(self) -> None:
         self.calls: list[tuple[str, date, date, str | None, datetime]] = []
+        self.days_calls: list[tuple[str, date, date, datetime | None]] = []
         self.known: dict[int, ValueQuality] | None = {
             7: ValueQuality(status=QualityStatus.PASSED, flags=())
         }
         self.unavailable = False
+        self.days_error: Exception | None = None
+        self.days_result = QualityDays(
+            curve_id="ecb-aaa-spot",
+            valid_from=date(2026, 3, 12),
+            valid_to=date(2026, 3, 14),
+            as_of=AS_OF,
+            days=(
+                QualityDay(
+                    valid_date=date(2026, 3, 12),
+                    status=QualityStatus.WARN,
+                    run_id="check-1",
+                    checked_as_of=AS_OF.astimezone(UTC),
+                    rules=(
+                        RuleOutcome(
+                            rule="range",
+                            outcome=QualityStatus.WARN,
+                            finding_count=1,
+                        ),
+                    ),
+                    findings=(
+                        QualityFinding(
+                            rule="range",
+                            severity=Severity.WARN,
+                            maturity="10Y",
+                            version_id=7,
+                            value=26.4,
+                            explanation="Yield is outside the plausible range",
+                            evidence="26.4 % is above 15 %",
+                        ),
+                    ),
+                ),
+            ),
+        )
 
     async def value_quality(
         self,
@@ -157,6 +194,18 @@ class FakeQualityReader:
         if self.unavailable:
             return None
         return self.known
+
+    async def quality_days(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> QualityDays:
+        self.days_calls.append((curve_id, valid_from, valid_to, as_of))
+        if self.days_error is not None:
+            raise self.days_error
+        return self.days_result
 
 
 class FakeServices:
@@ -891,3 +940,58 @@ def test_a_settled_answer_with_every_value_checked_is_immutable(
 
     assert response.json()["data"]["points"][1]["quality"] == PASSED_QUALITY
     assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_quality_endpoint_returns_days_from_processing(
+    client: TestClient, services: FakeServices
+) -> None:
+    response = client.get(
+        QUALITY_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-14", "as_of": AS_OF.isoformat()},
+    )
+
+    assert response.status_code == 200
+    assert services.quality.days_calls == [
+        ("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), AS_OF)
+    ]
+    payload = response.json()
+    assert payload["meta"]["as_of"] == "2026-03-13T08:00:00Z"
+    day = payload["data"]["days"][0]
+    assert day["valid_date"] == "2026-03-12"
+    assert day["status"] == "warn"
+    assert day["findings"][0]["rule"] == "range"
+
+
+def test_quality_endpoint_is_503_when_processing_is_unavailable(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.quality.days_error = ProcessingUnavailableError()
+
+    response = client.get(QUALITY_PATH, params={"from": "2026-03-12", "to": "2026-03-14"})
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"] == ("The quality service is not reachable; try again later.")
+
+
+def test_quality_answers_are_never_immutable(client: TestClient) -> None:
+    response = client.get(
+        QUALITY_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-14", "as_of": AS_OF.isoformat()},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+    assert "etag" in response.headers
+
+
+def test_an_unknown_curve_is_404(client: TestClient, services: FakeServices) -> None:
+    services.quality.days_error = CurveNotFoundError("no curve named unknown")
+
+    response = client.get(
+        "/v1/curves/unknown/quality",
+        params={"from": "2026-03-12", "to": "2026-03-14"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "no curve named unknown"

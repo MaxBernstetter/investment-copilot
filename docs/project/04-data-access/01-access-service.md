@@ -10,6 +10,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions?as_of=` | The version history of one value, as it was known at `meta.as_of`: versions oldest first, with `known_to` null while current; versions first known after `as_of` left out (`as_of` optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/changes?from=&to=&since=&as_of=` | What changed in a curve over valid dates (`from`, `to` inclusive) between the knowledge times `meta.since` and `meta.as_of`: a value changed, or known only at `as_of` (`old_value` null); `since` is required, `as_of` optional | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
+| `GET /v1/curves/{curve_id}/quality?from=&to=&as_of=` | Quality of each TARGET business day of a curve over valid dates (`from`, `to` inclusive), as known at `meta.as_of` (`from` and `to` required; `as_of` optional) | `200` envelope `{data, meta}` with `ETag` and `Cache-Control: no-cache`; `304` when `If-None-Match` matches; errors below |
 | `GET /health` | Liveness: the process is up | `200 {"status": "ok"}` |
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
@@ -17,6 +18,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 - `data` holds `curve_id`, `valid_date` and `points` in grid order (`maturity`, `months`, `value`, `version_id`, `origin`, `quality`); a maturity with no published value known as of `meta.as_of` has `value: null`, `version_id: null` and `quality: null`.
 - Series points carry `version_id`, `origin` and `quality` too. `version_id` is the lineage reference of the visible version: it is the id the versions endpoint lists for that value. `origin` is `published` for every value the service returns: values are passed on unmodified. `quality` carries the processing status (`passed`, `info`, `warn`, or `unchecked`) and any rule flags with explanations.
 - Curve and series answers call the processing service (`GET /v1/curves/{curve_id}/value-quality`) for the visible values and attach the result. When processing is unavailable, values are `unchecked` and the answer is not cached as immutable.
+- The quality endpoint relays processing (`GET /v1/curves/{curve_id}/quality`) per TARGET business day: each day lists overall status, per-rule outcomes and findings (rule, severity, maturity, explanation, evidence). Answers always send `Cache-Control: no-cache` even when `as_of` is settled.
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
 - `meta.source_attribution` is required on the curve, series, versions and changes answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an attribution entry is answered `404` (not found), never without attribution.
 - Only `GET` is allowed (`405` otherwise).
@@ -39,7 +41,7 @@ All errors are RFC 9457 problem details (`application/problem+json`).
 |---|---|---|---|
 | `404` | Not found | The curve is unknown | Persistence `404`, detail passed through |
 | `422` | Invalid request | Malformed parameters (before persistence is called), or persistence rejects the query | Own validation, or persistence `422` with its detail |
-| `503` | Service unavailable | Persistence is unreachable, times out, answers `5xx` or sends an unexpected body | Transport errors and other statuses |
+| `503` | Service unavailable | Persistence is unreachable, times out, answers `5xx` or sends an unexpected body; or the quality endpoint cannot reach processing | Transport errors and other statuses; quality reads use detail *The quality service is not reachable; try again later.* |
 
 The OpenAPI document is generated from the app (`task access:openapi`) and published at `src/contracts/openapi/access/v1.json`; a unit test fails when it is stale.
 
@@ -49,7 +51,7 @@ The OpenAPI document is generated from the app (`task access:openapi`) and publi
 |---|---|
 | `access.domain` | `CurveAsOf` and `CurvePoint`, the version history and changes of values, and the errors of reading a curve |
 | `access.application` | `CurveReader` port |
-| `access.infrastructure` | `PersistenceClient` and `ProcessingClient`: readiness and curve reads from persistence; value quality from processing |
+| `access.infrastructure` | `PersistenceClient` and `ProcessingClient`: readiness and curve reads from persistence; value quality and per-day quality from processing |
 | `access.facade` | FastAPI app, CORS, routes, problem handlers, mapping to `contracts.access.v1`, OpenAPI export |
 | `access.api` | Composition root of the `api` process |
 
@@ -86,7 +88,7 @@ devbox run -- task access:run       # access api on http://localhost:8000
 ## Not yet in place
 
 - Rate limiting
-- Other read endpoints (only the curve endpoint exists)
+- Other read endpoints beyond curves, series, versions, changes and quality
 - Transparency (lineage and run status for the frontend)
 - Metrics
 - Traces

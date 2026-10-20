@@ -7,6 +7,7 @@ from typing import Protocol
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.quality import ValueQuality
+from access.domain.quality_days import QualityDays
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
 
@@ -62,4 +63,14 @@ class QualityReader(Protocol):
         as_of: datetime,
     ) -> Mapping[int, ValueQuality] | None:
         """Quality per ``version_id``; ``None`` when processing is unavailable."""
+        ...
+
+    async def quality_days(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> QualityDays:
+        """Quality per valid date; raises when processing rejects the query."""
         ...
