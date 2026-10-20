@@ -8,11 +8,15 @@ from decimal import Decimal
 import httpx
 import pytest
 from contracts.persistence import v1
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import StatusCode, format_span_id, format_trace_id
 
 from processing.application.ports import QualityStore
 from processing.domain.assessment import QualityCheck
 from processing.domain.quality import Rule, Status
+from processing.infrastructure.telemetry import Telemetry
 from processing.job import main
+from tests.unit.fakes import job_telemetry
 
 URL = "http://persistence.test:8001"
 CHECKED_AS_OF = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
@@ -181,12 +185,14 @@ def run(
     *,
     transport: httpx.MockTransport,
     store: RecordingStore | None = None,
+    telemetry: Telemetry | None = None,
 ) -> Run:
     recording = store or RecordingStore()
     exit_code = main(
         argv,
         persistence_transport=transport,
         quality_store=recording,
+        telemetry=telemetry,
     )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
@@ -293,3 +299,75 @@ def test_persistence_unavailable_exits_1_with_a_json_failure(
     failure = json.loads(result.stderr)
     assert failure["event"] == "quality_check_failed"
     assert failure["error"] == "PersistenceReadError"
+
+
+def _root_spans(spans: list[ReadableSpan]) -> list[ReadableSpan]:
+    return [span for span in spans if span.name == "processing-check-quality"]
+
+
+def test_a_successful_run_flushes_spans_before_exit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, _ = job_telemetry()
+
+    result = run(
+        capsys,
+        [CURVE_ID, "--from", FROM.isoformat(), "--to", TO.isoformat()],
+        transport=_transport(_curve_after_bad_value()),
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 0
+    roots = _root_spans(list(spans.get_finished_spans()))
+    assert len(roots) == 1
+    assert roots[0].parent is None
+    assert roots[0].attributes is not None
+    assert roots[0].attributes["run_id"] == f"check-quality-{CURVE_ID}-{FROM}-{TO}"
+    assert roots[0].attributes["curve_id"] == CURVE_ID
+
+
+def test_a_failed_run_flushes_spans_before_exit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, _ = job_telemetry()
+
+    result = run(
+        capsys,
+        [CURVE_ID, "--from", FROM.isoformat(), "--to", TO.isoformat()],
+        transport=httpx.MockTransport(lambda _: httpx.Response(503, json={"detail": "x"})),
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 1
+    roots = _root_spans(list(spans.get_finished_spans()))
+    assert len(roots) == 1
+    assert roots[0].status.status_code is StatusCode.ERROR
+
+
+def test_summary_and_failure_lines_carry_the_root_trace_id(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    arguments = [CURVE_ID, "--from", FROM.isoformat(), "--to", TO.isoformat()]
+    ok_telemetry, ok_spans, _ = job_telemetry()
+    failed_telemetry, failed_spans, _ = job_telemetry()
+
+    ok = run(
+        capsys,
+        arguments,
+        transport=_transport(_curve_after_bad_value()),
+        telemetry=ok_telemetry,
+    )
+    failed = run(
+        capsys,
+        arguments,
+        transport=httpx.MockTransport(lambda _: httpx.Response(503, json={"detail": "x"})),
+        telemetry=failed_telemetry,
+    )
+
+    (ok_root,) = _root_spans(list(ok_spans.get_finished_spans()))
+    (failed_root,) = _root_spans(list(failed_spans.get_finished_spans()))
+    assert ok.summary["trace_id"] == format_trace_id(ok_root.context.trace_id)
+    assert ok.summary["span_id"] == format_span_id(ok_root.context.span_id)
+    failure = json.loads(failed.stderr)
+    assert failure["trace_id"] == format_trace_id(failed_root.context.trace_id)
+    assert failure["span_id"] == format_span_id(failed_root.context.span_id)

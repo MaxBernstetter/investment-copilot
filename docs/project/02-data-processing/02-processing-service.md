@@ -24,7 +24,7 @@ The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`)
 
 `/health` answers `{"status": "ok"}` while the process is up. `/ready` answers `{"status": "ready"}` when a connection to the processing database succeeds, and 503 `{"status": "unavailable"}` otherwise.
 
-Logs are JSON lines on stderr (`log_config.json`).
+Logs are JSON lines on stderr (`log_config.json`). Every line logged inside a span carries `trace_id` and `span_id`; the job's summary and failure lines carry the ids of its root span.
 
 ## Configuration
 
@@ -40,6 +40,16 @@ Read from environment variables with the prefix `PROCESSING_`, validated at star
 | `PROCESSING_DB__CALL_TIMEOUT_MS` | `30000` | Timeout per database call |
 | `PROCESSING_PERSISTENCE__URL` | none (required for the job) | Base URL of the persistence service, e.g. `http://localhost:8001` |
 | `PROCESSING_PERSISTENCE__TIMEOUT_SECONDS` | `30` | Timeout per persistence request |
+
+The telemetry follows the standard OpenTelemetry variables. Traces and metrics are exported over OTLP/HTTP only when an endpoint is set; without one the service runs and records nothing outside the process.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | Collector base URL, e.g. `http://localhost:4318`. None means no export |
+| `OTEL_SERVICE_NAME` | `unknown_service` | Service name on every span and metric |
+| `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` | `cumulative` | Temporality of the exported metrics; set `delta` for the job, which exports once at exit |
+| `OTEL_SEMCONV_STABILITY_OPT_IN` | `http` in the image | Current HTTP semantic conventions |
+| `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` | `health,ready` in the image | Probe routes that are not traced |
 
 The Taskfile supplies local development defaults for the DSN, the password and the persistence URL. Override them through the environment; never reuse them outside your machine.
 
