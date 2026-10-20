@@ -33,14 +33,14 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 
 ## How the tasks run the jobs
 
-The ingestion and processing job images are built and tagged locally when you start the opt-in Airflow Compose profile (`task dev:airflow:up`). Until MR2 wires `DockerOperator`, the DAG still runs each job as a subprocess on the Airflow worker instead of starting those containers.
+The ingestion and processing job images are built and tagged locally when you start the opt-in Airflow Compose profile (`task dev:airflow:up`). Each task starts the matching `job` container on the Compose network via `orchestration/job_runner.py` ([[0010-api-and-job-process-types]]); the exit-status contract is unchanged.
 
-| Task | Command | Run id |
+| Task | Command (entrypoint + argv in the container) | Run id |
 |---|---|---|
 | `load_ecb` | `ingestion-load-ecb daily --valid-date … --run-id …` | `daily_load_ecb-<valid date>` |
 | `check_quality` | `processing-check-quality ecb-aaa-spot --from <valid date − 21d> --to <valid date> --run-id …` | `daily_load_ecb-check-<valid date>` |
 
-`check_quality` runs after `load_ecb` in the default pool (not `ecb`), with the same retry and failure rules. The commands must be on the worker's `PATH` with the job environment (`INGESTION_*`, `PROCESSING_*`). Once the images exist, each task starts its `job` container instead ([[0010-api-and-job-process-types]]); the exit-status contract stays the same.
+`check_quality` runs after `load_ecb` in the default pool (not `ecb`), with the same retry and failure rules. The Airflow worker passes through `INGESTION_*` and `PROCESSING_*` from the stack environment. Image tags come from `YIELDLENS_INGESTION_JOB_IMAGE` and `YIELDLENS_PROCESSING_JOB_IMAGE` (set in the `airflow` Compose profile).
 
 ## Backfill
 
@@ -70,11 +70,11 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 | `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`; the backfill is manual with load then quality check per year chunk |
 | `tests/unit/test_ecb_backfill.py` | The year split (clipped first and last chunk, one chunk within a year, `start` after `end` rejected) and the `history` command |
 | `tests/unit/test_ecb_daily_load.py` | Valid date per run day, skip on TARGET holidays, the job command, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
+| `tests/unit/test_job_runner.py` | Image env mapping, argv split, forwarded env keys, missing image → fail-fast |
 | `tests/unit/test_quality_check.py` | The daily three-week window and the range check argv |
 | `tests/unit/test_target_calendar.py` | TARGET closing days, moving Easter, previous business day across weekends, holidays and the year end |
 
 ## Not yet in place
 
 - Recording runs in the ingestion run history and the transparency interface ([#32](https://github.com/MaxBernstetter/yield-lens/issues/32)), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
-- Running load and quality-check tasks as `job` containers from Airflow (`DockerOperator` and shared job runner; see [#181](https://github.com/MaxBernstetter/yield-lens/issues/181)).
 - OpenLineage events and `traceparent` propagation from the task.

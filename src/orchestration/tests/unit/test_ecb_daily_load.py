@@ -1,7 +1,10 @@
 import json
 import logging
-import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
@@ -15,10 +18,26 @@ from orchestration.ecb_daily_load import (
 )
 
 
-def python_exiting(code: int, *, stdout: str = "", stderr: str = "") -> list[str]:
-    """A stand-in for the ingestion job: prints, then exits with ``code``."""
-    script = f"import sys; print({stdout!r}); print({stderr!r}, file=sys.stderr); sys.exit({code})"
-    return [sys.executable, "-c", script]
+@pytest.fixture
+def job_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("YIELDLENS_INGESTION_JOB_IMAGE", "yieldlens-ingestion:local")
+    monkeypatch.setenv("YIELDLENS_DOCKER_NETWORK", "yieldlens-dev_default")
+
+
+@contextmanager
+def mock_container_run(exit_code: int, *, stdout: str = "", stderr: str = "") -> Iterator[Any]:
+    def side_effect(command: list[str]) -> None:
+        if stdout:
+            logging.getLogger("orchestration.job_runner").info(stdout)
+        if stderr:
+            logging.getLogger("orchestration.job_runner").error(stderr)
+        if exit_code == 2:
+            raise AirflowFailException(f"{command[0]} ended with exit status 2 (usage or config)")
+        if exit_code != 0:
+            raise JobFailedError(f"{command[0]} ended with exit status {exit_code}")
+
+    with patch("orchestration.ecb_daily_load.run_job_container", side_effect=side_effect) as mocked:
+        yield mocked
 
 
 @pytest.mark.parametrize(
@@ -56,27 +75,42 @@ def test_the_daily_command_names_the_valid_date_and_the_run_id() -> None:
 
 def test_a_finished_job_passes_and_its_summary_reaches_the_task_log(
     caplog: pytest.LogCaptureFixture,
+    job_env: None,
 ) -> None:
-    caplog.set_level(logging.INFO)
-
-    run_job(python_exiting(0, stdout='{"event": "load_finished"}'))
+    caplog.set_level(logging.INFO, logger="orchestration.job_runner")
+    with mock_container_run(0, stdout='{"event": "load_finished"}'):
+        run_job(
+            [
+                "ingestion-load-ecb",
+                "daily",
+                "--valid-date",
+                "2026-10-16",
+                "--run-id",
+                "x",
+            ]
+        )
 
     assert '{"event": "load_finished"}' in caplog.text
 
 
 def test_a_failed_load_raises_an_error_that_airflow_retries(
     caplog: pytest.LogCaptureFixture,
+    job_env: None,
 ) -> None:
-    with pytest.raises(JobFailedError, match="exit status 1") as raised:
-        run_job(python_exiting(1, stderr='{"event": "load_failed"}'))
+    caplog.set_level(logging.ERROR, logger="orchestration.job_runner")
+    with (
+        mock_container_run(1, stderr='{"event": "load_failed"}'),
+        pytest.raises(JobFailedError, match="exit status 1") as raised,
+    ):
+        run_job(["ingestion-load-ecb", "daily"])
 
     assert not isinstance(raised.value, AirflowFailException)
     assert '{"event": "load_failed"}' in caplog.text
 
 
-def test_a_usage_or_configuration_error_fails_without_retry() -> None:
-    with pytest.raises(AirflowFailException, match="exit status 2"):
-        run_job(python_exiting(2))
+def test_a_usage_or_configuration_error_fails_without_retry(job_env: None) -> None:
+    with mock_container_run(2), pytest.raises(AirflowFailException, match="exit status 2"):
+        run_job(["ingestion-load-ecb", "daily"])
 
 
 def test_a_final_failure_is_logged_as_one_json_line(caplog: pytest.LogCaptureFixture) -> None:
@@ -101,3 +135,11 @@ def test_a_final_failure_is_logged_as_one_json_line(caplog: pytest.LogCaptureFix
         "error": "JobFailedError",
         "message": "ingestion job ended with exit 1",
     }
+
+
+def test_the_failure_callback_does_not_raise_on_broken_context(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR)
+    report_final_failure({})
+    assert "task_failed callback could not log structured failure" in caplog.text
