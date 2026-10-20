@@ -48,3 +48,9 @@ A quality check loads the curve grid once from persistence (`GET /v1/curves/{id}
 The requested valid-date range is processed in chunks of at most 366 days. For each chunk and each grid maturity, persistence returns the series from **31 days before the chunk start** through the chunk end (`from` = chunk start − 31d). That lead-in is used only for jump comparisons; value and day statuses are produced only for dates inside the chunk.
 
 If the grid call returns 404, nothing is known about the curve and no results are recorded.
+
+## Storage
+
+Check results live in the PROC schema (Oracle). Each run is keyed by curve, valid range and checked knowledge time (`checked_as_of`). Recording the same key again replaces that run's day statuses, value statuses and findings (idempotent at a fixed knowledge time). A later knowledge time creates a new run.
+
+The processing service writes through the `proc_quality.record_check` PL/SQL procedure as `proc_app` (execute on the package and its input types only; no direct table access). One call stores the run header, all checked days, per-value statuses and findings in set-based inserts.

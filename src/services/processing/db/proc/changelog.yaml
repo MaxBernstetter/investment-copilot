@@ -5,3 +5,12 @@ databaseChangeLog:
   - include:
       file: check_run.sql
       relativeToChangelogFile: true
+  - include:
+      file: quality_types.sql
+      relativeToChangelogFile: true
+  - include:
+      file: proc_quality.sql
+      relativeToChangelogFile: true
+  - include:
+      file: grants.sql
+      relativeToChangelogFile: true
