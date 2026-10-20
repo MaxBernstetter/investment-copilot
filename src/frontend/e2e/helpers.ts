@@ -41,3 +41,15 @@ export async function waitForCurveLoaded(page: Page) {
 export function screenshotName(id: string, width: number, height: number, scheme: 'light' | 'dark') {
   return `${id}-${width}x${height}-${scheme}.png`
 }
+
+/** Waits for finite CSS transitions and animations, so axe samples settled colours. */
+export async function settleAnimations(page: Page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  )
+}
