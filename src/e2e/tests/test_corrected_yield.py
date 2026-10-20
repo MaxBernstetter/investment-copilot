@@ -10,6 +10,7 @@ import subprocess
 from typing import Any
 
 import httpx
+import pytest
 
 ACCESS_URL = os.environ.get("E2E_ACCESS_URL", "http://localhost:8000")
 COMPOSE_FILE = os.environ.get("E2E_COMPOSE_FILE", "compose.yaml")
@@ -104,8 +105,36 @@ def quality_path(curve_id: str) -> str:
     return f"/v1/curves/{curve_id}/quality"
 
 
-def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
-    for event in ("publish", "gap", "bad-value", "late-value"):
+@pytest.fixture(scope="module")
+def scenario_after_gap() -> None:
+    """Publish and gap once; gap-day quality must be read before late-value arrives."""
+    run_event("publish")
+    run_event("gap")
+
+
+def test_gap_day_quality_lists_missing_maturities_at_that_knowledge_time(
+    scenario_after_gap: None,
+) -> None:
+    with httpx.Client(base_url=ACCESS_URL, timeout=TIMEOUT_SECONDS) as client:
+        t_gap = body(client.get(curve_path(SIM), params={"valid_date": PREVIOUS_DATE}))["meta"][
+            "as_of"
+        ]
+        response = client.get(
+            quality_path(SIM),
+            params={"from": "2026-10-05", "to": "2026-10-08", "as_of": t_gap},
+        )
+        assert response.status_code == 200
+        days = {day["valid_date"]: day for day in body(response)["data"]["days"]}
+        gap_day = days[PREVIOUS_DATE]
+        assert gap_day["status"] == "warn"
+        missing = [
+            finding for finding in gap_day["findings"] if finding["rule"] == "missing-maturity"
+        ]
+        assert {finding["maturity"] for finding in missing} == {"10Y", "30Y"}
+
+
+def test_past_view_is_reproduced_exactly_after_a_correction(scenario_after_gap: None) -> None:
+    for event in ("bad-value", "late-value"):
         run_event(event)
 
     with httpx.Client(base_url=ACCESS_URL, timeout=TIMEOUT_SECONDS) as client:
@@ -152,28 +181,6 @@ def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
         previous = body(client.get(curve_path(SIM), params={"valid_date": PREVIOUS_DATE}))
         assert value_of(previous, "10Y") is not None
         assert value_of(previous, "30Y") is not None
-
-
-def test_gap_day_quality_lists_missing_maturities_at_that_knowledge_time() -> None:
-    run_event("publish")
-    run_event("gap")
-
-    with httpx.Client(base_url=ACCESS_URL, timeout=TIMEOUT_SECONDS) as client:
-        t_gap = body(client.get(curve_path(SIM), params={"valid_date": PREVIOUS_DATE}))["meta"][
-            "as_of"
-        ]
-        response = client.get(
-            quality_path(SIM),
-            params={"from": "2026-10-05", "to": "2026-10-08", "as_of": t_gap},
-        )
-        assert response.status_code == 200
-        days = {day["valid_date"]: day for day in body(response)["data"]["days"]}
-        gap_day = days[PREVIOUS_DATE]
-        assert gap_day["status"] == "warn"
-        missing = [
-            finding for finding in gap_day["findings"] if finding["rule"] == "missing-maturity"
-        ]
-        assert {finding["maturity"] for finding in missing} == {"10Y", "30Y"}
 
 
 def test_the_scenario_never_touches_the_real_curve() -> None:
