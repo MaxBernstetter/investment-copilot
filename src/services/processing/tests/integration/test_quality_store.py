@@ -16,6 +16,11 @@ RUN_ID = "check-quality-ecb-aaa-spot-sim-2026-10-05-2026-10-08"
 CHECKED_AS_OF = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
 VALID_FROM = date(2026, 10, 6)
 VALID_TO = date(2026, 10, 8)
+OCT_07 = date(2026, 10, 7)
+
+
+def as_date(value: date | datetime) -> date:
+    return value.date() if isinstance(value, datetime) else value
 
 
 def sample_check(
@@ -43,7 +48,7 @@ def sample_check(
             Finding(
                 Rule.MISSING_MATURITY,
                 Severity.WARN,
-                date(2026, 10, 7),
+                OCT_07,
                 "10Y",
                 None,
                 None,
@@ -108,8 +113,8 @@ def test_record_stores_the_run_days_values_and_findings(oracle: OracleDatabase) 
         assert run_row is not None
         assert run_row[0] == RUN_ID
         assert run_row[1] == CURVE_ID
-        assert run_row[2] == VALID_FROM
-        assert run_row[3] == VALID_TO
+        assert as_date(run_row[2]) == VALID_FROM
+        assert as_date(run_row[3]) == VALID_TO
         assert run_row[4].replace(tzinfo=UTC) == CHECKED_AS_OF
         assert run_row[5] == RULE_SET_VERSION
         cursor.execute(
@@ -123,9 +128,10 @@ def test_record_stores_the_run_days_values_and_findings(oracle: OracleDatabase) 
             " where check_run_id = :id order by valid_date",
             [check_run_id],
         )
-        assert cursor.fetchall() == [
+        day_rows = [(as_date(row[0]), row[1]) for row in cursor.fetchall()]
+        assert day_rows == [
             (VALID_FROM, "passed"),
-            (date(2026, 10, 7), "warn"),
+            (OCT_07, "warn"),
             (VALID_TO, "warn"),
         ]
 
@@ -134,7 +140,8 @@ def test_record_stores_the_run_days_values_and_findings(oracle: OracleDatabase) 
             " where check_run_id = :id order by valid_date, maturity",
             [check_run_id],
         )
-        assert cursor.fetchall() == [
+        value_rows = [(row[0], row[1], as_date(row[2]), row[3]) for row in cursor.fetchall()]
+        assert value_rows == [
             (1, "10Y", VALID_FROM, "passed"),
             (2, "10Y", VALID_TO, "warn"),
         ]
@@ -144,8 +151,9 @@ def test_record_stores_the_run_days_values_and_findings(oracle: OracleDatabase) 
             " where check_run_id = :id order by valid_date, rule",
             [check_run_id],
         )
-        assert cursor.fetchall() == [
-            ("missing-maturity", "warn", date(2026, 10, 7), "10Y"),
+        finding_rows = [(row[0], row[1], as_date(row[2]), row[3]) for row in cursor.fetchall()]
+        assert finding_rows == [
+            ("missing-maturity", "warn", OCT_07, "10Y"),
             ("range", "warn", VALID_TO, "10Y"),
         ]
 
