@@ -74,7 +74,6 @@ Branch protection needs stable check names. Each job below has a fixed `name:` t
 
 - `pre-commit` (`static-analysis.yml`)
 - `access: lint, types, unit tests`
-- `processing: lint, types, unit tests`
 - `contracts: lint, types, unit tests`
 - `frontend: lint, types, unit tests, build`
 - `ingestion: lint, typecheck, unit tests`
@@ -82,6 +81,7 @@ Branch protection needs stable check names. Each job below has a fixed `name:` t
 - `orchestration: lint, typecheck, unit tests`
 - `persistence: lint, types, unit tests`
 - `persistence: integration tests`
+- `processing: lint, types, unit tests`
 - `e2e: corrected yield` (`e2e.yml`)
 
 Pull-request runs are not path-filtered, so every required check reports on every pull request, including PRs that touch only docs. Path filters apply only to pushes to `main`. A job skipped by a filter would otherwise leave a required check pending forever.

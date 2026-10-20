@@ -19,12 +19,14 @@ def create_pool(settings: DatabaseSettings) -> oracledb.AsyncConnectionPool:
 
 
 class OracleHealth:
-    def __init__(self, pool: oracledb.AsyncConnectionPool) -> None:
+    def __init__(self, pool: oracledb.AsyncConnectionPool, *, call_timeout_ms: int) -> None:
         self._pool = pool
+        self._call_timeout_ms = call_timeout_ms
 
     async def is_reachable(self) -> bool:
         try:
             async with self._pool.acquire() as connection:
+                connection.call_timeout = self._call_timeout_ms
                 cursor = connection.cursor()
                 await cursor.execute("select 1 from dual")
                 await cursor.fetchone()
