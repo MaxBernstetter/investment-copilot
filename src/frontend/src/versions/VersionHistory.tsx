@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Badge, Drawer, Table, Text } from '@mantine/core'
 import { formatUtc, formatYield } from '../format'
+import { reasonBadgeProps } from '../theme'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
 
 type VersionHistoryProps = {
@@ -13,11 +14,6 @@ type VersionHistoryProps = {
 }
 
 const EMPTY = '–'
-
-const REASON_COLORS: Record<string, string> = {
-  correction: 'orange',
-  revision: 'blue',
-}
 
 export default function VersionHistory({
   curveId,
@@ -80,7 +76,7 @@ export default function VersionHistory({
                   <Table.Td>{formatUtc(version.known_from)}</Table.Td>
                   <Table.Td>{version.known_to === null ? 'current' : formatUtc(version.known_to)}</Table.Td>
                   <Table.Td>
-                    <Badge color={REASON_COLORS[version.change_reason] ?? 'gray'} variant="light">
+                    <Badge {...reasonBadgeProps(version.change_reason)}>
                       {version.change_reason}
                     </Badge>
                   </Table.Td>

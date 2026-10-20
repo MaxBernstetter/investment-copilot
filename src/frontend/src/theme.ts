@@ -1,10 +1,35 @@
-import { Alert, AppShell, Badge, Card, Table, Title, Tooltip, createTheme, rem, type CSSVariablesResolver } from '@mantine/core'
+import {
+  Alert,
+  AppShell,
+  Badge,
+  type BadgeProps,
+  Card,
+  Table,
+  Title,
+  Tooltip,
+  createTheme,
+  rem,
+  type CSSVariablesResolver,
+} from '@mantine/core'
 
 const sans =
   'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 
 /** Chart series colours in fixed order, the same in light and dark (design guidelines T5). */
 export const CHART_COLORS = ['blue.8', 'orange.8', 'teal.8', 'grape.8', 'pink.8', 'lime.9'] as const
+
+const REASON_COLORS: Record<string, string> = {
+  correction: 'orange',
+  revision: 'blue',
+}
+
+export function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant'> {
+  if (reason === 'correction') {
+    // orange.6 keeps L > theme luminanceThreshold so autoContrast uses black label text (≥4.5:1).
+    return { color: 'orange.6', variant: 'filled' }
+  }
+  return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light' }
+}
 
 /** Dimmed text is darkened (light) or lightened (dark) so it meets 4.5:1 contrast (A1). */
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
