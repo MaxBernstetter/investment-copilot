@@ -14,8 +14,11 @@ src/
       db/                  # Liquibase changelogs (admin/, core/), PL/SQL packages, utPLSQL tests (tests/)
       compose.yaml         # local Oracle Free + migrations for development
     processing/
+      db/                  # Liquibase changelogs (admin/, proc/)
+      compose.yaml         # PROC migrations against the local Oracle Free of persistence
       src/processing/      # hexagonal layers: api, facade, infrastructure, application, domain
       tests/unit/          # unit tests (no I/O)
+      tests/integration/   # Testcontainers (Oracle Free)
       native/              # C++ kernel (pybind11), planned
     access/
   frontend/                # React + TypeScript SPA

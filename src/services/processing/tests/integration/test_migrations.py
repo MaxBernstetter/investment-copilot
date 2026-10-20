@@ -31,9 +31,12 @@ def test_the_app_user_has_only_create_session(oracle: OracleDatabase) -> None:
             " where grantee = 'PROC_APP'"
         )
         granted_to_app = cursor.fetchall()
+        cursor.execute("select granted_role from user_role_privs")
+        granted_roles = cursor.fetchall()
 
     assert session_privileges == {"CREATE SESSION"}
     assert granted_to_app == []
+    assert granted_roles == []
 
 
 def test_the_app_user_cannot_read_the_tables(oracle: OracleDatabase) -> None:
