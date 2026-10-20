@@ -125,8 +125,8 @@ The version shown in the footer is `version` in `package.json` (`0.1.0`), define
 
 The "Known as of" time shows every view as it was known at a chosen time (the API's `as_of`, the transaction-time axis, separate from the valid date). `App` holds the one value and passes it to each view as the `asOf` prop, so a change on one tab applies to all tabs.
 
-- **Status:** a header button, shown once the backend is online, labelled "Live" (blue, light) when no time is set, or "As of 19 Oct 2026, 18:49 UTC" (yellow, filled) for a past time. It sits in a `role="status"` region, so changes are announced.
-- **Popover:** the button opens a Popover (focus is trapped inside it, Esc closes it and returns focus to the button; Enter or Space opens it) with the "Known as of" `datetime-local` input (read as local time, sent as UTC ISO; description "Your local time"), a "Now" button that returns to the latest knowledge, and an explanation of the choice.
+- **Status:** a header button, shown once the backend is online, labelled "Live" (default variant) when no time is set, or "As of 19 Oct 2026, 18:49:25 UTC" (yellow.5, filled) for a past time. It sits in a `role="status"` region, so changes are announced.
+- **Popover:** the button opens a Popover (focus is trapped inside it, Esc closes it and returns focus to the button; Enter or Space opens it) with the "Known as of" `datetime-local` input (read as local time, sent as UTC ISO; description "Your local time, shown in UTC elsewhere"), a "Now" button that returns to the latest knowledge, and an explanation of the choice.
 - **URL:** the choice is kept in the `as_of` query parameter, so a link reproduces the view. A missing or unparseable `as_of` is ignored. Changes use `history.replaceState`, so they add no history entries.
 - **No data:** if nothing was known at that time (404), the view shows "No data known as of …"; a 422 shows the problem `detail`.
 - **Times:** knowledge times are shown in UTC by `formatUtc` (`src/format.ts`).

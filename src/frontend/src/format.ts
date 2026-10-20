@@ -24,7 +24,7 @@ export function formatUtc(iso: string, precision: 'seconds' | 'minutes' = 'secon
 
 /** A change in basis points, signed with a true minus and one decimal: `+9.0 bp`, `−2,376.0 bp`. */
 export function formatBp(bp: number): string {
-  const rounded = Math.round(bp * 10) / 10
+  const rounded = Math.sign(bp) * Math.round(Math.abs(bp) * 10) / 10
   if (rounded === 0) return '0.0 bp'
   const sign = rounded > 0 ? '+' : MINUS
   return `${sign}${groupThousands(Math.abs(rounded).toFixed(1))} bp`

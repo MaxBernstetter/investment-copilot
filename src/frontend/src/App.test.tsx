@@ -257,14 +257,14 @@ describe('App', () => {
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Live')
-    expect(screen.getByRole('button', { name: 'Live' })).toHaveAttribute('data-variant', 'light')
+    expect(screen.getByRole('button', { name: 'Live' })).toHaveAttribute('data-variant', 'default')
 
     cleanup()
     window.history.replaceState(null, '', '/?as_of=2026-10-19T18:49:25Z')
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('As of 19 Oct 2026, 18:49 UTC')
-    expect(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49 UTC' })).toHaveAttribute('data-variant', 'filled')
+    expect(screen.getByRole('status')).toHaveTextContent('As of 19 Oct 2026, 18:49:25 UTC')
+    expect(screen.getByRole('button', { name: 'As of 19 Oct 2026, 18:49:25 UTC' })).toHaveAttribute('data-variant', 'filled')
     expect(screen.getByText('Curve knows 2026-10-19T18:49:25Z')).toBeInTheDocument()
   })
 
@@ -301,7 +301,7 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText(/Known as of/), { target: { value: chosen } })
 
     expect(screen.getByText(`Curve knows ${asOf}`)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(`As of ${formatUtc(asOf, 'minutes')}`)
+    expect(screen.getByRole('status')).toHaveTextContent(`As of ${formatUtc(asOf)}`)
     expect(new URLSearchParams(window.location.search).get('as_of')).toBe(asOf)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Time series' }))
