@@ -12,6 +12,9 @@ from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from orchestration.ecb_daily_load import (
     JobFailedError,
     daily_load_command,
+    fail_unfinished_command,
+    mark_unfinished_attempt_failed,
+    remember_run_id,
     report_final_failure,
     run_job,
     valid_date_for,
@@ -143,3 +146,90 @@ def test_the_failure_callback_does_not_raise_on_broken_context(
     caplog.set_level(logging.ERROR)
     report_final_failure({})
     assert "task_failed callback could not log structured failure" in caplog.text
+
+
+class AirflowTaskTimeout(Exception):  # noqa: N818 - the name Airflow gives a killed task
+    """Stands in for the timeout Airflow raises when it kills a task."""
+
+
+class FakeXComTaskInstance:
+    task_id = "load_ecb"
+    map_index = -1
+
+    def __init__(self) -> None:
+        self.xcom: dict[str, object] = {}
+
+    def xcom_push(self, key: str, value: object) -> None:
+        self.xcom[key] = value
+
+    def xcom_pull(self, task_ids: str, key: str, map_indexes: int) -> object:
+        return self.xcom.get(key)
+
+
+def test_the_fail_unfinished_command_names_run_and_error() -> None:
+    assert fail_unfinished_command("daily_load_ecb-2026-10-16", "AirflowTaskTimeout", "killed") == [
+        "ingestion-load-ecb",
+        "fail-unfinished",
+        "--run-id",
+        "daily_load_ecb-2026-10-16",
+        "--error-type",
+        "AirflowTaskTimeout",
+        "--error-message",
+        "killed",
+    ]
+
+
+def test_the_run_id_is_remembered_for_the_callback() -> None:
+    ti = FakeXComTaskInstance()
+
+    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+
+    assert ti.xcom == {"ingestion_run_id": "daily_load_ecb-2026-10-16"}
+
+
+def test_a_killed_attempt_is_marked_failed_through_the_job(job_env: None) -> None:
+    ti = FakeXComTaskInstance()
+    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+
+    with mock_container_run(0) as mocked:
+        mark_unfinished_attempt_failed(
+            {"ti": ti, "exception": AirflowTaskTimeout("killed")}  # type: ignore[typeddict-item]
+        )
+
+    mocked.assert_called_once_with(
+        [
+            "ingestion-load-ecb",
+            "fail-unfinished",
+            "--run-id",
+            "daily_load_ecb-2026-10-16",
+            "--error-type",
+            "AirflowTaskTimeout",
+            "--error-message",
+            "killed",
+        ]
+    )
+
+
+def test_without_a_remembered_run_id_no_job_runs(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="orchestration.ecb_daily_load")
+
+    with mock_container_run(0) as mocked:
+        mark_unfinished_attempt_failed(
+            {"ti": FakeXComTaskInstance(), "exception": None}  # type: ignore[typeddict-item]
+        )
+
+    mocked.assert_not_called()
+    assert "fail_unfinished_skipped" in caplog.text
+
+
+def test_the_callback_does_not_raise_when_the_job_fails(caplog: pytest.LogCaptureFixture) -> None:
+    ti = FakeXComTaskInstance()
+    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+    caplog.set_level(logging.ERROR, logger="orchestration.ecb_daily_load")
+
+    with mock_container_run(1, stderr='{"event": "load_failed"}'):
+        mark_unfinished_attempt_failed(
+            {"ti": ti, "exception": AirflowTaskTimeout("killed")}  # type: ignore[typeddict-item]
+        )
+
+    assert "fail_unfinished_failed" in caplog.text

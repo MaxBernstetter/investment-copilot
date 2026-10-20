@@ -3,13 +3,16 @@
     ingestion-load-ecb daily --valid-date 2026-10-15 [--run-id ID]
     ingestion-load-ecb history --start 2004-09-06 --end 2026-10-16 [--run-id ID]
     ingestion-load-ecb replay --fetched-from 2026-10-01 --fetched-to 2026-10-18 [--run-id ID]
+    ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-message TEXT]
 
 ``daily`` loads the valid date and the lookback window before it
 (``INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS``). ``history`` loads a range with
 one request per calendar year. ``replay`` parses the deliveries stored in ``ING`` that
 were fetched on those days (UTC) again and records their values, without calling the
-ECB. The run id defaults to a deterministic value derived
-from the command and its dates, so a rerun of the same load reuses it.
+ECB. ``fail-unfinished`` marks the attempts of a run id that are still running as failed;
+the orchestration calls it when Airflow kills or retries a load task. The run id defaults
+to a deterministic value derived from the command and its dates, so a rerun of the same
+load reuses it.
 
 Every load and replay is recorded as an attempt in ``ING``; usage and configuration
 errors are not.
@@ -41,9 +44,16 @@ class ReplayCommand:
     run_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class FailUnfinishedCommand:
+    run_id: str
+    error_type: str
+    error_message: str | None
+
+
 def parse_command(
     argv: Sequence[str] | None, *, lookback_business_days: int
-) -> LoadCommand | ReplayCommand:
+) -> LoadCommand | ReplayCommand | FailUnfinishedCommand:
     """Parse the arguments; exits with status 2 on a usage error (argparse)."""
     parser = _parser()
     arguments = parser.parse_args(argv)
@@ -62,6 +72,10 @@ def parse_command(
             parser.error(f"--fetched-from {fetched_from} is after --fetched-to {fetched_to}")
         run_id = arguments.run_id or f"ecb-replay-{fetched_from}-{fetched_to}"
         return ReplayCommand(fetched_from, fetched_to, run_id)
+    if arguments.command == "fail-unfinished":
+        return FailUnfinishedCommand(
+            arguments.run_id, arguments.error_type, arguments.error_message
+        )
     start: date = arguments.start
     end: date = arguments.end
     if start > end:
@@ -128,6 +142,18 @@ def replay_summary(result: ReplayResult) -> str:
     )
 
 
+def unfinished_summary(run_id: str, failed_count: int) -> str:
+    """One JSON line describing the attempts that were marked failed."""
+    return json.dumps(
+        {
+            "event": "unfinished_failed",
+            "source": "ecb",
+            "run_id": run_id,
+            "failed_count": failed_count,
+        }
+    )
+
+
 def failure(run_id: str | None, error: Exception) -> str:
     """One JSON line describing a failed run."""
     return json.dumps(
@@ -159,4 +185,10 @@ def _parser() -> argparse.ArgumentParser:
     replay.add_argument("--fetched-to", type=date.fromisoformat, required=True)
     for command in (daily, history, replay):
         command.add_argument("--run-id", help="defaults to a value derived from the dates")
+    unfinished = commands.add_parser(
+        "fail-unfinished", help="mark the running attempts of a run id failed"
+    )
+    unfinished.add_argument("--run-id", required=True)
+    unfinished.add_argument("--error-type", required=True)
+    unfinished.add_argument("--error-message")
     return parser

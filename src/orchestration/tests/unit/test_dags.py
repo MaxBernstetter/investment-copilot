@@ -12,7 +12,7 @@ from airflow.serialization.decoders import decode_timetable
 from airflow.serialization.encoders import encode_timetable
 from airflow.timetables.base import DataInterval, TimeRestriction
 
-from orchestration.ecb_daily_load import report_final_failure
+from orchestration.ecb_daily_load import mark_unfinished_attempt_failed, report_final_failure
 
 COMPONENT = Path(__file__).parents[2]
 BERLIN = pendulum.timezone("Europe/Berlin")
@@ -42,6 +42,11 @@ def backfill_ecb(dag_bag: DagBag) -> DAG:
     dag = dag_bag.dags["backfill_ecb"]
     assert isinstance(dag, DAG)
     return dag
+
+
+def as_list(callbacks: object) -> list[object]:
+    """Airflow keeps one callback as itself and several as a list; compare both alike."""
+    return list(callbacks) if isinstance(callbacks, list) else [callbacks]
 
 
 def test_every_dag_imports_uses_known_pools_and_has_an_owner_and_tags(dag_bag: DagBag) -> None:
@@ -86,7 +91,11 @@ def test_the_load_retries_at_most_twice_and_reports_its_final_failure(
 
     assert load.retries == 2
     assert load.retry_delay == timedelta(minutes=10)
-    assert load.on_failure_callback == [report_final_failure]
+    assert as_list(load.on_failure_callback) == [
+        report_final_failure,
+        mark_unfinished_attempt_failed,
+    ]
+    assert as_list(load.on_retry_callback) == [mark_unfinished_attempt_failed]
 
 
 def test_the_load_runs_in_the_ecb_pool_of_size_one(
@@ -108,7 +117,11 @@ def test_the_backfill_is_manual_and_loads_one_year_at_a_time_in_the_ecb_pool(
     assert pools["ecb"]["slots"] == 1
     assert load.max_active_tis_per_dag == 1
     assert load.retries == 2
-    assert load.on_failure_callback == report_final_failure
+    assert as_list(load.on_failure_callback) == [
+        report_final_failure,
+        mark_unfinished_attempt_failed,
+    ]
+    assert as_list(load.on_retry_callback) == [mark_unfinished_attempt_failed]
 
 
 def test_the_daily_load_checks_quality_after_the_load(daily_load_ecb: DAG) -> None:
@@ -119,6 +132,14 @@ def test_the_daily_load_checks_quality_after_the_load(daily_load_ecb: DAG) -> No
     assert check.retries == 2
     assert check.retry_delay == timedelta(minutes=10)
     assert check.on_failure_callback == [report_final_failure]
+
+
+def test_quality_checks_do_not_mark_ingestion_attempts(
+    daily_load_ecb: DAG, backfill_ecb: DAG
+) -> None:
+    for check in (daily_load_ecb.get_task("check_quality"), backfill_ecb.get_task("check_year")):
+        assert as_list(check.on_failure_callback) == [report_final_failure]
+        assert as_list(check.on_retry_callback) == []
 
 
 def test_the_backfill_checks_each_year_after_the_loads(backfill_ecb: DAG) -> None:

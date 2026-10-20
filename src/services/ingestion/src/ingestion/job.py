@@ -3,8 +3,8 @@ persistence alone for a scenario.
 
 Entry points ``ingestion-load-ecb`` (see ``ingestion.facade.jobs.load_ecb``) and
 ``ingestion-scenario`` (see ``ingestion.facade.jobs.scenario``). Exit status: ``0`` the
-load, replay or scenario finished (also with zero rows), ``1`` it failed, ``2`` usage or
-configuration error.
+load, replay, scenario or fail-unfinished finished (also with zero rows), ``1`` it failed,
+``2`` usage or configuration error.
 """
 
 import asyncio
@@ -28,12 +28,14 @@ from ingestion.application.track_run import RunLog, TrackRun
 from ingestion.config import IngestionSettings
 from ingestion.domain.run import Operation
 from ingestion.facade.jobs.load_ecb import (
+    FailUnfinishedCommand,
     LoadCommand,
     ReplayCommand,
     failure,
     parse_command,
     replay_summary,
     summary,
+    unfinished_summary,
 )
 from ingestion.facade.jobs.scenario import (
     ScenarioCommand,
@@ -89,6 +91,10 @@ def main(
         argv, lookback_business_days=settings.sources.ecb.lookback_business_days
     )
     try:
+        if isinstance(command, FailUnfinishedCommand):
+            failed_count = asyncio.run(_fail_unfinished(command, settings, run_log))
+            print(unfinished_summary(command.run_id, failed_count))
+            return 0
         if isinstance(command, ReplayCommand):
             replayed = asyncio.run(
                 _replay(command, settings, persistence_transport, delivery_store, run_log)
@@ -128,6 +134,14 @@ async def _load(
             command.run_id, command.operation, load(command.windows, command.run_id)
         )
         return LoadResult(command.run_id, tracked.attempt, tracked.steps)
+
+
+async def _fail_unfinished(
+    command: FailUnfinishedCommand, settings: IngestionSettings, run_log: RunLog | None
+) -> int:
+    """Only the run log is opened: no source, no persistence, no delivery store."""
+    async with _run_log(settings, run_log) as runs:
+        return await runs.fail_unfinished(command.run_id, command.error_type, command.error_message)
 
 
 async def _replay(

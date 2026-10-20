@@ -13,6 +13,8 @@ from airflow.sdk import CronTriggerTimetable, dag, get_current_context, task
 
 from orchestration.ecb_daily_load import (
     daily_load_command,
+    mark_unfinished_attempt_failed,
+    remember_run_id,
     report_final_failure,
     run_job,
     valid_date_for,
@@ -39,13 +41,16 @@ def daily_load_ecb() -> None:
         retry_delay=timedelta(minutes=10),
         retry_exponential_backoff=2.0,
         execution_timeout=timedelta(minutes=30),
-        on_failure_callback=report_final_failure,
+        on_failure_callback=[report_final_failure, mark_unfinished_attempt_failed],
+        on_retry_callback=mark_unfinished_attempt_failed,
     )
     def load_ecb() -> None:
         context = get_current_context()
         run_at = context["logical_date"] or context["dag_run"].run_after
         valid_date = valid_date_for(run_at.astimezone(TIMEZONE).date())
-        run_job(daily_load_command(valid_date, f"{DAG_ID}-{valid_date.isoformat()}"))
+        run_id = f"{DAG_ID}-{valid_date.isoformat()}"
+        remember_run_id(context["ti"], run_id)
+        run_job(daily_load_command(valid_date, run_id))
 
     @task(
         retries=2,
