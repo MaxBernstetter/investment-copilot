@@ -1,3 +1,10 @@
+import { createElement } from 'react'
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconInfoCircle,
+} from '@tabler/icons-react'
 import {
   Alert,
   AppShell,
@@ -29,6 +36,21 @@ export function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'va
     return { color: 'orange.6', variant: 'filled', miw: 'max-content' }
   }
   return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light', miw: 'max-content' }
+}
+
+/** Status badges for quality flags and days; the icon carries the status without colour alone. */
+export function qualityBadgeProps(status: string): Pick<BadgeProps, 'color' | 'variant' | 'leftSection'> {
+  const icon = (Icon: typeof IconCircleCheck) => createElement(Icon, { size: 12, 'aria-hidden': true })
+  if (status === 'passed') {
+    return { color: 'green.7', variant: 'filled', leftSection: icon(IconCircleCheck) }
+  }
+  if (status === 'info') {
+    return { color: 'blue', variant: 'light', leftSection: icon(IconInfoCircle) }
+  }
+  if (status === 'warn') {
+    return { color: 'yellow', variant: 'filled', leftSection: icon(IconAlertTriangle) }
+  }
+  return { color: 'gray', variant: 'light', leftSection: icon(IconCircleDashed) }
 }
 
 /** Dimmed text is darkened (light) or lightened (dark) so it meets 4.5:1 contrast (A1). */
