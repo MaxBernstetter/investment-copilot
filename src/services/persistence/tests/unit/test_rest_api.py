@@ -195,7 +195,12 @@ def seed_curve(backend: FakeBackend, valid_date: date = date(2026, 3, 12)) -> No
 
 def expected_points(**values: float) -> list[dict[str, Any]]:
     return [
-        {"maturity": maturity, "months": months, "value": values.get(maturity)}
+        {
+            "maturity": maturity,
+            "months": months,
+            "value": values.get(maturity),
+            "version_id": 1 if maturity in values else None,
+        }
         for maturity, months in GRID
     ]
 
@@ -283,6 +288,37 @@ def test_naive_as_of_is_an_invalid_request_problem(
 SERIES_PATH = SERIES_OBSERVATIONS_PATH.format(curve_id="ecb-aaa-spot", maturity="10Y")
 
 
+def test_curve_points_carry_the_version_id_of_the_visible_version(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    seed_curve(backend)
+    backend.curves.version_ids[("ecb-aaa-spot", "10Y", date(2026, 3, 12))] = 42
+
+    response = client.get(
+        CURVE_PATH, params={"valid_date": "2026-03-12", "as_of": "2026-03-13T08:00:00Z"}
+    )
+
+    points = {point["maturity"]: point for point in response.json()["data"]["points"]}
+    assert points["10Y"]["version_id"] == 42
+    assert points["2Y"]["version_id"] == 1
+    assert points["3M"]["value"] is None
+    assert points["3M"]["version_id"] is None
+
+
+def test_series_points_carry_the_version_id(client: TestClient, backend: FakeBackend) -> None:
+    seed_curve(backend)
+    backend.curves.version_ids[("ecb-aaa-spot", "10Y", date(2026, 3, 12))] = 42
+
+    response = client.get(
+        SERIES_PATH,
+        params={"from": "2026-03-01", "to": "2026-03-12", "as_of": "2026-03-13T08:00:00Z"},
+    )
+
+    assert response.json()["data"]["points"] == [
+        {"valid_date": "2026-03-12", "value": 2.61, "version_id": 42}
+    ]
+
+
 def test_returns_the_series_of_a_maturity_in_the_envelope(
     client: TestClient, backend: FakeBackend
 ) -> None:
@@ -298,7 +334,7 @@ def test_returns_the_series_of_a_maturity_in_the_envelope(
         "data": {
             "curve_id": "ecb-aaa-spot",
             "maturity": "10Y",
-            "points": [{"valid_date": "2026-03-12", "value": 2.61}],
+            "points": [{"valid_date": "2026-03-12", "value": 2.61, "version_id": 1}],
         },
         "meta": {"as_of": "2026-03-13T08:00:00Z"},
     }

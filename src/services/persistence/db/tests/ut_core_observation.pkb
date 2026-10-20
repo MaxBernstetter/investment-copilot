@@ -9,10 +9,10 @@ create or replace package body ut_core_observation as
 
   type observation_rows is table of observation%rowtype;
 
-  type point_t is record (maturity varchar2(16), months number, value number);
+  type point_t is record (maturity varchar2(16), months number, value number, version_id number);
   type point_rows is table of point_t;
 
-  type series_point_t is record (valid_date date, value number);
+  type series_point_t is record (valid_date date, value number, version_id number);
   type series_point_rows is table of series_point_t;
 
   type value_version_t is record (

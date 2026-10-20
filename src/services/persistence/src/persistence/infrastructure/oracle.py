@@ -134,8 +134,9 @@ class OracleObservationRepository:
                 maturity=maturity,
                 months=int(months),
                 value=float(value) if value is not None else None,
+                version_id=int(version_id) if version_id is not None else None,
             )
-            for maturity, months, value in rows
+            for maturity, months, value, version_id in rows
         ]
 
     async def has_maturity(self, curve_id: str, maturity: str) -> bool:
@@ -161,8 +162,10 @@ class OracleObservationRepository:
             )
             rows = await points.fetchall()
         return [
-            SeriesPoint(valid_date=valid_date.date(), value=float(value))
-            for valid_date, value in rows
+            SeriesPoint(
+                valid_date=valid_date.date(), value=float(value), version_id=int(version_id)
+            )
+            for valid_date, value, version_id in rows
         ]
 
     async def value_versions(

@@ -13,6 +13,7 @@ class CurvePoint:
     maturity: str
     months: int
     value: float | None
+    version_id: int | None
 
 
 @dataclass(frozen=True, slots=True)

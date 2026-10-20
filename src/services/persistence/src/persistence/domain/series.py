@@ -12,6 +12,7 @@ from datetime import date, datetime
 class SeriesPoint:
     valid_date: date
     value: float
+    version_id: int
 
 
 @dataclass(frozen=True, slots=True)

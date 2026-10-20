@@ -382,7 +382,7 @@ create or replace package body core_observation as
     l_points sys_refcursor;
   begin
     open l_points for
-      select g.maturity, g.months, o.value
+      select g.maturity, g.months, o.value, o.version_id
         from curve c
         join grid_maturity g on g.grid_version = c.grid_version
         left join observation o
@@ -404,7 +404,7 @@ create or replace package body core_observation as
     l_points sys_refcursor;
   begin
     open l_points for
-      select o.valid_date, o.value
+      select o.valid_date, o.value, o.version_id
         from observation o
        where o.curve_id = p_curve_id
          and o.maturity = p_maturity

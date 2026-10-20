@@ -39,7 +39,12 @@ def to_curve_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
             curve_id=curve.curve_id,
             valid_date=curve.valid_date,
             points=[
-                v1.CurvePoint(maturity=point.maturity, months=point.months, value=point.value)
+                v1.CurvePoint(
+                    maturity=point.maturity,
+                    months=point.months,
+                    value=point.value,
+                    version_id=point.version_id,
+                )
                 for point in curve.points
             ],
         ),
@@ -53,7 +58,9 @@ def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
             curve_id=series.curve_id,
             maturity=series.maturity,
             points=[
-                v1.SeriesPoint(valid_date=point.valid_date, value=point.value)
+                v1.SeriesPoint(
+                    valid_date=point.valid_date, value=point.value, version_id=point.version_id
+                )
                 for point in series.points
             ],
         ),

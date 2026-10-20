@@ -8,8 +8,9 @@ visible published value is returned with ``value`` null rather than left out.
 """
 
 from datetime import date
+from typing import Self
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 CURVE_OBSERVATIONS_PATH = "/v1/curves/{curve_id}/observations"
 """``GET`` endpoint that returns one curve as of a knowledge time."""
@@ -27,6 +28,17 @@ class CurvePoint(BaseModel):
         description="Yield in percent; null if no published value was known as of meta.as_of",
         examples=[2.61],
     )
+    version_id: int | None = Field(
+        description="Version id of the visible version, the lineage reference; "
+        "null exactly when value is null",
+        examples=[4711],
+    )
+
+    @model_validator(mode="after")
+    def _version_id_is_null_exactly_when_value_is_null(self) -> Self:
+        if (self.value is None) != (self.version_id is None):
+            raise ValueError("version_id is null exactly when value is null")
+        return self
 
 
 class CurveObservations(BaseModel):
