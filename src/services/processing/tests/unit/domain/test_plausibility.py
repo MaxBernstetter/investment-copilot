@@ -140,3 +140,18 @@ def test_each_finding_carries_its_rule_explanation() -> None:
     for finding in findings:
         assert finding.explanation == expected[(finding.rule, finding.severity)]
         assert finding.evidence
+
+
+def test_a_downward_move_is_flagged_like_an_upward_one() -> None:
+    info = check_jumps([value(OCT_06, "2.92"), value(OCT_07, "2.62")], OCT_06, ECB_AAA_SPOT)
+    warn = check_jumps([value(OCT_06, "3.12"), value(OCT_07, "2.52")], OCT_06, ECB_AAA_SPOT)
+
+    assert len(info) == 1
+    assert info[0].severity is Severity.INFO
+    assert info[0].evidence == "2.62 % on 2026-10-07 after 2.92 % on 2026-10-06 (-30.0 bp)"
+    assert len(warn) == 1
+    assert warn[0].severity is Severity.WARN
+
+
+def test_exactly_minus_25_bp_is_not_flagged() -> None:
+    assert check_jumps([value(OCT_06, "2.87"), value(OCT_07, "2.62")], OCT_06, ECB_AAA_SPOT) == []
