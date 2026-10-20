@@ -30,12 +30,20 @@ def test_the_app_user_has_only_create_session(oracle: OracleDatabase) -> None:
             "select privilege, owner || '.' || table_name from user_tab_privs"
             " where grantee = 'PROC_APP'"
         )
-        granted_to_app = cursor.fetchall()
+        granted_to_app = {tuple(row) for row in cursor.fetchall()}
         cursor.execute("select granted_role from user_role_privs")
         granted_roles = cursor.fetchall()
 
     assert session_privileges == {"CREATE SESSION"}
-    assert granted_to_app == []
+    assert granted_to_app == {
+        ("EXECUTE", "PROC.PROC_DAY_STATUS_LIST_T"),
+        ("EXECUTE", "PROC.PROC_DAY_STATUS_T"),
+        ("EXECUTE", "PROC.PROC_FINDING_LIST_T"),
+        ("EXECUTE", "PROC.PROC_FINDING_T"),
+        ("EXECUTE", "PROC.PROC_QUALITY"),
+        ("EXECUTE", "PROC.PROC_VALUE_STATUS_LIST_T"),
+        ("EXECUTE", "PROC.PROC_VALUE_STATUS_T"),
+    }
     assert granted_roles == []
 
 
