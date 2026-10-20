@@ -1,1 +1,1 @@
-"""Domain of the processing service (empty until the rules land)."""
+"""Domain of the processing service: quality vocabulary, plausibility rules and their thresholds."""
