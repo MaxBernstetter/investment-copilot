@@ -111,6 +111,18 @@ describe('VersionHistory', () => {
     ])
   })
 
+  it('renders a correction as a filled badge and the other reasons as light', async () => {
+    const correction: Version = { ...second, version_id: 3, change_reason: 'correction' }
+    mockedFetch.mockResolvedValueOnce(okResult([first, second, correction]))
+    renderHistory()
+
+    await screen.findByRole('table')
+    const badgeVariant = (text: string) => screen.getByText(text).closest('[data-variant]')
+    expect(badgeVariant('correction')).toHaveAttribute('data-variant', 'filled')
+    expect(badgeVariant('revision')).toHaveAttribute('data-variant', 'light')
+    expect(badgeVariant('initial')).toHaveAttribute('data-variant', 'light')
+  })
+
   it('shows current for the open version', async () => {
     renderHistory()
 

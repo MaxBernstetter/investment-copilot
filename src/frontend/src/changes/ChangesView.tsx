@@ -3,7 +3,6 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  type BadgeProps,
   Card,
   Group,
   Input,
@@ -17,6 +16,7 @@ import {
 import { IconInfoCircle } from '@tabler/icons-react'
 import { localInputToUtc } from '../asOf'
 import PageHeader from '../layout/PageHeader'
+import { reasonBadgeProps } from '../theme'
 import { defaultRange } from '../series/seriesData'
 import ChangesEmptyState from './ChangesEmptyState'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
@@ -26,19 +26,6 @@ type ChangesViewProps = {
   curveId: string
   /** The knowledge time shared by all views, set in the header. */
   asOf?: string
-}
-
-const REASON_COLORS: Record<string, string> = {
-  correction: 'orange',
-  revision: 'blue',
-}
-
-function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant'> {
-  if (reason === 'correction') {
-    // orange.6 keeps L > theme luminanceThreshold so autoContrast uses black label text (≥4.5:1).
-    return { color: 'orange.6', variant: 'filled' }
-  }
-  return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light' }
 }
 
 const COMPARE_FROM_TOOLTIP =
