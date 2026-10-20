@@ -14,13 +14,14 @@ NO_CACHE = "no-cache"
 IMMUTABLE = "public, max-age=31536000, immutable"
 
 
-def cache_control(requested: datetime | None, answered: datetime) -> str:
+def cache_control(requested: datetime | None, answered: datetime, *, complete: bool = True) -> str:
     """``immutable`` for a settled answer: an ``as_of`` was asked and echoed back as the answer.
 
     Persistence answers an ``as_of`` after its knowledge horizon at the horizon, so an answer
     whose ``meta.as_of`` differs from the request can still change and must be revalidated.
+    An answer with an unchecked value is not settled even when ``as_of`` matches.
     """
-    if requested is not None and requested == answered:
+    if requested is not None and requested == answered and complete:
         return IMMUTABLE
     return NO_CACHE
 

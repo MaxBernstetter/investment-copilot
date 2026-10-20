@@ -14,8 +14,9 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 | `GET /ready` | Readiness: the persistence service answers `200` on its own `/ready` | `200 {"status": "ready"}`, `503 {"status": "unavailable"}` (also when persistence is unreachable) |
 
 - `curve_id`: 1 to 64 characters. `valid_date`: ISO date. `as_of`: timezone-aware ISO datetime; a naive one is rejected.
-- `data` holds `curve_id`, `valid_date` and `points` in grid order (`maturity`, `months`, `value`, `version_id`, `origin`); a maturity with no published value known as of `meta.as_of` has `value: null` and `version_id: null`.
-- Series points carry `version_id` and `origin` too. `version_id` is the lineage reference of the visible version: it is the id the versions endpoint lists for that value. `origin` is `published` for every value the service returns: values are passed on unmodified.
+- `data` holds `curve_id`, `valid_date` and `points` in grid order (`maturity`, `months`, `value`, `version_id`, `origin`, `quality`); a maturity with no published value known as of `meta.as_of` has `value: null`, `version_id: null` and `quality: null`.
+- Series points carry `version_id`, `origin` and `quality` too. `version_id` is the lineage reference of the visible version: it is the id the versions endpoint lists for that value. `origin` is `published` for every value the service returns: values are passed on unmodified. `quality` carries the processing status (`passed`, `info`, `warn`, or `unchecked`) and any rule flags with explanations.
+- Curve and series answers call the processing service (`GET /v1/curves/{curve_id}/value-quality`) for the visible values and attach the result. When processing is unavailable, values are `unchecked` and the answer is not cached as immutable.
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
 - `meta.source_attribution` is required on the curve, series, versions and changes answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an attribution entry is answered `404` (not found), never without attribution.
 - Only `GET` is allowed (`405` otherwise).
@@ -24,7 +25,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 ### Caching
 
 - All data endpoints return an `ETag` for the exact response body: a quoted digest of the body, so the same answer always carries the same tag.
-- A settled answer is immutable: when the request has an `as_of` and `meta.as_of` equals it (as instants, so any UTC offset matches), both send `Cache-Control: public, max-age=31536000, immutable`. The answer never changes, so caches may reuse it without asking.
+- A settled answer is immutable: when the request has an `as_of` and `meta.as_of` equals it (as instants, so any UTC offset matches), and every published value has a known quality result that is not `unchecked`, both send `Cache-Control: public, max-age=31536000, immutable`. The answer never changes, so caches may reuse it without asking. An answer with an unchecked value is not settled.
 - Every other answer sends `Cache-Control: no-cache`: no `as_of` was requested, or persistence answered at its knowledge horizon because the requested `as_of` was later. Caches must revalidate with the `ETag` before reuse.
 - A `304` carries the same `Cache-Control` as the `200` it stands for.
 - Conditional GET: a request with `If-None-Match` that lists the current tag (or `*`) gets `304 Not Modified` with the `ETag` and no body. Lists of tags and weak (`W/`) tags are accepted. Any other tag gets the full `200`.
@@ -48,7 +49,7 @@ The OpenAPI document is generated from the app (`task access:openapi`) and publi
 |---|---|
 | `access.domain` | `CurveAsOf` and `CurvePoint`, the version history and changes of values, and the errors of reading a curve |
 | `access.application` | `CurveReader` port |
-| `access.infrastructure` | `PersistenceClient`: readiness, and the curve read (maps persistence answers and errors to the domain) |
+| `access.infrastructure` | `PersistenceClient` and `ProcessingClient`: readiness and curve reads from persistence; value quality from processing |
 | `access.facade` | FastAPI app, CORS, routes, problem handlers, mapping to `contracts.access.v1`, OpenAPI export |
 | `access.api` | Composition root of the `api` process |
 
@@ -62,6 +63,8 @@ Environment variables, validated at startup (pydantic-settings):
 |---|---|---|
 | `ACCESS_PERSISTENCE_URL` | – (required) | Base URL of the persistence api, e.g. `http://localhost:8001` |
 | `ACCESS_PERSISTENCE_TIMEOUT_SECONDS` | `10` | Timeout of one call to persistence |
+| `ACCESS_PROCESSING_URL` | – (required) | Base URL of the processing api, e.g. `http://localhost:8002` |
+| `ACCESS_PROCESSING_TIMEOUT_SECONDS` | `5` | Timeout of one call to processing |
 | `ACCESS_CORS_ORIGINS` | `http://localhost:5174` | Comma-separated origins allowed to call the API (the Vite dev server by default) |
 
 ## Running locally

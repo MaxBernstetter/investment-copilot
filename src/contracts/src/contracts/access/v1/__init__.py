@@ -16,6 +16,12 @@ from contracts.access.v1.curves import (
     Origin,
     Problem,
 )
+from contracts.access.v1.quality import (
+    QualityFlag,
+    QualityStatus,
+    Severity,
+    ValueQuality,
+)
 from contracts.access.v1.series import (
     SERIES_OBSERVATIONS_PATH,
     SeriesObservations,
@@ -45,10 +51,14 @@ __all__ = [
     "CurvePoint",
     "Origin",
     "Problem",
+    "QualityFlag",
+    "QualityStatus",
     "SeriesObservations",
     "SeriesObservationsResponse",
     "SeriesPoint",
+    "Severity",
     "ValueChange",
+    "ValueQuality",
     "ValueVersion",
     "ValueVersions",
     "ValueVersionsResponse",

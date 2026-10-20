@@ -42,6 +42,31 @@ def run_event(name: str) -> None:
         ],
         check=True,
     )
+    run_quality_check()
+
+
+def run_quality_check() -> None:
+    """Run the processing quality check for the scenario curve over the event window."""
+    subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            COMPOSE_FILE,
+            "--profile",
+            "tools",
+            "run",
+            "--rm",
+            "--build",
+            "processing-job",
+            "ecb-aaa-spot-sim",
+            "--from",
+            "2026-10-05",
+            "--to",
+            "2026-10-08",
+        ],
+        check=True,
+    )
 
 
 def body(response: httpx.Response) -> dict[str, Any]:
@@ -55,6 +80,15 @@ def value_of(payload: dict[str, Any], maturity: str) -> float | None:
         if point["maturity"] == maturity:
             value: float | None = point["value"]
             return value
+    raise AssertionError(f"no point for maturity {maturity}")
+
+
+def quality_of(payload: dict[str, Any], maturity: str) -> dict[str, Any]:
+    """The quality object of one maturity in a curve observation body."""
+    for point in payload["data"]["points"]:
+        if point["maturity"] == maturity:
+            quality: dict[str, Any] = point["quality"]
+            return quality
     raise AssertionError(f"no point for maturity {maturity}")
 
 
@@ -75,6 +109,11 @@ def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
         assert latest.status_code == 200
         t1 = body(latest)["meta"]["as_of"]
         assert value_of(body(latest), "10Y") == 26.4
+        latest_quality = quality_of(body(latest), "10Y")
+        assert latest_quality["status"] == "warn"
+        rules = {flag["rule"] for flag in latest_quality["flags"]}
+        assert rules == {"range", "jump"}
+        assert all(flag["explanation"] for flag in latest_quality["flags"])
 
         past = client.get(curve_path(SIM), params={"valid_date": VALID_DATE, "as_of": t1})
         assert past.status_code == 200
@@ -98,6 +137,7 @@ def test_a_past_view_is_reproduced_exactly_after_a_correction() -> None:
 
         current = client.get(curve_path(SIM), params={"valid_date": VALID_DATE})
         assert value_of(body(current), "10Y") == 2.64
+        assert quality_of(body(current), "10Y")["status"] == "passed"
 
         versions = client.get(versions_path(SIM, "10Y", VALID_DATE))
         assert versions.status_code == 200

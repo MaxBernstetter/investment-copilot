@@ -27,3 +27,7 @@ def test_the_same_instant_in_another_offset_is_settled() -> None:
 
     assert cache_control(in_utc, KNOWN) == IMMUTABLE
     assert cache_control(KNOWN, in_utc) == IMMUTABLE
+
+
+def test_an_incomplete_answer_must_be_revalidated() -> None:
+    assert cache_control(KNOWN, KNOWN, complete=False) == "no-cache"

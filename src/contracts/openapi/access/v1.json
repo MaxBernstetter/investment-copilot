@@ -207,6 +207,17 @@
             "$ref": "#/components/schemas/Origin",
             "description": "published: the source value, unmodified; derived: computed by the service (none yet)"
           },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quality status of the value; null exactly when value is null"
+          },
           "value": {
             "anyOf": [
               {
@@ -243,7 +254,8 @@
           "months",
           "value",
           "version_id",
-          "origin"
+          "origin",
+          "quality"
         ],
         "title": "CurvePoint",
         "type": "object"
@@ -286,6 +298,53 @@
         ],
         "title": "Problem",
         "type": "object"
+      },
+      "QualityFlag": {
+        "additionalProperties": false,
+        "description": "One rule finding on a published value.",
+        "properties": {
+          "evidence": {
+            "description": "What was found, with the numbers",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "explanation": {
+            "description": "Why the rule exists, in user language",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "rule": {
+            "description": "Plausibility or completeness rule that produced the flag",
+            "examples": [
+              "range"
+            ],
+            "minLength": 1,
+            "title": "Rule",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          }
+        },
+        "required": [
+          "rule",
+          "severity",
+          "explanation",
+          "evidence"
+        ],
+        "title": "QualityFlag",
+        "type": "object"
+      },
+      "QualityStatus": {
+        "description": "Outcome of checks: ``unchecked`` means no result is known for the value.",
+        "enum": [
+          "passed",
+          "info",
+          "warn",
+          "unchecked"
+        ],
+        "title": "QualityStatus",
+        "type": "string"
       },
       "SeriesObservations": {
         "additionalProperties": false,
@@ -351,6 +410,10 @@
             "$ref": "#/components/schemas/Origin",
             "description": "published: the source value, unmodified; derived: computed by the service (none yet)"
           },
+          "quality": {
+            "$ref": "#/components/schemas/ValueQuality",
+            "description": "Quality status of the value"
+          },
           "valid_date": {
             "description": "Valid time: the business date of the value",
             "format": "date",
@@ -375,10 +438,20 @@
           "valid_date",
           "value",
           "version_id",
-          "origin"
+          "origin",
+          "quality"
         ],
         "title": "SeriesPoint",
         "type": "object"
+      },
+      "Severity": {
+        "description": "How serious a flag is: ``warn`` is shown as a warning, ``info`` as a note.",
+        "enum": [
+          "warn",
+          "info"
+        ],
+        "title": "Severity",
+        "type": "string"
       },
       "ValueChange": {
         "additionalProperties": false,
@@ -459,6 +532,29 @@
           "known_from"
         ],
         "title": "ValueChange",
+        "type": "object"
+      },
+      "ValueQuality": {
+        "additionalProperties": false,
+        "description": "Quality of one published value, with the flags that apply to it.",
+        "properties": {
+          "flags": {
+            "description": "Rule findings on this value; empty when status is passed or unchecked",
+            "items": {
+              "$ref": "#/components/schemas/QualityFlag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          }
+        },
+        "required": [
+          "status",
+          "flags"
+        ],
+        "title": "ValueQuality",
         "type": "object"
       },
       "ValueVersion": {

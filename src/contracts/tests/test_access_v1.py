@@ -15,6 +15,7 @@ def curve_response(**overrides: Any) -> dict[str, Any]:
                     "value": None,
                     "version_id": None,
                     "origin": "published",
+                    "quality": None,
                 },
                 {
                     "maturity": "10Y",
@@ -22,6 +23,7 @@ def curve_response(**overrides: Any) -> dict[str, Any]:
                     "value": 2.61,
                     "version_id": 7,
                     "origin": "published",
+                    "quality": {"status": "passed", "flags": []},
                 },
             ],
         },
@@ -44,8 +46,20 @@ def test_series_response_round_trips_with_gaps_between_dates() -> None:
             "curve_id": "ecb-aaa-spot",
             "maturity": "10Y",
             "points": [
-                {"valid_date": "2026-03-12", "value": 2.61, "version_id": 7, "origin": "published"},
-                {"valid_date": "2026-03-14", "value": 2.7, "version_id": 9, "origin": "published"},
+                {
+                    "valid_date": "2026-03-12",
+                    "value": 2.61,
+                    "version_id": 7,
+                    "origin": "published",
+                    "quality": {"status": "passed", "flags": []},
+                },
+                {
+                    "valid_date": "2026-03-14",
+                    "value": 2.7,
+                    "version_id": 9,
+                    "origin": "published",
+                    "quality": {"status": "warn", "flags": []},
+                },
             ],
         },
         "meta": {"as_of": "2026-03-15T09:00:00Z", "source_attribution": "Source: ECB statistics"},

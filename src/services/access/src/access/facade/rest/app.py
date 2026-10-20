@@ -13,12 +13,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime
 
-from access.application.ports import CurveReader
+from access.application.ports import CurveReader, QualityReader
 from access.domain.curve import (
     CurveNotFoundError,
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
+from access.domain.quality import quality_is_complete
 from access.facade.mapping import (
     to_changes_response,
     to_response,
@@ -38,6 +39,7 @@ class Services:
 
     is_ready: Callable[[], Awaitable[bool]]
     curves: CurveReader
+    quality: QualityReader
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -96,10 +98,15 @@ def _add_routes(app: FastAPI) -> None:
         reports the knowledge time it used in ``meta.as_of``.
         """
         curve = await services.curves.curve_as_of(curve_id, valid_date, as_of)
+        known = await services.quality.value_quality(
+            curve_id, curve.valid_date, curve.valid_date, None, curve.as_of
+        )
+        version_ids = {point.version_id for point in curve.points if point.version_id is not None}
+        complete = quality_is_complete(version_ids, known)
         return json_with_etag(
             request,
-            to_response(curve),
-            cache_control=cache_control(as_of, curve.as_of),
+            to_response(curve, known=known),
+            cache_control=cache_control(as_of, curve.as_of, complete=complete),
         )
 
     @app.get(
@@ -127,10 +134,20 @@ def _add_routes(app: FastAPI) -> None:
         reports the knowledge time it used in ``meta.as_of``.
         """
         series = await services.curves.series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
+        if series.points:
+            dates = [point.valid_date for point in series.points]
+            known = await services.quality.value_quality(
+                curve_id, min(dates), max(dates), maturity, series.as_of
+            )
+            version_ids = {point.version_id for point in series.points}
+            complete = quality_is_complete(version_ids, known)
+        else:
+            known = None
+            complete = True
         return json_with_etag(
             request,
-            to_series_response(series),
-            cache_control=cache_control(as_of, series.as_of),
+            to_series_response(series, known=known),
+            cache_control=cache_control(as_of, series.as_of, complete=complete),
         )
 
     @app.get(

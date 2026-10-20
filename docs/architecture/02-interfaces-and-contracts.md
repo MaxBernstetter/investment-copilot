@@ -30,7 +30,7 @@
 - **Errors:** RFC 9457 problem details (`application/problem+json`).
 - **Caching:**
   - Every response carries an `ETag`; conditional GET (`If-None-Match`) answers `304` without a body.
-  - A settled answer is immutable: the request had an `as_of` and the response's `meta.as_of` equals it. It gets `Cache-Control: public, max-age=31536000, immutable`.
+  - A settled answer is immutable: the request had an `as_of` and the response's `meta.as_of` equals it, and every published value in the answer has a known quality result that is not `unchecked`. It gets `Cache-Control: public, max-age=31536000, immutable`. An answer with an unchecked value is not settled.
   - Every other answer gets `Cache-Control: no-cache` (revalidate with the `ETag`). Persistence answers an `as_of` after its knowledge horizon at the horizon, so such an answer is not settled.
   - Errors are not cached by this rule.
 - **Writes:**

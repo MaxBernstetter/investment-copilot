@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { missingMaturities, overlayRows, overlaySeries, spread2s10s, yield10y, type CurvePoint } from './curveData'
 
+const passed = { status: 'passed' as const, flags: [] }
+
 const points: CurvePoint[] = [
-  { maturity: '3M', months: 3, value: 2.1, version_id: 1, origin: 'published' },
-  { maturity: '1Y', months: 12, value: null, version_id: null, origin: 'published' },
-  { maturity: '10Y', months: 120, value: 2.6, version_id: 3, origin: 'published' },
+  { maturity: '3M', months: 3, value: 2.1, version_id: 1, origin: 'published', quality: passed },
+  { maturity: '1Y', months: 12, value: null, version_id: null, origin: 'published', quality: null },
+  { maturity: '10Y', months: 120, value: 2.6, version_id: 3, origin: 'published', quality: passed },
 ]
 
 describe('curveData', () => {
@@ -30,8 +32,8 @@ describe('curveData', () => {
     expect(yield10y(points)).toBe(2.6)
     expect(spread2s10s(points)).toBeUndefined()
     const with2y: CurvePoint[] = [
-      { maturity: '2Y', months: 24, value: 2.5, version_id: 1, origin: 'published' },
-      { maturity: '10Y', months: 120, value: 2.6, version_id: 2, origin: 'published' },
+      { maturity: '2Y', months: 24, value: 2.5, version_id: 1, origin: 'published', quality: passed },
+      { maturity: '10Y', months: 120, value: 2.6, version_id: 2, origin: 'published', quality: passed },
     ]
     expect(spread2s10s(with2y)).toBeCloseTo(10)
     expect(spread2s10s([with2y[0], { ...with2y[1], value: 2.4 }])).toBeCloseTo(-10)

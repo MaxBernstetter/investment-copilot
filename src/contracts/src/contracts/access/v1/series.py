@@ -11,6 +11,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts.access.v1.curves import CurveMeta, Origin
+from contracts.access.v1.quality import ValueQuality
 
 SERIES_OBSERVATIONS_PATH = "/v1/curves/{curve_id}/maturities/{maturity}/observations"
 """``GET`` endpoint that returns one maturity of a curve over valid dates."""
@@ -31,6 +32,7 @@ class SeriesPoint(BaseModel):
         description="published: the source value, unmodified; derived: computed by the service "
         "(none yet)"
     )
+    quality: ValueQuality = Field(description="Quality status of the value")
 
 
 class SeriesObservations(BaseModel):

@@ -1,10 +1,12 @@
 """Ports the use cases need from the outside world."""
 
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Protocol
 
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
+from access.domain.quality import ValueQuality
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
 
@@ -45,4 +47,19 @@ class CurveReader(Protocol):
 
         ``None`` for ``as_of`` means the store's default.
         """
+        ...
+
+
+class QualityReader(Protocol):
+    """Reads quality results for published values from the processing service."""
+
+    async def value_quality(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        maturity: str | None,
+        as_of: datetime,
+    ) -> Mapping[int, ValueQuality] | None:
+        """Quality per ``version_id``; ``None`` when processing is unavailable."""
         ...
