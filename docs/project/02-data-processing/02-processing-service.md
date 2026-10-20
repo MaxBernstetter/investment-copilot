@@ -1,0 +1,50 @@
+# Processing service
+
+The `processing` service owns the quality rules of YieldLens: it checks the published curves and keeps the results. This note describes the skeleton: its layers, its process types, its configuration and its tasks. The checks themselves follow with [#137](https://github.com/MaxBernstetter/yield-lens/issues/137) and the rules in [[01-plausibility-thresholds]].
+
+## Layers
+
+The service follows the hexagonal layout of the other services (see [[11-service-design]]). The import-linter contract in `pyproject.toml` enforces the direction:
+
+- `processing.api`: composition root of the `api` process; wires the adapters into the facade.
+- `processing.facade`: REST facade (`rest/app.py`): `/health`, `/ready` and RFC 9457 problems.
+- `processing.infrastructure`: Oracle adapter (`proc.py`), the only place that imports `oracledb`.
+- `processing.application` and `processing.domain`: use cases and rules. No I/O, no frameworks, no contracts.
+
+## Process types
+
+One image, two process types (see [[09-deployment]]):
+
+| Process | Status | Command |
+|---|---|---|
+| `api` | skeleton: health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
+| `job` | follows | `processing-check-quality` (not yet available) |
+
+`/health` answers `{"status": "ok"}` while the process is up. `/ready` answers `{"status": "ready"}` when a connection to the processing database succeeds, and 503 `{"status": "unavailable"}` otherwise.
+
+Logs are JSON lines on stderr (`log_config.json`).
+
+## Configuration
+
+Read from environment variables with the prefix `PROCESSING_`, validated at startup. The database settings are nested with `__`:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PROCESSING_DB__DSN` | none (required) | Oracle DSN, e.g. `localhost:1521/FREEPDB1` |
+| `PROCESSING_DB__PASSWORD` | none (required) | Password of the `proc_app` user |
+| `PROCESSING_DB__USER` | `proc_app` | Database user |
+| `PROCESSING_DB__POOL_MIN` / `_POOL_MAX` | `1` / `4` | Connection pool size |
+| `PROCESSING_DB__ACQUIRE_TIMEOUT_MS` | `5000` | Wait for a free connection |
+| `PROCESSING_DB__CALL_TIMEOUT_MS` | `30000` | Timeout per database call |
+
+The Taskfile supplies local development defaults for the DSN and the password. Override them through the environment; never reuse them outside your machine.
+
+## Tasks
+
+Run from the repository root (namespace `processing`, see [[13-build-and-ci]]):
+
+- `task processing:setup`: create the virtual environment from `uv.lock`
+- `task processing:lint`: ruff, format check and import-linter
+- `task processing:typecheck`: mypy (strict)
+- `task processing:test:unit`: unit tests, no I/O
+- `task processing:run`: run the `api` process on port 8002

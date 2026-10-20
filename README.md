@@ -26,7 +26,7 @@ Stop with `task dev:down` (keeps the data) or `task dev:reset` (removes it). Por
 ## Develop
 
 1. Clone, run `devbox shell`, then `task toolchain:setup` once to install the git hooks.
-2. Set up the components you work on: `task <component>:setup`, with `access`, `contracts`, `frontend`, `ingestion`, `orchestration` or `persistence`. `task --list` shows every task.
+2. Set up the components you work on: `task <component>:setup`, with `access`, `contracts`, `frontend`, `ingestion`, `orchestration`, `persistence` or `processing`. `task --list` shows every task.
 3. Run the same checks as CI: `task <component>:lint`, `:typecheck`, `:test:unit`; `task toolchain:lint` runs all pre-commit hooks. Integration tests (`persistence`, `ingestion`) need Docker.
 4. For agent-driven work with the GitHub board, export a `GITHUB_PAT` as described in [GitHub MCP connection](docs/development/02-github-mcp.md).
 
