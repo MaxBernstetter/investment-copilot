@@ -44,9 +44,14 @@ async def list_runs(
     before_attempt_id: int | None,
     limit: int,
 ) -> RunsPage:
-    """One page of attempts; ``to_date`` is inclusive, so it is read up to the next midnight."""
+    """One page of attempts; ``to_date`` is inclusive, so it is read up to the next midnight.
+
+    The latest representable date has no upper bound (the next midnight does not exist).
+    """
     started_from = None if from_date is None else _midnight_utc(from_date)
-    started_before = None if to_date is None else _midnight_utc(to_date + timedelta(days=1))
+    started_before = None
+    if to_date is not None and to_date < date.max:
+        started_before = _midnight_utc(to_date + timedelta(days=1))
     rows = await history.list_attempts(
         started_from=started_from,
         started_before=started_before,

@@ -45,6 +45,14 @@ async def test_list_runs_asks_for_one_more_than_the_limit() -> None:
     ]
 
 
+async def test_the_latest_date_is_an_open_upper_bound() -> None:
+    history = StubRunHistory()
+
+    await list_runs(history, from_date=None, to_date=date.max, before_attempt_id=None, limit=50)
+
+    assert history.list_calls[0]["started_before"] is None
+
+
 async def test_list_runs_without_more_rows_has_no_cursor() -> None:
     history = StubRunHistory(attempts=[attempt(3), attempt(2)])
 

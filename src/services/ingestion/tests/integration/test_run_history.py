@@ -84,6 +84,23 @@ async def test_attempts_filter_on_started_at(oracle: OracleDatabase) -> None:
     assert before_2000 == []
 
 
+async def test_a_window_around_now_returns_the_attempt(oracle: OracleDatabase) -> None:
+    run_id = "it-history-window-hit"
+    await record(oracle, run_id, Operation.DAILY, 1)
+    now = datetime.now(UTC)
+
+    async with history_of(oracle) as history:
+        hits = await history.list_attempts(
+            started_from=now - timedelta(days=1),
+            started_before=now + timedelta(days=1),
+            before_attempt_id=None,
+            limit=500,
+        )
+
+    assert run_id in [row.run_id for row in hits]
+    assert all(row.started_at.tzinfo == UTC for row in hits)
+
+
 async def test_a_run_returns_every_attempt_in_order_with_utc_times(oracle: OracleDatabase) -> None:
     run_id = "it-history-run"
     before = datetime.now(UTC) - timedelta(seconds=5)
