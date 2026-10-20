@@ -106,6 +106,16 @@ def test_from_and_to_are_inclusive_utc_dates() -> None:
     assert runs.list_calls[0]["started_before"] == datetime(2026, 10, 17, tzinfo=UTC)
 
 
+def test_the_latest_date_is_accepted_as_an_open_upper_bound() -> None:
+    runs = StubRunHistory()
+
+    with _client(runs) as client:
+        response = client.get("/v1/runs", params={"to": "9999-12-31"})
+
+    assert response.status_code == 200
+    assert runs.list_calls[0]["started_before"] is None
+
+
 def test_from_after_to_is_a_problem() -> None:
     with _client(StubRunHistory()) as client:
         response = client.get("/v1/runs", params={"from": "2026-10-17", "to": "2026-10-16"})
