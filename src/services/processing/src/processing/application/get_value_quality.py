@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date, datetime
 from typing import Protocol
 
+from processing.application.check_quality import UnknownCurveError
 from processing.application.knowledge_time import resolve_as_of
 from processing.domain.assessment import ValueStatus
 from processing.domain.quality import Finding
@@ -13,6 +14,7 @@ from processing.domain.read import (
     InvalidRangeError,
     ValueQualityResult,
 )
+from processing.domain.rule_config import THRESHOLDS_BY_CURVE
 
 
 class ValueQualityReader(Protocol):
@@ -55,6 +57,8 @@ class GetValueQuality:
         *,
         maturity: str | None = None,
     ) -> CurveValueQualities:
+        if curve_id not in THRESHOLDS_BY_CURVE:
+            raise UnknownCurveError(curve_id)
         as_of = await resolve_as_of(self._reader, as_of)
         if valid_from > valid_to:
             raise InvalidRangeError(f"from {valid_from} is after to {valid_to}")

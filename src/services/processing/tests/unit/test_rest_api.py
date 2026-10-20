@@ -72,6 +72,29 @@ def test_invalid_range_returns_a_problem() -> None:
     assert response.headers["content-type"] == "application/problem+json"
 
 
+def test_quality_days_reject_more_than_366_days() -> None:
+    with _client() as client:
+        response = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2025-01-01", "to": "2026-01-03"},
+        )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_an_unknown_curve_is_404() -> None:
+    with _client() as client:
+        response = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="unknown-curve"),
+            params={"from": "2026-10-07", "to": "2026-10-07"},
+        )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+
+
 def test_value_quality_endpoint_is_available() -> None:
     with _client() as client:
         response = client.get(
@@ -80,3 +103,20 @@ def test_value_quality_endpoint_is_available() -> None:
         )
 
     assert response.status_code == 200
+
+
+def test_meta_as_of_is_the_requested_as_of_or_the_database_time() -> None:
+    with _client() as client:
+        default = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2026-10-07", "to": "2026-10-07"},
+        )
+        explicit = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2026-10-07", "to": "2026-10-07", "as_of": "2026-10-09T07:30:00Z"},
+        )
+
+    assert default.status_code == 200
+    assert default.json()["meta"]["as_of"] == "2026-10-09T08:00:00Z"
+    assert explicit.status_code == 200
+    assert explicit.json()["meta"]["as_of"] == "2026-10-09T07:30:00Z"
