@@ -12,13 +12,21 @@ The rules that check the published values of a curve, the severities and statuse
 | `missing-date` | `warn` | a TARGET business day has no value at any maturity | one day |
 | `missing-maturity` | `warn` | a TARGET business day has values for some maturities, but a grid maturity has none (not reported on a missing-date day) | one day and maturity |
 
-The range and jump rules are implemented. The two completeness rules follow with [#30](https://github.com/MaxBernstetter/yield-lens/issues/30).
-
 - **Comparisons are strict.** A value exactly on a threshold is not flagged.
 - **Jumps** compare a value with the previous valid date that has a value for the same maturity, so a gap such as a weekend or a TARGET holiday is spanned. A previous value more than 31 days back is not compared.
 - **Weekends and TARGET holidays** have no values and are not flagged.
 - **Thresholds** are configuration per curve in the processing code. The simulated curve `ecb-aaa-spot-sim` uses the thresholds of the real curve.
 - **Explanations** are fixed texts per flag. They match "How users see it" in [[01-plausibility-thresholds]].
+
+## Completeness
+
+Completeness checks run over the TARGET business days in the checked range and the curve's grid maturities.
+
+- A day with **no value at any maturity** produces one `missing-date` finding for that day (no `missing-maturity` findings on the same day).
+- A day with **values for some maturities** produces one `missing-maturity` finding per grid maturity without a value.
+- **Weekends and TARGET holidays** are not in the business-day set and are never flagged.
+
+The calendar logic matches orchestration's TARGET schedule (see `processing.domain.calendar`).
 
 ## Severities
 

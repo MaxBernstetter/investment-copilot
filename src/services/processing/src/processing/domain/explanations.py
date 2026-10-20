@@ -16,3 +16,8 @@ JUMP_WARN = (
     "Moved more than 50 bp since the previous business day. "
     "This happened on only 2 days since 2004 (autumn 2008); check the source data."
 )
+
+MISSING_DATE = "No value was published for this TARGET business day."
+MISSING_MATURITY = (
+    "No value for this maturity on a TARGET business day on which other maturities have one."
+)
