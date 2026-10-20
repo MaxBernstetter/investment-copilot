@@ -30,6 +30,10 @@ const changesThree = loadJson<{
   meta: { since: string; as_of: string; source_attribution: string }
   changes: unknown[]
 }>('changes-three.json')
+const qualityMixed = loadJson<{
+  meta: { as_of: string; source_attribution: string }
+  days: unknown[]
+}>('quality-mixed.json')
 const versionsSim = loadJson<{
   meta: { as_of: string; source_attribution: string }
   versions: unknown[]
@@ -169,6 +173,20 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
           changes: changesThree.changes,
         },
         meta: changesThree.meta,
+      })
+      return
+    }
+
+    if (path.match(/^\/v1\/curves\/[^/]+\/quality$/)) {
+      const curveId = path.split('/')[3]
+      await fulfillJson(route, 200, {
+        data: {
+          curve_id: curveId,
+          valid_from: url.searchParams.get('from') ?? '2025-10-19',
+          valid_to: url.searchParams.get('to') ?? '2026-10-19',
+          days: qualityMixed.days,
+        },
+        meta: qualityMixed.meta,
       })
       return
     }

@@ -124,6 +124,6 @@ export function defaultQualityRange(today: Date): { from: string; to: string } {
 export function rangeError({ from, to }: { from: string; to: string }): string | undefined {
   const span = (Date.parse(to) - Date.parse(from)) / DAY_MS
   if (span < 0) return 'To must be on or after From.'
-  if (span > 366) return 'Choose a range of at most 366 days.'
+  if (span > 365) return 'Choose a range of at most 366 days.'
   return undefined
 }

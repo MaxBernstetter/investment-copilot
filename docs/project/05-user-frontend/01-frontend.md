@@ -64,7 +64,7 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 - **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values.
 - **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
-- **Navigation:** the header tabs "Curve", "Time series" and "Changes" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
+- **Navigation:** the header tabs "Curve", "Time series", "Changes" and "Quality" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
 
 | Path | Content |
@@ -101,6 +101,28 @@ The "Changes" tab shows which values differ between two knowledge states, via `G
 | `src/changes/ChangesEmptyState.tsx` | Empty state before compare-from is set |
 | `src/changes/fetchChanges.ts` | API call and mapping of responses to `ChangesResult` |
 | `src/changes/changesData.ts` | Table rows via `formatYield`, `formatBp` and `formatUtc` |
+
+## Data quality
+
+The "Quality" tab shows the plausibility and completeness checks per TARGET business day of the curve, via `GET /v1/curves/{curve_id}/quality`. The results are fetched when the tab is first opened, like the other views.
+
+- **Header:** title "Data quality", subtitle "Plausibility and completeness checks per business day, {curve label}", and the From and To valid-date inputs as page actions (as in the time series view).
+- **Controls and validation:** the range defaults to the last 30 days up to today (UTC). To must not be before From, and the span may be at most 365 days (366 dates). An invalid range shows the error under "To" ("To must be on or after From." or "Choose a range of at most 366 days.") and sends no request. While the range is invalid the body is empty; the method card below stays.
+- **Loading:** four stat-card skeletons (height 104), a table skeleton (height 180) and visually hidden "Loading…".
+- **Stat cards:** "Days checked" (checked days, hint "of {n} business days"), "Warnings" (warn findings, hint "on {n} days"), "Info flags" (info findings, hint "on {n} days") and "Last check" (newest `checked_as_of`, `formatUtc`; "–" with the hint "No check results known at this time" when none is known).
+- **Table:** a card titled "Checks per day" with one row per valid date, newest first, in a `Table.ScrollContainer` with a minimum width of 720 px. Columns: valid date, status (a `Badge` with icon and word: Passed, Info, Warn or Unchecked, see `qualityBadgeProps`), findings and checked as of (`formatUtc`, "–" when unchecked). Findings list warnings before info (`sortFindings`), each as a flag (Q1 below). A partly checked day adds "Not checked: {rules}" under its findings, for example "Not checked: Jump".
+- **Filter:** a `SegmentedControl` labelled "Show days" with All, Warn, Info and Unchecked. A filter with no matching day shows the empty state "No days match this filter" with the action "Show all days".
+- **Flags (Q1):** a `Popover` (click or Enter, not hover, so it works from the keyboard) around a `Badge` button labelled "{rule} · {severity}", with the rule's title and the API's explanation and evidence in the dropdown, and the "How we check this" link to the method. The button's accessible name adds the maturity, for example "Jump · warn, 10Y".
+- **How we check:** a card at the bottom of every state, with one accordion item per rule (range, jump, missing date, missing maturity) and a link "Read the full method".
+- **States:** no business days in the range shows "No business days in this range" with "Show last 30 days" (which also refetches the default range). A 404 shows "No quality results for this curve". A 503 or an unreachable API shows the offline alert "Backend offline" with "Try again". A 422 or other error shows "Could not load quality results" with the problem `detail` and "Try again".
+
+| Path | Content |
+|---|---|
+| `src/quality/QualityView.tsx` | Data quality page: range controls, state messages, stat cards, filter and day table |
+| `src/quality/fetchQuality.ts` | API call and mapping of responses to `QualityResult` |
+| `src/quality/qualityData.ts` | Stats, filters, finding order, unchecked rule labels, default range and range validation |
+| `src/quality/QualityFlag.tsx` | Flag badge with its explanation popover |
+| `src/quality/HowWeCheck.tsx` | "How we check" method card with one accordion item per rule |
 
 ## Version history files
 
@@ -187,6 +209,7 @@ The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow fo
 | `src/curve/` | Curve view and curve choice (see above) |
 | `src/series/` | Time series view (see above) |
 | `src/changes/` | Changes view (see above) |
+| `src/quality/` | Data quality view (see above) |
 | `src/test/setup.ts` | Test setup (jest-dom matchers, Mantine browser mocks) |
 | `src/test/render.tsx` | `render` wrapping UI in `MantineProvider`; re-exports Testing Library |
 | `src/theme.ts` | Mantine theme |

@@ -20,6 +20,7 @@ export const VIEWS = [
   { value: 'curve', label: 'Curve' },
   { value: 'series', label: 'Time series' },
   { value: 'changes', label: 'Changes' },
+  { value: 'quality', label: 'Quality' },
 ] as const
 
 const CURVE_OPTIONS = CURVES.map((curve) => ({
