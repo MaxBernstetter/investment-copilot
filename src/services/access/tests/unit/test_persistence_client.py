@@ -85,8 +85,8 @@ async def test_reads_a_curve_from_persistence() -> None:
         valid_date=date(2026, 3, 12),
         as_of=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
         points=(
-            CurvePoint(maturity="3M", months=3, value=None),
-            CurvePoint(maturity="10Y", months=120, value=2.61),
+            CurvePoint(maturity="3M", months=3, value=None, version_id=None),
+            CurvePoint(maturity="10Y", months=120, value=2.61, version_id=7),
         ),
     )
 
@@ -194,8 +194,8 @@ async def test_reads_a_series_from_persistence() -> None:
         maturity="10Y",
         as_of=datetime(2026, 3, 13, 8, 0, tzinfo=UTC),
         points=(
-            SeriesPoint(valid_date=date(2026, 3, 12), value=2.61),
-            SeriesPoint(valid_date=date(2026, 3, 14), value=2.7),
+            SeriesPoint(valid_date=date(2026, 3, 12), value=2.61, version_id=7),
+            SeriesPoint(valid_date=date(2026, 3, 14), value=2.7, version_id=9),
         ),
     )
 

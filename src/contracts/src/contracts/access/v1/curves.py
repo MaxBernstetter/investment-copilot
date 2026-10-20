@@ -5,11 +5,19 @@ its own: the frontend depends on this module, not on the persistence contract.
 """
 
 from datetime import date
+from enum import StrEnum
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 CURVE_OBSERVATIONS_PATH = "/v1/curves/{curve_id}/observations"
 """``GET`` endpoint that returns one curve as of a knowledge time."""
+
+
+class Origin(StrEnum):
+    """How a value came to be: published by its source, or derived by the service."""
+
+    PUBLISHED = "published"
+    DERIVED = "derived"
 
 
 class CurvePoint(BaseModel):
@@ -24,6 +32,12 @@ class CurvePoint(BaseModel):
         description="Yield in percent; null if no published value was known as of meta.as_of",
         examples=[2.61],
     )
+    version_id: int | None = Field(
+        description="Version id of the visible version, the lineage reference; "
+        "null exactly when value is null",
+        examples=[7],
+    )
+    origin: Origin = Field(description="published: the value is the source value, unmodified")
 
 
 class CurveObservations(BaseModel):
@@ -44,6 +58,11 @@ class CurveMeta(BaseModel):
     as_of: AwareDatetime = Field(
         description="Effective knowledge time (UTC): the requested as_of, or the knowledge "
         "horizon if that is later or no as_of was requested"
+    )
+    source_attribution: str = Field(
+        description="Required attribution of the source values (ESCB reuse terms); "
+        "for simulated data a note that it is simulated",
+        examples=["Source: ECB statistics"],
     )
 
 

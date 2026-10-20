@@ -4,6 +4,7 @@ from datetime import UTC
 
 from contracts.access import v1
 
+from access.domain.attribution import source_attribution
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.series import Series
@@ -16,11 +17,20 @@ def to_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
             curve_id=curve.curve_id,
             valid_date=curve.valid_date,
             points=[
-                v1.CurvePoint(maturity=point.maturity, months=point.months, value=point.value)
+                v1.CurvePoint(
+                    maturity=point.maturity,
+                    months=point.months,
+                    value=point.value,
+                    version_id=point.version_id,
+                    origin=v1.Origin.PUBLISHED,
+                )
                 for point in curve.points
             ],
         ),
-        meta=v1.CurveMeta(as_of=curve.as_of.astimezone(UTC)),
+        meta=v1.CurveMeta(
+            as_of=curve.as_of.astimezone(UTC),
+            source_attribution=source_attribution(curve.curve_id),
+        ),
     )
 
 
@@ -30,11 +40,19 @@ def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
             curve_id=series.curve_id,
             maturity=series.maturity,
             points=[
-                v1.SeriesPoint(valid_date=point.valid_date, value=point.value)
+                v1.SeriesPoint(
+                    valid_date=point.valid_date,
+                    value=point.value,
+                    version_id=point.version_id,
+                    origin=v1.Origin.PUBLISHED,
+                )
                 for point in series.points
             ],
         ),
-        meta=v1.CurveMeta(as_of=series.as_of.astimezone(UTC)),
+        meta=v1.CurveMeta(
+            as_of=series.as_of.astimezone(UTC),
+            source_attribution=source_attribution(series.curve_id),
+        ),
     )
 
 
@@ -59,7 +77,10 @@ def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
                 for version in versions.versions
             ],
         ),
-        meta=v1.CurveMeta(as_of=versions.as_of.astimezone(UTC)),
+        meta=v1.CurveMeta(
+            as_of=versions.as_of.astimezone(UTC),
+            source_attribution=source_attribution(versions.curve_id),
+        ),
     )
 
 
@@ -83,6 +104,8 @@ def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
             ],
         ),
         meta=v1.ChangesMeta(
-            since=changes.since.astimezone(UTC), as_of=changes.as_of.astimezone(UTC)
+            since=changes.since.astimezone(UTC),
+            as_of=changes.as_of.astimezone(UTC),
+            source_attribution=source_attribution(changes.curve_id),
         ),
     )

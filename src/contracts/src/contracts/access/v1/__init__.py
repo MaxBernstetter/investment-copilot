@@ -13,6 +13,7 @@ from contracts.access.v1.curves import (
     CurveObservations,
     CurveObservationsResponse,
     CurvePoint,
+    Origin,
     Problem,
 )
 from contracts.access.v1.series import (
@@ -42,6 +43,7 @@ __all__ = [
     "CurveObservations",
     "CurveObservationsResponse",
     "CurvePoint",
+    "Origin",
     "Problem",
     "SeriesObservations",
     "SeriesObservationsResponse",

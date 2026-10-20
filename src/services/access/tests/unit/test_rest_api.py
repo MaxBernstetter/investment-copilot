@@ -108,7 +108,7 @@ class FakeCurveReader:
             curve_id=curve_id,
             maturity=maturity,
             as_of=AS_OF,
-            points=(SeriesPoint(valid_date=date(2026, 3, 12), value=2.61),),
+            points=(SeriesPoint(valid_date=date(2026, 3, 12), value=2.61, version_id=7),),
         )
 
     async def curve_as_of(
@@ -122,8 +122,8 @@ class FakeCurveReader:
             valid_date=date(2026, 3, 12),
             as_of=AS_OF,
             points=(
-                CurvePoint(maturity="3M", months=3, value=None),
-                CurvePoint(maturity="10Y", months=120, value=2.61),
+                CurvePoint(maturity="3M", months=3, value=None, version_id=None),
+                CurvePoint(maturity="10Y", months=120, value=2.61, version_id=7),
             ),
         )
 
@@ -202,11 +202,23 @@ def test_returns_the_curve_in_the_public_envelope(client: TestClient) -> None:
             "curve_id": "ecb-aaa-spot",
             "valid_date": "2026-03-12",
             "points": [
-                {"maturity": "3M", "months": 3, "value": None},
-                {"maturity": "10Y", "months": 120, "value": 2.61},
+                {
+                    "maturity": "3M",
+                    "months": 3,
+                    "value": None,
+                    "version_id": None,
+                    "origin": "published",
+                },
+                {
+                    "maturity": "10Y",
+                    "months": 120,
+                    "value": 2.61,
+                    "version_id": 7,
+                    "origin": "published",
+                },
             ],
         },
-        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+        "meta": {"as_of": "2026-03-13T08:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
 
@@ -308,9 +320,16 @@ def test_returns_the_series_in_the_public_envelope(client: TestClient) -> None:
         "data": {
             "curve_id": "ecb-aaa-spot",
             "maturity": "10Y",
-            "points": [{"valid_date": "2026-03-12", "value": 2.61}],
+            "points": [
+                {
+                    "valid_date": "2026-03-12",
+                    "value": 2.61,
+                    "version_id": 7,
+                    "origin": "published",
+                }
+            ],
         },
-        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+        "meta": {"as_of": "2026-03-13T08:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
 
@@ -477,11 +496,23 @@ def test_the_body_is_unchanged(client: TestClient) -> None:
             "curve_id": "ecb-aaa-spot",
             "valid_date": "2026-03-12",
             "points": [
-                {"maturity": "3M", "months": 3, "value": None},
-                {"maturity": "10Y", "months": 120, "value": 2.61},
+                {
+                    "maturity": "3M",
+                    "months": 3,
+                    "value": None,
+                    "version_id": None,
+                    "origin": "published",
+                },
+                {
+                    "maturity": "10Y",
+                    "months": 120,
+                    "value": 2.61,
+                    "version_id": 7,
+                    "origin": "published",
+                },
             ],
         },
-        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+        "meta": {"as_of": "2026-03-13T08:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
 
 
@@ -556,7 +587,7 @@ def test_value_versions_envelope(client: TestClient, services: FakeServices) -> 
                 }
             ],
         },
-        "meta": {"as_of": "2026-03-13T08:00:00Z"},
+        "meta": {"as_of": "2026-03-13T08:00:00Z", "source_attribution": "Source: ECB statistics"},
     }
     assert services.curves.versions_calls == [("ecb-aaa-spot", "10Y", date(2026, 3, 12), AS_OF)]
 
@@ -631,7 +662,11 @@ def test_returns_the_changes_in_the_public_envelope(client: TestClient) -> None:
                 }
             ],
         },
-        "meta": {"since": "2026-03-12T08:00:00Z", "as_of": "2026-03-13T08:00:00Z"},
+        "meta": {
+            "since": "2026-03-12T08:00:00Z",
+            "as_of": "2026-03-13T08:00:00Z",
+            "source_attribution": "Source: ECB statistics",
+        },
     }
 
 
@@ -687,3 +722,48 @@ def test_changes_missing_since_is_rejected_without_calling_persistence(
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
     assert services.curves.changes_calls == []
+
+
+def test_points_carry_version_id_and_origin_published(client: TestClient) -> None:
+    curve = client.get(CURVE_PATH).json()["data"]["points"]
+    series = client.get(SERIES_PATH).json()["data"]["points"]
+
+    assert [(point["version_id"], point["origin"]) for point in curve] == [
+        (None, "published"),
+        (7, "published"),
+    ]
+    assert [(point["version_id"], point["origin"]) for point in series] == [(7, "published")]
+
+
+def test_values_are_returned_unmodified(client: TestClient) -> None:
+    curve_points = client.get(CURVE_PATH).json()["data"]["points"]
+    series_points = client.get(SERIES_PATH).json()["data"]["points"]
+
+    assert [point["value"] for point in curve_points] == [None, 2.61]
+    assert [point["value"] for point in series_points] == [2.61]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/curves/ecb-aaa-spot/observations",
+        "/v1/curves/ecb-aaa-spot/maturities/10Y/observations",
+        "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions",
+        "/v1/curves/ecb-aaa-spot/changes",
+    ],
+)
+def test_real_curve_answers_carry_the_ecb_attribution(client: TestClient, path: str) -> None:
+    params = {"from": "2026-03-12", "to": "2026-03-14", "since": SINCE.isoformat()}
+    response = client.get(path, params=params)
+
+    assert response.status_code == 200
+    assert response.json()["meta"]["source_attribution"] == "Source: ECB statistics"
+
+
+def test_simulated_curve_answers_carry_the_simulated_note(client: TestClient) -> None:
+    response = client.get("/v1/curves/ecb-aaa-spot-sim/observations")
+
+    assert response.status_code == 200
+    assert response.json()["meta"]["source_attribution"] == (
+        "Simulated scenario based on ECB statistics"
+    )

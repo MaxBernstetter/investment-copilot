@@ -59,6 +59,11 @@ class ChangesMeta(BaseModel):
 
     since: AwareDatetime = Field(description="Earlier knowledge time (UTC) of the comparison")
     as_of: AwareDatetime = Field(description="Later knowledge time (UTC) of the comparison")
+    source_attribution: str = Field(
+        description="Required attribution of the source values (ESCB reuse terms); "
+        "for simulated data a note that it is simulated",
+        examples=["Source: ECB statistics"],
+    )
 
 
 class CurveChangesResponse(BaseModel):

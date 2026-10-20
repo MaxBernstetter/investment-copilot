@@ -25,7 +25,11 @@ function okResult(changes: ValueChange[]): ChangesResult {
         valid_to: '2026-10-19',
         changes,
       },
-      meta: { since: '2026-10-17T08:00:00Z', as_of: '2026-10-19T10:00:00Z' },
+      meta: {
+        since: '2026-10-17T08:00:00Z',
+        as_of: '2026-10-19T10:00:00Z',
+        source_attribution: 'Source: ECB statistics',
+      },
     },
   }
 }
