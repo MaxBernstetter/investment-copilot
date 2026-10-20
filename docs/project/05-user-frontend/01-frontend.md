@@ -83,18 +83,19 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 
 The "Changes" tab shows which values differ between two knowledge states, via `GET /v1/curves/{curve_id}/changes`.
 
-- **Range:** "From" and "To" are valid dates, defaulting to the last 365 days up to today (UTC).
-- **Compare from:** a required "Compare from (known as of)" `datetime-local` input, the earlier knowledge time. Until it is set the view asks for it and sends no request.
-- **To:** the shared "Known as of" status and `as_of` URL parameter; "Now" (the default) compares with the latest knowledge.
-- **Table:** one row per changed value in API order, with valid date, maturity, old and new value (yield in percent), change in basis points (signed, one decimal), reason, source and "Known from". Old value and source show "–" when absent; the change shows "–" when the value was not known at the earlier time. Reasons are badges: `correction` orange, `revision` blue, others gray.
-- **Empty:** "No changes between these knowledge times."
+- **Header:** title "Changes", subtitle "What changed in the data between two knowledge times".
+- **Controls:** a card with "From" and "To" valid-date inputs (default last 365 days to today, UTC) and "Compare from (known as of)" (`datetime-local`, description "Your local time, shown in UTC elsewhere", info tooltip on the earlier knowledge time). Until compare-from is set the view shows an empty state (`role="status"`: "Pick a starting point" / "Choose the earlier knowledge time to compare.") and sends no request.
+- **Known as of:** the shared header status and `as_of` URL parameter; Live (the default) compares with the latest knowledge.
+- **Table:** in a card, one row per changed value in API order: valid date, maturity, old and new yield (`formatYield`, 3 dp, right-aligned), change in basis points (`formatBp`, signed, true minus, right-aligned), reason badge (sentence case: `correction` orange, `revision` blue, others gray), source and known from (`formatUtc`). Old value and source show "–" when absent; the change shows "–" when the value was not known at the earlier time.
+- **No rows:** "No changes between these knowledge times."
 - **Errors:** 404 and 422 show the problem `detail`; 503 or an unreachable API shows the offline alert.
 
 | Path | Content |
 |---|---|
-| `src/changes/ChangesView.tsx` | Changes page: ranges, earlier knowledge time, table and state messages |
+| `src/changes/ChangesView.tsx` | Changes page: header, control card, table card and state messages |
+| `src/changes/ChangesEmptyState.tsx` | Empty state before compare-from is set |
 | `src/changes/fetchChanges.ts` | API call and mapping of responses to `ChangesResult` |
-| `src/changes/changesData.ts` | Table rows and basis-point change formatting |
+| `src/changes/changesData.ts` | Table rows via `formatYield`, `formatBp` and `formatUtc` |
 
 ## Version history files
 

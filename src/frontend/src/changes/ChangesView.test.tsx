@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
 import { localInputToUtc } from '../asOf'
+import { formatYield } from '../format'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
 import ChangesView from './ChangesView'
 
@@ -61,7 +62,9 @@ describe('ChangesView', () => {
   it('asks for the earlier knowledge time before fetching', () => {
     render(<ChangesView curveId="ecb-aaa-spot" />)
 
-    expect(screen.getByRole('status')).toHaveTextContent('Choose the earlier knowledge time to compare.')
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Pick a starting point')
+    expect(status).toHaveTextContent('Choose the earlier knowledge time to compare.')
     expect(mockedFetch).not.toHaveBeenCalled()
   })
 
@@ -70,10 +73,28 @@ describe('ChangesView', () => {
 
     fireEvent.change(screen.getByLabelText('Compare from (known as of)'), { target: { value: SINCE_INPUT } })
 
-    expect(await screen.findByRole('cell', { name: '2.61' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '2.7' })).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: formatYield(2.61) })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: formatYield(2.7) })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '+9.0 bp' })).toBeInTheDocument()
     expect(screen.getByText('correction')).toBeInTheDocument()
+  })
+
+  it('formats a negative change with a true minus', async () => {
+    mockedFetch.mockResolvedValue(
+      okResult([
+        {
+          ...correction,
+          old_value: 3,
+          new_value: 2.7,
+          change_reason: 'revision',
+        },
+      ]),
+    )
+    render(<ChangesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(screen.getByLabelText('Compare from (known as of)'), { target: { value: SINCE_INPUT } })
+
+    expect(await screen.findByRole('cell', { name: '−30.0 bp' })).toBeInTheDocument()
   })
 
   it('passes curve, range, since and asOf to the fetch', async () => {
@@ -81,7 +102,7 @@ describe('ChangesView', () => {
 
     fireEvent.change(screen.getByLabelText('Compare from (known as of)'), { target: { value: SINCE_INPUT } })
 
-    expect(await screen.findByRole('cell', { name: '2.7' })).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: formatYield(2.7) })).toBeInTheDocument()
     expect(mockedFetch).toHaveBeenLastCalledWith({
       curveId: 'ecb-aaa-spot',
       from: '2025-10-19',
