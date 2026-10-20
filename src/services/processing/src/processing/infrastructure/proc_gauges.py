@@ -2,8 +2,10 @@
 
 The gauges are observable: the ``api`` process evaluates them at collection time, so the values
 come from the database on each scrape. The collection runs on the reader thread of the metric
-reader while the database pool lives on the event loop, so each callback hops to the loop. On
-the loop thread (the shutdown collection) or when the read fails, a gauge reports no points.
+reader while the database pool lives on the event loop, so each callback hops to the loop. A
+collection on the loop thread would wait on itself, so it reports no points. The ``api`` shuts
+its telemetry down off the loop, so the final collection runs on the exporter thread. A failed or
+timed-out read, or a closed loop, also reports no points.
 """
 
 import asyncio
@@ -34,11 +36,17 @@ def register_proc_gauges(
     def latest_runs() -> list[LatestCheckRun]:
         if _on_loop_thread(loop):
             return []
+        coroutine = _await(read)
         try:
-            return asyncio.run_coroutine_threadsafe(_await(read), loop).result(
-                timeout=timeout_seconds
-            )
+            future = asyncio.run_coroutine_threadsafe(coroutine, loop)
+        except RuntimeError:
+            coroutine.close()
+            _logger.warning("quality gauges not collected: the event loop is closed")
+            return []
+        try:
+            return future.result(timeout=timeout_seconds)
         except (oracledb.Error, TimeoutError):
+            future.cancel()
             _logger.warning("quality gauges not collected: the PROC read failed or timed out")
             return []
 

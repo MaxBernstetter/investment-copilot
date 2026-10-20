@@ -52,5 +52,5 @@ async def proc_services(
             GetValueQuality(store),
         )
     finally:
+        await asyncio.to_thread(telemetry.shutdown)
         await pool.close()
-        telemetry.shutdown()
