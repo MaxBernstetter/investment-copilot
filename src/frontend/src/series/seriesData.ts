@@ -30,3 +30,27 @@ export function defaultRange(today: Date): { from: string; to: string } {
   const from = new Date(today.getTime() - 365 * DAY_MS).toISOString().slice(0, 10)
   return { from, to }
 }
+
+export type SeriesStats = {
+  last: number | undefined
+  min: number | undefined
+  max: number | undefined
+  /** First-to-last change in basis points, or undefined when fewer than two points. */
+  changeBp: number | undefined
+}
+
+/** Summary figures for a time series in valid-date order. */
+export function seriesStats(points: SeriesPoint[]): SeriesStats {
+  if (points.length === 0) {
+    return { last: undefined, min: undefined, max: undefined, changeBp: undefined }
+  }
+  const values = points.map((point) => point.value)
+  const first = values[0]
+  const last = values[values.length - 1]
+  return {
+    last,
+    min: Math.min(...values),
+    max: Math.max(...values),
+    changeBp: points.length >= 2 ? Math.round((last - first) * 1000) / 10 : undefined,
+  }
+}

@@ -55,11 +55,13 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 ## Time series
 
-The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) over a range of valid dates, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations`.
+The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) over a range of valid dates, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations`. The layout matches the curve view: `PageHeader`, a row of `StatCard` key figures, then one card with a chart or values table.
 
+- **Header:** title "Time series", subtitle "{maturity} yield over valid dates (%)", and actions for maturity and the date range.
 - **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
-- **Chart:** a Mantine line over valid dates, in valid-date order, with a brush below to narrow the range (`curveType` linear, colour `CHART_COLORS[0]`).
+- **Key figures:** last, min and max yield (`formatYield`, 3 dp) and change over the range in basis points (`seriesStats` and `formatBp`, signed, true minus).
+- **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values.
 - **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
 - **Navigation:** the header tabs "Curve", "Time series" and "Changes" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
@@ -67,10 +69,10 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 
 | Path | Content |
 |---|---|
-| `src/series/SeriesView.tsx` | Time series page: maturity, range, state messages |
-| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, with a brush |
+| `src/series/SeriesView.tsx` | Time series page: header actions, stat cards, chart/table card |
+| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
-| `src/series/seriesData.ts` | Maturity grid, chart series and default range |
+| `src/series/seriesData.ts` | Maturity grid, chart rows, default range and `seriesStats` |
 
 ## Charts
 
@@ -78,7 +80,7 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 
 - **Colours:** `CHART_COLORS` in `src/theme.ts` (`blue.8`, `orange.8`, `teal.8`, `grape.8`, `pink.8`, `lime.9`) in a fixed order, the same in light and dark. Series are never cycled past six.
 - **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
-- **Time series chart:** one line over valid dates in valid-date order, with a brush to zoom the range; markers off.
+- **Time series chart:** one line over valid dates in valid-date order, linear axes with `domain: ['auto','auto']`, dots when ≤ 15 points, brush to zoom the range, tooltips at 3 dp, no legend (the card title names the series). A table toggle in the same card lists the same points.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
 - **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 500 kB, CSS at most 45 kB. The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165), and raised to 500 kB on 2026-10-20 by the user. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
 

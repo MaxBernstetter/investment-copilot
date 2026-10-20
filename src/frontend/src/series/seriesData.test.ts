@@ -1,30 +1,26 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defaultRange, seriesChart, type SeriesPoint } from './seriesData'
+import { describe, expect, it } from 'vitest'
+import { seriesStats, type SeriesPoint } from './seriesData'
 
-afterEach(() => {
-  vi.useRealTimers()
+const point = (valid_date: string, value: number): SeriesPoint => ({
+  valid_date,
+  value,
+  version_id: 1,
+  origin: 'published',
 })
 
 describe('seriesData', () => {
-  it('defaultRange spans 365 days', () => {
-    const { from, to } = defaultRange(new Date('2026-10-19T12:00:00Z'))
-
-    expect(from).toBe('2025-10-19')
-    expect(to).toBe('2026-10-19')
-    expect((Date.parse(to) - Date.parse(from)) / (24 * 60 * 60 * 1000)).toBe(365)
+  it('summarises last, min, max and signed change in bp', () => {
+    expect(seriesStats([point('2026-10-01', 2.5), point('2026-10-16', 2.6)])).toEqual({
+      last: 2.6,
+      min: 2.5,
+      max: 2.6,
+      changeBp: 10,
+    })
+    expect(seriesStats([point('2026-10-01', 3), point('2026-10-16', 2.5)]).changeBp).toBe(-50)
   })
 
-  it('series rows in valid-date order', () => {
-    const points: SeriesPoint[] = [
-      { valid_date: '2026-10-15', value: 2.5, version_id: 1, origin: 'published' },
-      { valid_date: '2026-10-16', value: 2.6, version_id: 2, origin: 'published' },
-      { valid_date: '2026-10-19', value: 2.7, version_id: 3, origin: 'published' },
-    ]
-
-    expect(seriesChart(points)).toEqual([
-      { valid_date: '2026-10-15', value: 2.5 },
-      { valid_date: '2026-10-16', value: 2.6 },
-      { valid_date: '2026-10-19', value: 2.7 },
-    ])
+  it('leaves change undefined with fewer than two points', () => {
+    expect(seriesStats([point('2026-10-16', 2.6)]).changeBp).toBeUndefined()
+    expect(seriesStats([]).last).toBeUndefined()
   })
 })
