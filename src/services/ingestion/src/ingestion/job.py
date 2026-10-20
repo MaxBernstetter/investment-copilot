@@ -24,7 +24,9 @@ from ingestion.application.replay_deliveries import (
     StoredDeliveries,
 )
 from ingestion.application.run_scenario import RunScenario, ScenarioResult
+from ingestion.application.track_run import RunLog, TrackRun
 from ingestion.config import IngestionSettings
+from ingestion.domain.run import Operation
 from ingestion.facade.jobs.load_ecb import (
     LoadCommand,
     ReplayCommand,
@@ -47,7 +49,7 @@ from ingestion.infrastructure.ecb import (
 )
 from ingestion.infrastructure.ecb import is_no_data as ecb_is_no_data
 from ingestion.infrastructure.http import SourceClient, SourceDisabledError, SourceRequestError
-from ingestion.infrastructure.ing import CorruptDeliveryError, OracleDeliveryStore
+from ingestion.infrastructure.ing import CorruptDeliveryError, OracleDeliveryStore, OracleRunLog
 from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
 
 LOAD_ERRORS = (
@@ -74,6 +76,7 @@ def main(
     source_transport: httpx.AsyncBaseTransport | None = None,
     persistence_transport: httpx.AsyncBaseTransport | None = None,
     delivery_store: Deliveries | None = None,
+    run_log: RunLog | None = None,
 ) -> int:
     """Run one ECB load or replay. Tests inject the transports and the delivery store; the
     defaults are real (the ``ING`` schema in Oracle)."""
@@ -88,12 +91,14 @@ def main(
     try:
         if isinstance(command, ReplayCommand):
             replayed = asyncio.run(
-                _replay(command, settings, persistence_transport, delivery_store)
+                _replay(command, settings, persistence_transport, delivery_store, run_log)
             )
             print(replay_summary(replayed))
             return 0
         result = asyncio.run(
-            _load(command, settings, source_transport, persistence_transport, delivery_store)
+            _load(
+                command, settings, source_transport, persistence_transport, delivery_store, run_log
+            )
         )
     except LOAD_ERRORS as error:
         print(failure(command.run_id, error), file=sys.stderr)
@@ -108,16 +113,21 @@ async def _load(
     source_transport: httpx.AsyncBaseTransport | None,
     persistence_transport: httpx.AsyncBaseTransport | None,
     delivery_store: Deliveries | None,
+    run_log: RunLog | None,
 ) -> LoadResult:
     async with (
         _deliveries(settings, delivery_store) as deliveries,
+        _run_log(settings, run_log) as runs,
         SourceClient(
             SOURCE_ID, settings.sources.ecb, is_no_data=ecb_is_no_data, transport=source_transport
         ) as source_client,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
         load = LoadPublishedCurve(EcbSpotCurveSource(source_client), deliveries, store)
-        return await load(command.windows, command.run_id)
+        tracked = await TrackRun(runs)(
+            command.run_id, command.operation, load(command.windows, command.run_id)
+        )
+        return LoadResult(command.run_id, tracked.attempt, tracked.steps)
 
 
 async def _replay(
@@ -125,14 +135,21 @@ async def _replay(
     settings: IngestionSettings,
     persistence_transport: httpx.AsyncBaseTransport | None,
     delivery_store: Deliveries | None,
+    run_log: RunLog | None,
 ) -> ReplayResult:
     """No source client is created: replay reads stored payloads only."""
     async with (
         _deliveries(settings, delivery_store) as deliveries,
+        _run_log(settings, run_log) as runs,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
         replay = ReplayDeliveries(SOURCE_ID, parse_delivery, deliveries, store)
-        return await replay(command.fetched_from, command.fetched_to, command.run_id)
+        tracked = await TrackRun(runs)(
+            command.run_id,
+            Operation.REPLAY,
+            replay(command.fetched_from, command.fetched_to, command.run_id),
+        )
+        return ReplayResult(command.run_id, tracked.attempt, tracked.steps)
 
 
 def run_scenario(
@@ -179,3 +196,12 @@ async def _deliveries(
         return
     async with OracleDeliveryStore(settings.db) as store:
         yield store
+
+
+@asynccontextmanager
+async def _run_log(settings: IngestionSettings, injected: RunLog | None) -> AsyncIterator[RunLog]:
+    if injected is not None:
+        yield injected
+        return
+    async with OracleRunLog(settings.db) as runs:
+        yield runs

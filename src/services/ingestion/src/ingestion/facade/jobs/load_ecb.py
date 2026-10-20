@@ -10,6 +10,9 @@ one request per calendar year. ``replay`` parses the deliveries stored in ``ING`
 were fetched on those days (UTC) again and records their values, without calling the
 ECB. The run id defaults to a deterministic value derived
 from the command and its dates, so a rerun of the same load reuses it.
+
+Every load and replay is recorded as an attempt in ``ING``; usage and configuration
+errors are not.
 """
 
 import argparse
@@ -20,6 +23,7 @@ from datetime import date
 
 from ingestion.application.load_published_curve import LoadResult
 from ingestion.application.replay_deliveries import ReplayResult
+from ingestion.domain.run import Operation
 from ingestion.domain.windows import DateWindow, lookback_window, yearly_windows
 
 
@@ -27,6 +31,7 @@ from ingestion.domain.windows import DateWindow, lookback_window, yearly_windows
 class LoadCommand:
     windows: tuple[DateWindow, ...]
     run_id: str
+    operation: Operation
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +50,11 @@ def parse_command(
     if arguments.command == "daily":
         valid_date: date = arguments.valid_date
         window = lookback_window(valid_date, lookback_business_days)
-        return LoadCommand((window,), arguments.run_id or f"ecb-daily-{valid_date}")
+        return LoadCommand(
+            (window,),
+            arguments.run_id or f"ecb-daily-{valid_date}",
+            Operation.DAILY,
+        )
     if arguments.command == "replay":
         fetched_from: date = arguments.fetched_from
         fetched_to: date = arguments.fetched_to
@@ -58,7 +67,11 @@ def parse_command(
     if start > end:
         parser.error(f"--start {start} is after --end {end}")
     windows = yearly_windows(DateWindow(start, end))
-    return LoadCommand(tuple(windows), arguments.run_id or f"ecb-history-{start}-{end}")
+    return LoadCommand(
+        tuple(windows),
+        arguments.run_id or f"ecb-history-{start}-{end}",
+        Operation.HISTORY,
+    )
 
 
 def summary(result: LoadResult) -> str:
@@ -68,6 +81,7 @@ def summary(result: LoadResult) -> str:
             "event": "load_finished",
             "source": "ecb",
             "run_id": result.run_id,
+            "attempt": result.attempt,
             "delivered_count": result.delivered_count,
             "recorded_count": result.recorded_count,
             "unchanged_count": result.unchanged_count,
@@ -97,6 +111,7 @@ def replay_summary(result: ReplayResult) -> str:
             "event": "replay_finished",
             "source": "ecb",
             "run_id": result.run_id,
+            "attempt": result.attempt,
             "delivered_count": result.delivered_count,
             "recorded_count": result.recorded_count,
             "unchanged_count": result.unchanged_count,
