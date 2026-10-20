@@ -68,6 +68,26 @@ describe('ChangesView', () => {
     expect(mockedFetch).not.toHaveBeenCalled()
   })
 
+  it('associates the compare-from label and description with the input', () => {
+    render(<ChangesView curveId="ecb-aaa-spot" />)
+
+    const input = screen.getByLabelText('Compare from (known as of)')
+    expect(input).toHaveAttribute('id', 'changes-compare-from')
+    expect(input).toHaveAccessibleDescription('Your local time, shown in UTC elsewhere')
+  })
+
+  it('shows compare-from help on keyboard focus', async () => {
+    render(<ChangesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.focus(screen.getByRole('button', { name: 'Earlier knowledge time help' }))
+
+    expect(
+      await screen.findByRole('tooltip', {
+        name: 'The earlier knowledge time. Changes known after it, up to Known as of, are listed.',
+      }),
+    ).toBeInTheDocument()
+  })
+
   it('shows old value, new value, change and reason', async () => {
     render(<ChangesView curveId="ecb-aaa-spot" />)
 
