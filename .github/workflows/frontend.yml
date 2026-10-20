@@ -103,5 +103,9 @@ jobs:
       - name: Build
         run: devbox run -- task frontend:build
 
+      # devbox puts a Nix ldd first on PATH, which cannot see the image's system libraries and makes
+      # Playwright's host check fail. The Playwright image already ships the browser dependencies.
       - name: End-to-end checks
+        env:
+          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS: "1"
         run: devbox run -- task frontend:e2e
