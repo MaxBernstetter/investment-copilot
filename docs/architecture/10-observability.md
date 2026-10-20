@@ -66,7 +66,7 @@ Each service ships an `observability/` folder that the platform loads at startup
 
 **Metrics**
 - Prefix `yl_<service>_`, with snake_case names and units in the name (`_seconds`, `_total`, `_bytes`).
-- Labels are limited to low-cardinality values (`source`, `country`, `rule`, `status`). Never use dates or ids as labels.
+- Labels are limited to low-cardinality values (`source`, `country`, `curve`, `rule`, `status`). Never use dates or ids as labels.
 - Mandatory domain signals:
   - throughput (e.g. `yl_ingestion_observations_loaded_total`)
   - freshness (e.g. `yl_ingestion_source_last_success_timestamp_seconds`)
@@ -75,6 +75,7 @@ Each service ships an `observability/` folder that the platform loads at startup
   - Each service evaluates its business alert conditions itself, because it knows their meaning.
   - It exposes each condition through `GET /v1/alerts` and as the gauge `yl_<service>_alert_active{alert}`.
   - Grafana routes that gauge to notifications. One source of truth, two views.
+  - Business alert gauges and other gauges derived from stored state are evaluated by the `api` process at collection time, not by short-lived jobs.
 
 **Logs**
 - Structured JSON to stdout only (12-factor). The collector ships them to Loki.

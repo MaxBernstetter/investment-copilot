@@ -3,6 +3,7 @@
 Run with: ``uvicorn --factory processing.api:create_app_from_environment``
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import partial
@@ -15,6 +16,7 @@ from processing.application.get_value_quality import GetValueQuality
 from processing.config import ApiSettings, DatabaseSettings
 from processing.facade.rest.app import Services, create_app
 from processing.infrastructure.proc import OracleHealth, OracleQualityStore, create_pool
+from processing.infrastructure.proc_gauges import register_proc_gauges
 from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 
 
@@ -42,6 +44,7 @@ async def proc_services(
     store = OracleQualityStore(
         pool, call_timeout_ms=settings.call_timeout_ms, tracer=telemetry.tracer
     )
+    register_proc_gauges(telemetry.meter, store.latest_check_runs, asyncio.get_running_loop())
     try:
         yield Services(
             OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable,

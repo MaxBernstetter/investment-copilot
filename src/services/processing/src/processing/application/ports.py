@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Protocol
 
+from processing.application.alerts import LatestCheckRun
 from processing.domain.assessment import QualityCheck
 from processing.domain.quality import Value
 
@@ -32,3 +33,8 @@ class ObservationReader(Protocol):
 class QualityStore(Protocol):
     async def record(self, check: QualityCheck) -> None:
         """Persist one assessed chunk of a quality check run."""
+
+
+class CheckRunReader(Protocol):
+    async def latest_check_runs(self) -> list[LatestCheckRun]:
+        """The latest check run of every curve that has one."""
