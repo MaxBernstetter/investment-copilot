@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -73,8 +74,10 @@ async def test_values_are_decimals_from_their_text() -> None:
         },
         "meta": {"as_of": "2026-03-13T08:00:00Z"},
     }
+    seen: list[httpx.Request] = []
 
-    def answer(_: httpx.Request) -> httpx.Response:
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
         return httpx.Response(200, json=body)
 
     async with client_answering(httpx.MockTransport(answer)) as client:
@@ -87,12 +90,32 @@ async def test_values_are_decimals_from_their_text() -> None:
         )
 
     assert points[0].value == Decimal("2.87")
+    assert seen[0].url.params["from"] == "2026-10-06"
+    assert seen[0].url.params["to"] == "2026-10-06"
+    assert seen[0].url.params["as_of"] == CHECKED_AS_OF.isoformat()
 
 
-async def test_other_statuses_raise_persistence_read_error() -> None:
-    def answer(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(503, json={"detail": "unavailable"})
+def _raise_connect_error(_: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection failed")
 
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(
+            lambda _: httpx.Response(503, json={"detail": "unavailable"}),
+            id="503",
+        ),
+        pytest.param(_raise_connect_error, id="connect_error"),
+        pytest.param(
+            lambda _: httpx.Response(200, json={"unexpected": "shape"}),
+            id="malformed_body",
+        ),
+    ],
+)
+async def test_other_statuses_raise_persistence_read_error(
+    answer: Callable[[httpx.Request], httpx.Response],
+) -> None:
     async with client_answering(httpx.MockTransport(answer)) as client:
         with pytest.raises(PersistenceReadError):
             await client.grid("ecb-aaa-spot")

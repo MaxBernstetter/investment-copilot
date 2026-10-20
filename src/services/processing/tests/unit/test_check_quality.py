@@ -17,11 +17,20 @@ SeriesCall = tuple[str, date, date, datetime]
 
 
 class FakeReader(ObservationReader):
-    def __init__(self, grid: Grid | None, series_calls: list[SeriesCall]) -> None:
+    def __init__(
+        self,
+        grid: Grid | None,
+        series_calls: list[SeriesCall],
+        *,
+        fail: bool = False,
+    ) -> None:
         self._grid = grid
         self.series_calls = series_calls
+        self._fail = fail
 
     async def grid(self, curve_id: str) -> Grid | None:
+        if self._fail:
+            raise AssertionError("grid should not be called")
         assert curve_id == "ecb-aaa-spot-sim"
         return self._grid
 
@@ -33,6 +42,8 @@ class FakeReader(ObservationReader):
         valid_to: date,
         as_of: datetime,
     ) -> list[Value]:
+        if self._fail:
+            raise AssertionError("series should not be called")
         self.series_calls.append((maturity, valid_from, valid_to, as_of))
         return []
 
@@ -89,21 +100,7 @@ async def test_nothing_known_records_nothing() -> None:
 
 
 async def test_an_unknown_curve_fails_before_any_read() -> None:
-    class FailingReader(ObservationReader):
-        async def grid(self, curve_id: str) -> Grid | None:
-            raise AssertionError("grid should not be called")
-
-        async def series(
-            self,
-            curve_id: str,
-            maturity: str,
-            valid_from: date,
-            valid_to: date,
-            as_of: datetime,
-        ) -> list[Value]:
-            raise AssertionError("series should not be called")
-
-    use_case = CheckQuality(FailingReader(), RecordingStore())
+    use_case = CheckQuality(FakeReader(None, [], fail=True), RecordingStore())
 
     with pytest.raises(UnknownCurveError):
         await use_case("unknown-curve", date(2026, 10, 5), date(2026, 10, 8), "run-1")
