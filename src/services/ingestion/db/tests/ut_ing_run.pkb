@@ -34,9 +34,10 @@ create or replace package body ut_ing_run as
   end start_numbers_attempts_per_run;
 
   procedure start_records_a_running_attempt is
-    l_row run%rowtype;
+    l_row     run%rowtype;
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-start', 'replay');
+    l_attempt := ing_run.start_run('run-start', 'replay');
     l_row := stored('run-start', 1);
 
     ut.expect(l_row.status).to_equal('running');
@@ -54,9 +55,10 @@ create or replace package body ut_ing_run as
   end start_rejects_an_unknown_operation;
 
   procedure finish_records_status_counts_and_error is
-    l_row run%rowtype;
+    l_row     run%rowtype;
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-finish', 'history');
+    l_attempt := ing_run.start_run('run-finish', 'history');
     ing_run.finish_run(
       p_run_id          => 'run-finish',
       p_attempt         => 1,
@@ -79,9 +81,10 @@ create or replace package body ut_ing_run as
   end finish_records_status_counts_and_error;
 
   procedure finish_keeps_the_first_outcome is
-    l_row run%rowtype;
+    l_row     run%rowtype;
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-twice', 'daily');
+    l_attempt := ing_run.start_run('run-twice', 'daily');
     ing_run.finish_run('run-twice', 1, 'succeeded', 1, 1, 0);
     ing_run.finish_run(
       'run-twice', 1, 'failed', 0, 0, 0, p_error_type => 'PersistenceWriteError'
@@ -93,8 +96,9 @@ create or replace package body ut_ing_run as
   end finish_keeps_the_first_outcome;
 
   procedure finish_rejects_running_as_outcome is
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-bad-finish', 'daily');
+    l_attempt := ing_run.start_run('run-bad-finish', 'daily');
     ing_run.finish_run('run-bad-finish', 1, 'running', 0, 0, 0);
   end finish_rejects_running_as_outcome;
 
@@ -104,8 +108,9 @@ create or replace package body ut_ing_run as
   end finish_of_an_unknown_attempt_fails;
 
   procedure a_failed_outcome_needs_an_error_type is
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-no-error', 'daily');
+    l_attempt := ing_run.start_run('run-no-error', 'daily');
     ing_run.finish_run('run-no-error', 1, 'failed', 0, 0, 0);
   end a_failed_outcome_needs_an_error_type;
 
@@ -113,10 +118,11 @@ create or replace package body ut_ing_run as
     l_changed pls_integer;
     l_first   run%rowtype;
     l_second  run%rowtype;
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-fail-open', 'daily');
+    l_attempt := ing_run.start_run('run-fail-open', 'daily');
     ing_run.finish_run('run-fail-open', 1, 'succeeded', 10, 10, 0);
-    ing_run.start_run('run-fail-open', 'daily');
+    l_attempt := ing_run.start_run('run-fail-open', 'daily');
 
     l_changed := ing_run.fail_unfinished_run('run-fail-open', 'AttemptAbandoned', 'killed');
     l_first := stored('run-fail-open', 1);
@@ -129,11 +135,12 @@ create or replace package body ut_ing_run as
   end fail_unfinished_marks_only_running_attempts;
 
   procedure fail_unfinished_twice_marks_none_the_second_time is
-    l_first  pls_integer;
-    l_second pls_integer;
-    l_row    run%rowtype;
+    l_first   pls_integer;
+    l_second  pls_integer;
+    l_row     run%rowtype;
+    l_attempt pls_integer;
   begin
-    ing_run.start_run('run-fail-twice', 'daily');
+    l_attempt := ing_run.start_run('run-fail-twice', 'daily');
     l_first := ing_run.fail_unfinished_run('run-fail-twice', 'AttemptAbandoned');
     l_second := ing_run.fail_unfinished_run('run-fail-twice', 'OtherError');
     l_row := stored('run-fail-twice', 1);
