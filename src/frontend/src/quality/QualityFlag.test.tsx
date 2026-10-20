@@ -26,6 +26,19 @@ describe('QualityFlag', () => {
 
     const link = await screen.findByRole('link', { name: 'How we check this' })
     await waitFor(() => expect(link).toHaveFocus())
+    await waitFor(() => expect(screen.getByText('Range at 10Y')).toBeVisible())
+    await waitFor(() => expect(screen.getByText(finding.explanation)).toBeVisible())
+    await waitFor(() => expect(screen.getByText(finding.evidence)).toBeVisible())
+  })
+
+  it('shows only the rule label in the popover when there is no maturity', async () => {
+    const user = userEvent.setup()
+    render(<QualityFlag finding={{ ...finding, maturity: null }} />)
+
+    await user.click(screen.getByRole('button', { name: 'Range · warn' }))
+    await screen.findByRole('link', { name: 'How we check this' })
+    await waitFor(() => expect(screen.getByText('Range')).toBeVisible())
+    expect(screen.queryByText('Range at 10Y')).not.toBeInTheDocument()
   })
 
   it('Escape closes and returns focus to the badge', async () => {
