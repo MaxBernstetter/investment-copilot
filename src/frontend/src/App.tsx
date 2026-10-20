@@ -51,7 +51,7 @@ export default function App() {
   }
 
   return (
-    <Tabs value={view} onChange={setView} keepMounted keepMountedMode="display-none">
+    <Tabs value={view} onChange={setView}>
       <AppShell
         header={{ height: 56 }}
         navbar={
@@ -117,13 +117,13 @@ export default function App() {
                     Simulated scenario data, not an ECB publication.
                   </Alert>
                 )}
-                <Tabs.Panel value="curve" keepMounted>
+                <Tabs.Panel value="curve">
                   <CurveView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
-                <Tabs.Panel value="series" keepMounted>
+                <Tabs.Panel value="series">
                   <SeriesView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
-                <Tabs.Panel value="changes" keepMounted>
+                <Tabs.Panel value="changes">
                   <ChangesView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
               </Stack>
