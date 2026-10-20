@@ -53,9 +53,12 @@ class TrackRun:
             async for step in steps:
                 done.append(step)
         except Exception as error:
-            await self._run_log.finish(
-                run_id, attempt, outcome_of(_sum_counts(done), len(done), error)
-            )
+            try:
+                await self._run_log.finish(
+                    run_id, attempt, outcome_of(_sum_counts(done), len(done), error)
+                )
+            except Exception as finish_error:
+                error.add_note(f"run log finish failed: {finish_error!r}")
             raise
         await self._run_log.finish(run_id, attempt, outcome_of(_sum_counts(done), len(done), None))
         return TrackedRun(attempt, tuple(done))
