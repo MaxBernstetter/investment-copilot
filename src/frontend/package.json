@@ -45,9 +45,9 @@
     "recharts": "3.10.1"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.1",
+    "@axe-core/playwright": "4.10.1",
     "@eslint/js": "9.39.5",
-    "@playwright/test": "^1.55.1",
+    "@playwright/test": "1.55.1",
     "@size-limit/file": "14.2.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.3",

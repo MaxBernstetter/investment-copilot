@@ -12,6 +12,7 @@ export default defineConfig({
   expect: {
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.01,
+      threshold: 0.05,
       animations: 'disabled',
     },
   },
@@ -21,7 +22,7 @@ export default defineConfig({
     video: 'off',
     locale: 'en-GB',
     timezoneId: 'UTC',
-    reducedMotion: 'reduce',
+    contextOptions: { reducedMotion: 'reduce' },
     launchOptions: {
       args: ['--font-render-hinting=none'],
     },
