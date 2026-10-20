@@ -23,6 +23,8 @@ const mockedFetch = vi.mocked(fetchCurve)
 const mockedVersions = vi.mocked(fetchVersions)
 const mockedChart = vi.mocked(CurveChart)
 
+const passedQuality = { status: 'passed' as const, flags: [] }
+
 function curveResult(validDate: string, values: (number | null)[]): CurveResult {
   const grid = ['3M', '1Y', '2Y', '10Y', '15Y', '20Y']
   const months = [3, 12, 24, 120, 180, 240]
@@ -38,6 +40,7 @@ function curveResult(validDate: string, values: (number | null)[]): CurveResult 
           value: values[i],
           version_id: values[i] === null ? null : 1,
           origin: 'published' as const,
+          quality: values[i] === null ? null : passedQuality,
         })),
       },
       meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },

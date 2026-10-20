@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from access.config import Settings
 from access.facade.rest.app import Services, create_app
 from access.infrastructure.persistence import PersistenceClient
+from access.infrastructure.processing import ProcessingClient
 
 
 def create_app_from_environment() -> FastAPI:
@@ -23,7 +24,12 @@ def create_app_from_environment() -> FastAPI:
 
 @asynccontextmanager
 async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
-    async with PersistenceClient(
-        str(settings.persistence_url), settings.persistence_timeout_seconds
-    ) as client:
-        yield Services(client.is_ready, client)
+    async with (
+        PersistenceClient(
+            str(settings.persistence_url), settings.persistence_timeout_seconds
+        ) as persistence,
+        ProcessingClient(
+            str(settings.processing_url), settings.processing_timeout_seconds
+        ) as quality,
+    ):
+        yield Services(persistence.is_ready, persistence, quality)

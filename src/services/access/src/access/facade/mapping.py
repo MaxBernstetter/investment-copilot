@@ -1,5 +1,6 @@
 """Translation between the domain and the public contract (contracts.access.v1)."""
 
+from collections.abc import Mapping
 from datetime import UTC
 
 from contracts.access import v1
@@ -7,11 +8,14 @@ from contracts.access import v1
 from access.domain.attribution import source_attribution
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
+from access.domain.quality import ValueQuality, quality_for
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
 
 
-def to_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
+def to_response(
+    curve: CurveAsOf, *, known: Mapping[int, ValueQuality] | None
+) -> v1.CurveObservationsResponse:
     return v1.CurveObservationsResponse(
         data=v1.CurveObservations(
             curve_id=curve.curve_id,
@@ -23,6 +27,7 @@ def to_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
                     value=point.value,
                     version_id=point.version_id,
                     origin=v1.Origin.PUBLISHED,
+                    quality=_point_quality(point.value, point.version_id, known),
                 )
                 for point in curve.points
             ],
@@ -34,7 +39,9 @@ def to_response(curve: CurveAsOf) -> v1.CurveObservationsResponse:
     )
 
 
-def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
+def to_series_response(
+    series: Series, *, known: Mapping[int, ValueQuality] | None
+) -> v1.SeriesObservationsResponse:
     return v1.SeriesObservationsResponse(
         data=v1.SeriesObservations(
             curve_id=series.curve_id,
@@ -45,6 +52,7 @@ def to_series_response(series: Series) -> v1.SeriesObservationsResponse:
                     value=point.value,
                     version_id=point.version_id,
                     origin=v1.Origin.PUBLISHED,
+                    quality=_to_contract(quality_for(point.version_id, known)),
                 )
                 for point in series.points
             ],
@@ -108,4 +116,27 @@ def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
             as_of=changes.as_of.astimezone(UTC),
             source_attribution=source_attribution(changes.curve_id),
         ),
+    )
+
+
+def _point_quality(
+    value: float | None, version_id: int | None, known: Mapping[int, ValueQuality] | None
+) -> v1.ValueQuality | None:
+    if value is None or version_id is None:
+        return None
+    return _to_contract(quality_for(version_id, known))
+
+
+def _to_contract(quality: ValueQuality) -> v1.ValueQuality:
+    return v1.ValueQuality(
+        status=v1.QualityStatus(quality.status),
+        flags=[
+            v1.QualityFlag(
+                rule=flag.rule,
+                severity=v1.Severity(flag.severity),
+                explanation=flag.explanation,
+                evidence=flag.evidence,
+            )
+            for flag in quality.flags
+        ],
     )

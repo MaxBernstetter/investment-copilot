@@ -9,6 +9,8 @@ from enum import StrEnum
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from contracts.access.v1.quality import ValueQuality
+
 CURVE_OBSERVATIONS_PATH = "/v1/curves/{curve_id}/observations"
 """``GET`` endpoint that returns one curve as of a knowledge time."""
 
@@ -40,6 +42,9 @@ class CurvePoint(BaseModel):
     origin: Origin = Field(
         description="published: the source value, unmodified; derived: computed by the service "
         "(none yet)"
+    )
+    quality: ValueQuality | None = Field(
+        description="Quality status of the value; null exactly when value is null"
     )
 
 

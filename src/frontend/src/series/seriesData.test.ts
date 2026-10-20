@@ -6,6 +6,7 @@ const point = (valid_date: string, value: number): SeriesPoint => ({
   value,
   version_id: 1,
   origin: 'published',
+  quality: { status: 'passed', flags: [] },
 })
 
 describe('seriesData', () => {

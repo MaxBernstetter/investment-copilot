@@ -16,11 +16,19 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     PersistenceUnavailableError,
 )
+from access.domain.quality import (
+    QualityFlag,
+    QualityStatus,
+    Severity,
+    ValueQuality,
+)
 from access.domain.series import Series, SeriesPoint
 from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 from access.facade.rest.app import Services, create_app
 
 FRONTEND_ORIGIN = "http://localhost:5174"
+PASSED_QUALITY = {"status": "passed", "flags": []}
+UNCHECKED_QUALITY = {"status": "unchecked", "flags": []}
 CURVE_PATH = "/v1/curves/ecb-aaa-spot/observations"
 SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
@@ -129,17 +137,40 @@ class FakeCurveReader:
         )
 
 
+class FakeQualityReader:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, date, date, str | None, datetime]] = []
+        self.known: dict[int, ValueQuality] | None = {
+            7: ValueQuality(status=QualityStatus.PASSED, flags=())
+        }
+        self.unavailable = False
+
+    async def value_quality(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        maturity: str | None,
+        as_of: datetime,
+    ) -> dict[int, ValueQuality] | None:
+        self.calls.append((curve_id, valid_from, valid_to, maturity, as_of))
+        if self.unavailable:
+            return None
+        return self.known
+
+
 class FakeServices:
     def __init__(self) -> None:
         self.ready = True
         self.curves = FakeCurveReader()
+        self.quality = FakeQualityReader()
 
     async def is_ready(self) -> bool:
         return self.ready
 
     @asynccontextmanager
     async def open(self) -> AsyncIterator[Services]:
-        yield Services(self.is_ready, self.curves)
+        yield Services(self.is_ready, self.curves, self.quality)
 
 
 @pytest.fixture
@@ -209,6 +240,7 @@ def test_returns_the_curve_in_the_public_envelope(client: TestClient) -> None:
                     "value": None,
                     "version_id": None,
                     "origin": "published",
+                    "quality": None,
                 },
                 {
                     "maturity": "10Y",
@@ -216,6 +248,7 @@ def test_returns_the_curve_in_the_public_envelope(client: TestClient) -> None:
                     "value": 2.61,
                     "version_id": 7,
                     "origin": "published",
+                    "quality": PASSED_QUALITY,
                 },
             ],
         },
@@ -327,6 +360,7 @@ def test_returns_the_series_in_the_public_envelope(client: TestClient) -> None:
                     "value": 2.61,
                     "version_id": 7,
                     "origin": "published",
+                    "quality": PASSED_QUALITY,
                 }
             ],
         },
@@ -503,6 +537,7 @@ def test_the_body_is_unchanged(client: TestClient) -> None:
                     "value": None,
                     "version_id": None,
                     "origin": "published",
+                    "quality": None,
                 },
                 {
                     "maturity": "10Y",
@@ -510,6 +545,7 @@ def test_the_body_is_unchanged(client: TestClient) -> None:
                     "value": 2.61,
                     "version_id": 7,
                     "origin": "published",
+                    "quality": PASSED_QUALITY,
                 },
             ],
         },
@@ -794,3 +830,64 @@ def test_a_curve_without_attribution_is_not_found(client: TestClient) -> None:
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Not found"
     assert response.json()["detail"] == "no curve named unknown"
+
+
+def test_a_flagged_value_carries_its_status_and_flags(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.quality.known = {
+        7: ValueQuality(
+            status=QualityStatus.WARN,
+            flags=(
+                QualityFlag(
+                    rule="range",
+                    severity=Severity.WARN,
+                    explanation="Yield is outside the plausible range",
+                    evidence="26.4 % is above 15 %",
+                ),
+                QualityFlag(
+                    rule="jump",
+                    severity=Severity.WARN,
+                    explanation="Yield jumped more than expected",
+                    evidence="26.4 % vs 2.5 % on the previous day",
+                ),
+            ),
+        )
+    }
+
+    response = client.get(CURVE_PATH)
+    point = response.json()["data"]["points"][1]
+
+    assert point["quality"]["status"] == "warn"
+    assert {flag["rule"] for flag in point["quality"]["flags"]} == {"range", "jump"}
+    assert all(flag["explanation"] and flag["evidence"] for flag in point["quality"]["flags"])
+
+
+def test_a_value_without_result_is_unchecked(client: TestClient, services: FakeServices) -> None:
+    services.quality.known = {}
+
+    response = client.get(CURVE_PATH)
+
+    assert response.json()["data"]["points"][1]["quality"] == UNCHECKED_QUALITY
+
+
+def test_processing_unavailable_marks_values_unchecked_and_not_immutable(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.quality.unavailable = True
+
+    response = client.get(CURVE_PATH, params={"as_of": AS_OF.isoformat()})
+
+    assert response.json()["data"]["points"][1]["quality"] == UNCHECKED_QUALITY
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_a_settled_answer_with_every_value_checked_is_immutable(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.quality.known = {7: ValueQuality(status=QualityStatus.PASSED, flags=())}
+
+    response = client.get(CURVE_PATH, params={"as_of": AS_OF.isoformat()})
+
+    assert response.json()["data"]["points"][1]["quality"] == PASSED_QUALITY
+    assert response.headers["cache-control"] == IMMUTABLE
