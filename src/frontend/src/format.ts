@@ -1,6 +1,6 @@
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MINUS = '−'
-const THIN_SPACE = '\u202F'
+const NARROW_NBSP = '\u202F'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -30,7 +30,7 @@ export function formatBp(bp: number): string {
   return `${sign}${groupThousands(Math.abs(rounded).toFixed(1))} bp`
 }
 
-/** A yield in percent with three decimals and a narrow no-break space before the unit: `2.871 %`. */
+/** A yield in percent with three decimals and a narrow no-break space (\u202F) before the unit: `2.871 %`. */
 export function formatYield(percent: number): string {
-  return `${percent.toFixed(3)}${THIN_SPACE}%`
+  return `${percent.toFixed(3)}${NARROW_NBSP}%`
 }

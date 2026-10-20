@@ -35,7 +35,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 
 ## Data display
 - D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric columns `ta="right"`, header too.
-- D2 Yields: 3 decimals, unit in the column header or after the value with a thin space: `2.871 %`.
+- D2 Yields: 3 decimals, unit in the column header or after the value with a narrow no-break space (U+202F): `2.871 %`.
   Spreads and changes: basis points, 1 decimal, always signed with true minus: `+9.0 bp`, `−2,376.0 bp`.
   Thousands separator in bp. Missing: `–`.
 - D3 Dates: valid dates ISO `2026-10-16`. Knowledge times: `19 Oct 2026, 18:49:25 UTC` (one helper `formatUtc`).
