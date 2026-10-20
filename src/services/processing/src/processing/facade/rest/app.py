@@ -1,5 +1,6 @@
 """REST facade (``api`` process type): quality reads, liveness and readiness."""
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from contracts.processing import v1
 from fastapi import Depends, FastAPI, Path, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
+from opentelemetry import trace
 from pydantic import AwareDatetime
 
 from processing.application.check_quality import UnknownCurveError
@@ -20,6 +22,7 @@ from processing.facade.mapping import to_quality_days_response, to_value_quality
 from processing.facade.rest.caching import cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +156,30 @@ def _add_problem_handlers(app: FastAPI) -> None:
     @app.exception_handler(UnknownCurveError)
     async def unknown_curve(_: Request, error: UnknownCurveError) -> JSONResponse:
         return _problem(status.HTTP_404_NOT_FOUND, "Not found", str(error))
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, error: Exception) -> JSONResponse:
+        trace_fields = _trace_fields()
+        logger.exception(
+            "Unexpected error",
+            extra={
+                "event": "unexpected_error",
+                "method": request.method,
+                "path": request.url.path,
+            }
+            | trace_fields,
+        )
+        return _problem(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Internal server error",
+            "An unexpected error occurred.",
+            **trace_fields,
+        )
+
+
+def _trace_fields() -> dict[str, str]:
+    context = trace.get_current_span().get_span_context()
+    return {"trace_id": trace.format_trace_id(context.trace_id)} if context.is_valid else {}
 
 
 def _problem(status_code: int, title: str, detail: str, **extensions: Any) -> JSONResponse:

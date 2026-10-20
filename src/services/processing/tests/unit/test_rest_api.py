@@ -5,9 +5,12 @@ from functools import partial
 
 import pytest
 from contracts.processing.v1 import QUALITY_DAYS_PATH, VALUE_QUALITY_PATH
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from opentelemetry.trace import SpanKind
+from opentelemetry import trace
+from opentelemetry.trace import SpanContext, SpanKind
 from pydantic import SecretStr
+from starlette.types import Receive, Scope, Send
 
 from processing.api import create_app_from_environment, instrument_app, proc_services
 from processing.application.get_quality_days import GetQualityDays
@@ -186,3 +189,67 @@ def test_the_factory_instruments_the_app(
     create_app_from_environment()
 
     assert calls == ["instrumented"]
+
+
+def _app_with_boom() -> FastAPI:
+    quality_store = FakeQualityStore()
+
+    @asynccontextmanager
+    async def services() -> AsyncIterator[Services]:
+        yield Services(
+            _reachable,
+            GetQualityDays(quality_store),
+            GetValueQuality(quality_store),
+        )
+
+    app = create_app(services)
+
+    @app.get("/boom")
+    async def boom() -> None:
+        raise RuntimeError("ORA-00942: table SECRET_TABLE does not exist")
+
+    return app
+
+
+def test_an_unexpected_error_is_a_generic_problem(caplog: pytest.LogCaptureFixture) -> None:
+    with TestClient(_app_with_boom(), raise_server_exceptions=False) as client:
+        response = client.get("/boom")
+
+    assert response.status_code == 500
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Internal server error",
+        "status": 500,
+        "detail": "An unexpected error occurred.",
+    }
+    assert "ORA-00942" not in response.text
+    assert "RuntimeError" not in response.text
+    records = [r for r in caplog.records if getattr(r, "event", None) == "unexpected_error"]
+    assert len(records) == 1
+    assert records[0].levelname == "ERROR"
+    assert records[0].exc_info is not None
+    assert records[0].exc_info[0] is RuntimeError
+
+
+def test_an_unexpected_error_carries_the_trace_id(caplog: pytest.LogCaptureFixture) -> None:
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    app = _app_with_boom()
+    span_context = SpanContext(
+        trace_id=0x0AF7651916CD43DD8448EB211C80319C,
+        span_id=0xB7AD6B7169203331,
+        is_remote=False,
+    )
+
+    async def traced(scope: Scope, receive: Receive, send: Send) -> None:
+        with trace.use_span(trace.NonRecordingSpan(span_context)):
+            await app(scope, receive, send)
+
+    with TestClient(traced, raise_server_exceptions=False) as client:
+        response = client.get("/boom")
+
+    assert response.status_code == 500
+    assert response.json()["trace_id"] == trace_id
+    records = [r for r in caplog.records if getattr(r, "event", None) == "unexpected_error"]
+    assert len(records) == 1
+    assert getattr(records[0], "trace_id", None) == trace_id
