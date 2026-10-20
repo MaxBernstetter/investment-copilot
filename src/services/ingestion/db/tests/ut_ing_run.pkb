@@ -154,14 +154,14 @@ create or replace package body ut_ing_run as
     l_cursor   sys_refcursor;
     l_row      run%rowtype;
     l_ids      sys.odcinumberlist := sys.odcinumberlist();
-    l_third_id number;
-    l_page2    sys.odcinumberlist := sys.odcinumberlist();
+    l_oldest_id number;
+    l_page2     sys.odcinumberlist := sys.odcinumberlist();
   begin
     insert_ut_run('ut-runs-a', 1, 'daily', 'succeeded', c_jan_2001, c_jan_2001, null);
     insert_ut_run('ut-runs-b', 1, 'daily', 'succeeded', c_jan_2001 + 1, c_jan_2001 + 1, null);
     insert_ut_run('ut-runs-c', 1, 'daily', 'succeeded', c_jan_2001 + 2, c_jan_2001 + 2, null);
 
-    select attempt_id into l_third_id from run where run_id = 'ut-runs-c';
+    select attempt_id into l_oldest_id from run where run_id = 'ut-runs-a';
 
     l_cursor := ing_run.get_runs(
       p_started_from      => timestamp '2001-01-01 00:00:00',
@@ -194,7 +194,7 @@ create or replace package body ut_ing_run as
     close l_cursor;
 
     ut.expect(l_page2.count).to_equal(1);
-    ut.expect(l_page2(1)).to_equal(l_third_id);
+    ut.expect(l_page2(1)).to_equal(l_oldest_id);
   end get_runs_lists_newest_first_and_pages_before_an_attempt;
 
   procedure get_runs_filters_by_start_time is
