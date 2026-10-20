@@ -35,7 +35,8 @@ const REASON_COLORS: Record<string, string> = {
 
 function reasonBadgeProps(reason: string): Pick<BadgeProps, 'color' | 'variant'> {
   if (reason === 'correction') {
-    return { color: 'orange.8', variant: 'filled' }
+    // orange.6 keeps L > theme luminanceThreshold so autoContrast uses black label text (≥4.5:1).
+    return { color: 'orange.6', variant: 'filled' }
   }
   return { color: REASON_COLORS[reason] ?? 'gray', variant: 'light' }
 }
