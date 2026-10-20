@@ -1,9 +1,14 @@
+import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
+from contracts.processing.v1 import QUALITY_DAYS_PATH, VALUE_QUALITY_PATH
 from fastapi.testclient import TestClient
 
+from processing.application.get_quality_days import GetQualityDays
+from processing.application.get_value_quality import GetValueQuality
 from processing.facade.rest.app import Services, create_app
+from tests.unit.fakes import FakeQualityStore
 
 
 async def _reachable() -> bool:
@@ -14,33 +19,64 @@ async def _unreachable() -> bool:
     return False
 
 
-def _client(is_ready: Callable[[], Awaitable[bool]] = _reachable) -> TestClient:
+def _client(
+    is_ready: Callable[[], Awaitable[bool]] = _reachable,
+    store: FakeQualityStore | None = None,
+) -> TestClient:
+    quality_store = store or FakeQualityStore()
+
     @asynccontextmanager
     async def services() -> AsyncIterator[Services]:
-        yield Services(is_ready)
+        yield Services(
+            is_ready,
+            GetQualityDays(quality_store),
+            GetValueQuality(quality_store),
+        )
 
     return TestClient(create_app(services))
 
 
 def test_health_is_ok() -> None:
     with _client() as client:
-        response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+        assert client.get("/health").json() == {"status": "ok"}
 
 
-def test_ready_is_ok_when_the_database_answers() -> None:
+def test_ready_reflects_database_reachability() -> None:
     with _client(_reachable) as client:
-        response = client.get("/ready")
+        assert client.get("/ready").json() == {"status": "ready"}
+    with _client(_unreachable) as client:
+        assert client.get("/ready").status_code == 503
+
+
+def test_quality_days_matches_the_contract() -> None:
+    with _client() as client:
+        response = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2026-10-07", "to": "2026-10-07"},
+        )
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    body = response.json()
+    assert body["data"]["days"][0]["findings"][0]["rule"] == "missing-date"
+    assert re.fullmatch(r'"[0-9a-f]{32}"', response.headers["etag"])
 
 
-def test_ready_is_503_when_the_database_is_unreachable() -> None:
-    with _client(_unreachable) as client:
-        response = client.get("/ready")
+def test_invalid_range_returns_a_problem() -> None:
+    with _client() as client:
+        response = client.get(
+            QUALITY_DAYS_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2026-10-08", "to": "2026-10-07"},
+        )
 
-    assert response.status_code == 503
-    assert response.json() == {"status": "unavailable"}
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_value_quality_endpoint_is_available() -> None:
+    with _client() as client:
+        response = client.get(
+            VALUE_QUALITY_PATH.format(curve_id="ecb-aaa-spot"),
+            params={"from": "2026-10-07", "to": "2026-10-07"},
+        )
+
+    assert response.status_code == 200

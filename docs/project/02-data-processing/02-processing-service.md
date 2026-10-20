@@ -7,7 +7,7 @@ The `processing` service owns the quality rules of YieldLens: it checks the publ
 The service follows the hexagonal layout of the other services (see [[11-service-design]]). The import-linter contract in `pyproject.toml` enforces the direction:
 
 - `processing.api`: composition root of the `api` process; wires the adapters into the facade.
-- `processing.facade`: REST facade (`rest/app.py`): `/health`, `/ready` and RFC 9457 problems.
+- `processing.facade`: REST facade (`rest/app.py`): `contracts.processing.v1` quality routes, `/health`, `/ready` and RFC 9457 problems.
 - `processing.infrastructure`: Oracle adapter (`proc.py`), the only place that imports `oracledb`.
 - `processing.application` and `processing.domain`: use cases and rules. No I/O, no frameworks, no contracts.
 
@@ -17,7 +17,7 @@ One image, two process types (see [[09-deployment]]):
 
 | Process | Status | Command |
 |---|---|---|
-| `api` | skeleton: health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
+| `api` | quality reads plus health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
 | `job` | quality check over a date range | `processing-check-quality CURVE_ID --from D --to D [--run-id ID]` |
 
 The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`) is created by the Liquibase changelogs in `db/` (`db/admin` as SYSTEM, then `db/proc` as the owner `proc`). The runtime user `proc_app` has `CREATE SESSION` and nothing else until the check use case adds its grants. Its integration tests start Oracle Free with Testcontainers and check the migrations, the privileges and the readiness probe.

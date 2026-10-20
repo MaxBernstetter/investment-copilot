@@ -9,9 +9,11 @@ from functools import partial
 
 from fastapi import FastAPI
 
+from processing.application.get_quality_days import GetQualityDays
+from processing.application.get_value_quality import GetValueQuality
 from processing.config import ApiSettings, DatabaseSettings
 from processing.facade.rest.app import Services, create_app
-from processing.infrastructure.proc import OracleHealth, create_pool
+from processing.infrastructure.proc import OracleHealth, OracleQualityStore, create_pool
 
 
 def create_app_from_environment() -> FastAPI:
@@ -21,7 +23,12 @@ def create_app_from_environment() -> FastAPI:
 @asynccontextmanager
 async def proc_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
     pool = create_pool(settings)
+    store = OracleQualityStore(pool, call_timeout_ms=settings.call_timeout_ms)
     try:
-        yield Services(OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable)
+        yield Services(
+            OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable,
+            GetQualityDays(store),
+            GetValueQuality(store),
+        )
     finally:
         await pool.close()
