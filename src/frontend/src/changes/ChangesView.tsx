@@ -80,7 +80,10 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
           <Stack gap={4}>
             <Group gap={4} wrap="nowrap" align="center">
               <Input.Label htmlFor="changes-compare-from">Compare from (known as of)</Input.Label>
-              <Tooltip label={COMPARE_FROM_TOOLTIP}>
+              <Tooltip
+                label={COMPARE_FROM_TOOLTIP}
+                events={{ hover: true, focus: true, touch: true }}
+              >
                 <ActionIcon variant="subtle" size="xs" aria-label="Earlier knowledge time help">
                   <IconInfoCircle size={14} />
                 </ActionIcon>
