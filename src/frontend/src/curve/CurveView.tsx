@@ -1,14 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Group, Paper, Pill, Skeleton, Stack, TextInput, Text, VisuallyHidden } from '@mantine/core'
-import { formatUtc } from '../format'
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  Card,
+  Group,
+  Pill,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Table,
+  TextInput,
+  Text,
+  Title,
+  Tooltip,
+  VisuallyHidden,
+} from '@mantine/core'
+import { IconInfoCircle } from '@tabler/icons-react'
+import StatCard from '../components/StatCard'
+import { formatBp, formatUtc, formatYield } from '../format'
 import PageHeader from '../layout/PageHeader'
+import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
-import { missingMaturities, type LabelledCurve } from './curveData'
+import { missingMaturities, spread2s10s, yield10y, type LabelledCurve } from './curveData'
 import { curveById } from './curves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
-import VersionHistory from '../versions/VersionHistory'
 
 const MAX_OVERLAYS = 5
+const VALID_DATE_HELP = 'The business day the yield applies to, as published by the ECB.'
+const EMPTY = '–'
 
 type CurveViewProps = {
   curveId: string
@@ -22,6 +42,11 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
   const [overlayDates, setOverlayDates] = useState<string[]>([])
   const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
   const [historyMaturity, setHistoryMaturity] = useState<string | undefined>(undefined)
+
+  const curve = curveById(curveId)
+  const subtitle = curve.isSimulated
+    ? 'Simulated scenario based on ECB AAA spot'
+    : 'ECB euro area AAA government bonds, spot rates by maturity'
 
   useEffect(() => {
     let active = true
@@ -64,22 +89,40 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
     return [current, ...overlays]
   }, [result, overlayCurves, overlayDates])
 
-  const missing = result?.kind === 'ok' ? missingMaturities(result.curve.data.points) : []
-  const withValue =
-    result?.kind === 'ok'
-      ? result.curve.data.points.filter((point) => point.value !== null).map((point) => point.maturity)
-      : []
-  return (
-    <Stack component="section" gap="md">
-      <PageHeader title={curveById(curveId).label} />
-      <Group gap="sm" align="flex-end">
+  const points = result?.kind === 'ok' ? result.curve.data.points : []
+  const missing = result?.kind === 'ok' ? missingMaturities(points) : []
+
+  const y10 = yield10y(points)
+  const spread = spread2s10s(points)
+
+  const headerActions = (
+    <>
+      <Group gap={4} align="flex-end">
         <TextInput
           type="date"
           label="Valid date"
           value={validDate ?? returnedDate}
           onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
         />
+        <Tooltip label={VALID_DATE_HELP}>
+          <ActionIcon variant="subtle" size="sm" aria-label="About valid date">
+            <IconInfoCircle size={16} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
+      <Button
+        variant="default"
+        disabled={result?.kind !== 'ok' || !canAddOverlay}
+        onClick={() => setOverlayDates((dates) => [...dates, shownDate])}
+      >
+        Add to overlay
+      </Button>
+    </>
+  )
+
+  return (
+    <Stack component="section" gap="lg">
+      <PageHeader title={curve.label} subtitle={subtitle} actions={headerActions} />
       {result === undefined && (
         <>
           <Skeleton h={320} />
@@ -88,55 +131,86 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
       )}
       {result?.kind === 'ok' && (
         <>
-          <Group gap="sm">
-            <Button
-              variant="light"
-              disabled={!canAddOverlay}
-              onClick={() => setOverlayDates((dates) => [...dates, shownDate])}
-            >
-              Add to overlay
-            </Button>
-          </Group>
-          {overlayDates.length > 0 && (
-            <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0} style={{ listStyle: 'none' }}>
-              {overlayDates.map((date) => (
-                <Pill
-                  key={date}
-                  component="li"
-                  withRemoveButton
-                  removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
-                  onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
-                >
-                  {date}
-                </Pill>
-              ))}
-            </Group>
-          )}
-          <Paper withBorder p="md">
-            <CurveChart curves={curves} />
-          </Paper>
-          {missing.length > 0 && <Text>No value for: {missing.join(', ')}</Text>}
-          <Group gap="xs">
-            {withValue.map((maturity) => (
-              <Button
-                key={maturity}
-                size="xs"
-                variant="subtle"
-                onClick={() => setHistoryMaturity(maturity)}
-              >
-                History {maturity}
-              </Button>
-            ))}
-          </Group>
-          {historyMaturity !== undefined && (
-            <VersionHistory
-              curveId={curveId}
-              maturity={historyMaturity}
-              validDate={shownDate}
-              asOf={asOf}
-              onClose={() => setHistoryMaturity(undefined)}
-            />
-          )}
+          <SimpleGrid cols={{ base: 2, sm: 4 }}>
+            <StatCard label="10Y yield" value={y10 === undefined ? EMPTY : formatYield(y10)} />
+            <StatCard label="2Y–10Y spread" value={spread === undefined ? EMPTY : formatBp(spread)} />
+            <StatCard label="Curve date" value={shownDate} />
+            <StatCard label="Knowledge" value={asOf ? formatUtc(asOf) : 'Live'} />
+          </SimpleGrid>
+          <Card padding={0}>
+            <Card.Section withBorder inheritPadding py="sm">
+              <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                <Title order={2}>Spot curve (%)</Title>
+                {overlayDates.length > 0 && (
+                  <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
+                    {overlayDates.map((date) => (
+                      <Pill
+                        key={date}
+                        component="li"
+                        withRemoveButton
+                        removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
+                        onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
+                      >
+                        {date}
+                      </Pill>
+                    ))}
+                  </Group>
+                )}
+              </Group>
+            </Card.Section>
+            <Card.Section inheritPadding py="md">
+              <CurveChart curves={curves} />
+              {missing.length > 0 && (
+                <Text size="sm" c="dimmed" mt="sm">
+                  No value for: {missing.join(', ')}
+                </Text>
+              )}
+            </Card.Section>
+          </Card>
+          <Card>
+            <Title order={2} mb="md">Values</Title>
+            <Table.ScrollContainer minWidth={400}>
+              <Table>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th scope="col">Maturity</Table.Th>
+                    <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
+                    <Table.Th scope="col" />
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {points.map((point) => (
+                    <Table.Tr key={point.maturity}>
+                      <Table.Td>{point.maturity}</Table.Td>
+                      <Table.Td ta="right">
+                        {point.value === null ? EMPTY : formatYield(point.value)}
+                      </Table.Td>
+                      <Table.Td>
+                        {point.value !== null && (
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            aria-label={`History ${point.maturity}`}
+                            onClick={() => setHistoryMaturity(point.maturity)}
+                          >
+                            History
+                          </Button>
+                        )}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+          </Card>
+          <VersionHistory
+            curveId={curveId}
+            maturity={historyMaturity ?? ''}
+            validDate={shownDate}
+            asOf={asOf}
+            opened={historyMaturity !== undefined}
+            onClose={() => setHistoryMaturity(undefined)}
+          />
         </>
       )}
       {result?.kind === 'offline' && (
