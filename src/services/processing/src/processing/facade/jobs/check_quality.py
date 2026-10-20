@@ -8,7 +8,7 @@ curve exits with status 2; persistence or Oracle failures exit with status 1.
 
 import argparse
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -45,8 +45,8 @@ def parse_command(argv: Sequence[str] | None) -> CheckCommand:
     return CheckCommand(arguments.curve_id, arguments.valid_from, arguments.valid_to, run_id)
 
 
-def summary(result: CheckSummary) -> str:
-    """One JSON line describing the finished check."""
+def summary(result: CheckSummary, trace: Mapping[str, str]) -> str:
+    """One JSON line describing the finished check, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "quality_checked",
@@ -60,17 +60,19 @@ def summary(result: CheckSummary) -> str:
             "values": result.values,
             "warn_count": result.warn_count,
             "info_count": result.info_count,
+            **trace,
         }
     )
 
 
-def failure(run_id: str | None, error: Exception) -> str:
-    """One JSON line describing a failed check."""
+def failure(run_id: str | None, error: Exception, trace: Mapping[str, str]) -> str:
+    """One JSON line describing a failed check, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "quality_check_failed",
             "run_id": run_id,
             "error": type(error).__name__,
             "message": str(error),
+            **trace,
         }
     )

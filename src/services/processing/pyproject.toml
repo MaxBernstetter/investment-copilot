@@ -6,6 +6,10 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115",
     "httpx>=0.28",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
+    "opentelemetry-instrumentation-fastapi==0.66b1",
+    "opentelemetry-instrumentation-httpx==0.66b1",
+    "opentelemetry-sdk==1.45.1",
     "oracledb>=3.0",
     "pydantic-settings>=2.8",
     "python-dateutil>=2.9",
@@ -78,4 +82,4 @@ layers = [
 name = "The domain and use cases have no I/O, frameworks or contracts"
 type = "forbidden"
 source_modules = ["processing.domain", "processing.application"]
-forbidden_modules = ["contracts", "httpx", "oracledb", "fastapi", "pydantic", "pydantic_settings"]
+forbidden_modules = ["contracts", "httpx", "oracledb", "fastapi", "pydantic", "pydantic_settings", "opentelemetry"]

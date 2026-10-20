@@ -1,11 +1,51 @@
 from datetime import UTC, date, datetime
 
+from opentelemetry.sdk.metrics.export import (
+    MetricExporter,
+    MetricExportResult,
+    MetricsData,
+    PeriodicExportingMetricReader,
+)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
 from processing.domain.assessment import CheckedDay, ValueStatus
 from processing.domain.quality import Finding, Rule, Severity, Status
+from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 
 AS_OF = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
 FROM = date(2026, 10, 7)
 TO = date(2026, 10, 7)
+
+
+class RecordingMetricExporter(MetricExporter):
+    """Keeps every exported batch of metrics; the job's reader exports only at shutdown here."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.exported: list[MetricsData] = []
+
+    def export(
+        self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: object
+    ) -> MetricExportResult:
+        self.exported.append(metrics_data)
+        return MetricExportResult.SUCCESS
+
+    def force_flush(self, timeout_millis: float = 10_000) -> bool:
+        return True
+
+    def shutdown(self, timeout_millis: float = 30_000, **kwargs: object) -> None:
+        return None
+
+
+def job_telemetry() -> tuple[Telemetry, InMemorySpanExporter, RecordingMetricExporter]:
+    spans = InMemorySpanExporter()
+    metrics = RecordingMetricExporter()
+    telemetry = setup_telemetry(
+        span_exporter=spans,
+        metric_readers=[PeriodicExportingMetricReader(metrics, export_interval_millis=3_600_000)],
+        environ={},
+    )
+    return telemetry, spans, metrics
 
 
 class FakeQualityStore:
