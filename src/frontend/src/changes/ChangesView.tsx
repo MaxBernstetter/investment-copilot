@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Alert, Badge, Group, Paper, Skeleton, Stack, Table, TextInput, Text, VisuallyHidden } from '@mantine/core'
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Card,
+  Group,
+  Input,
+  Skeleton,
+  Stack,
+  Table,
+  TextInput,
+  Tooltip,
+  VisuallyHidden,
+} from '@mantine/core'
+import { IconInfoCircle } from '@tabler/icons-react'
 import { localInputToUtc } from '../asOf'
 import PageHeader from '../layout/PageHeader'
 import { defaultRange } from '../series/seriesData'
+import ChangesEmptyState from './ChangesEmptyState'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
 import { toChangeRows } from './changesData'
 
@@ -16,6 +31,9 @@ const REASON_COLORS: Record<string, string> = {
   correction: 'orange',
   revision: 'blue',
 }
+
+const COMPARE_FROM_TOOLTIP =
+  'The earlier knowledge time. Changes known after it, up to Known as of, are listed.'
 
 export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
   const [range, setRange] = useState(() => defaultRange(new Date()))
@@ -36,36 +54,54 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
   }, [curveId, range, since, asOf])
 
   return (
-    <Stack component="section" gap="md">
-      <PageHeader title="Changes between two knowledge states" />
-      <Group gap="sm" align="flex-end">
-        <TextInput
-          type="date"
-          label="From"
-          value={range.from}
-          onChange={(event) => {
-            if (event.currentTarget.value) setRange({ ...range, from: event.currentTarget.value })
-          }}
-        />
-        <TextInput
-          type="date"
-          label="To"
-          value={range.to}
-          onChange={(event) => {
-            if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
-          }}
-        />
-        <TextInput
-          type="datetime-local"
-          step={1}
-          label="Compare from (known as of)"
-          description="Your local time, shown in UTC elsewhere"
-          value={sinceInput}
-          onChange={(event) => setSinceInput(event.currentTarget.value)}
-        />
-      </Group>
+    <Stack component="section" gap="lg">
+      <PageHeader
+        title="Changes"
+        subtitle="What changed in the data between two knowledge times"
+      />
+      <Card>
+        <Group gap="sm" align="flex-end">
+          <TextInput
+            type="date"
+            label="From"
+            value={range.from}
+            onChange={(event) => {
+              if (event.currentTarget.value) setRange({ ...range, from: event.currentTarget.value })
+            }}
+          />
+          <TextInput
+            type="date"
+            label="To"
+            value={range.to}
+            onChange={(event) => {
+              if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
+            }}
+          />
+          <Stack gap={4}>
+            <Group gap={4} wrap="nowrap" align="center">
+              <Input.Label htmlFor="changes-compare-from">Compare from (known as of)</Input.Label>
+              <Tooltip label={COMPARE_FROM_TOOLTIP}>
+                <ActionIcon variant="subtle" size="xs" aria-label="Earlier knowledge time help">
+                  <IconInfoCircle size={14} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+            <TextInput
+              id="changes-compare-from"
+              type="datetime-local"
+              step={1}
+              description="Your local time, shown in UTC elsewhere"
+              value={sinceInput}
+              onChange={(event) => setSinceInput(event.currentTarget.value)}
+            />
+          </Stack>
+        </Group>
+      </Card>
       {since === undefined && (
-        <Text role="status">Choose the earlier knowledge time to compare.</Text>
+        <ChangesEmptyState
+          title="Pick a starting point"
+          description="Choose the earlier knowledge time to compare."
+        />
       )}
       {since !== undefined && result === undefined && (
         <>
@@ -79,16 +115,16 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
         </Alert>
       )}
       {since !== undefined && result?.kind === 'ok' && result.changes.data.changes.length > 0 && (
-        <Paper withBorder p="md">
+        <Card>
           <Table.ScrollContainer minWidth={900}>
-            <Table striped highlightOnHover style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Table striped>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th scope="col">Valid date</Table.Th>
                   <Table.Th scope="col">Maturity</Table.Th>
-                  <Table.Th scope="col">Old value</Table.Th>
-                  <Table.Th scope="col">New value</Table.Th>
-                  <Table.Th scope="col">Change</Table.Th>
+                  <Table.Th scope="col" ta="right">Old (%)</Table.Th>
+                  <Table.Th scope="col" ta="right">New (%)</Table.Th>
+                  <Table.Th scope="col" ta="right">Change (bp)</Table.Th>
                   <Table.Th scope="col">Reason</Table.Th>
                   <Table.Th scope="col">Source</Table.Th>
                   <Table.Th scope="col">Known from</Table.Th>
@@ -99,9 +135,9 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
                   <Table.Tr key={row.key}>
                     <Table.Td>{row.validDate}</Table.Td>
                     <Table.Td>{row.maturity}</Table.Td>
-                    <Table.Td>{row.oldValue}</Table.Td>
-                    <Table.Td>{row.newValue}</Table.Td>
-                    <Table.Td>{row.delta}</Table.Td>
+                    <Table.Td ta="right">{row.oldValue}</Table.Td>
+                    <Table.Td ta="right">{row.newValue}</Table.Td>
+                    <Table.Td ta="right">{row.delta}</Table.Td>
                     <Table.Td>
                       <Badge color={REASON_COLORS[row.reason] ?? 'gray'} variant="light">
                         {row.reason}
@@ -114,7 +150,7 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-        </Paper>
+        </Card>
       )}
       {since !== undefined && result?.kind === 'offline' && (
         <Alert color="red" role="alert">

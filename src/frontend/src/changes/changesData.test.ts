@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { formatDeltaBp, toChangeRows, type ValueChange } from './changesData'
+import { formatBp, formatYield } from '../format'
+import { toChangeRows, type ValueChange } from './changesData'
 
 const correction: ValueChange = {
   valid_date: '2026-10-16',
@@ -22,16 +23,21 @@ const firstKnownLater: ValueChange = {
 }
 
 describe('changesData', () => {
-  it('formats a correction as signed basis points', () => {
-    expect(formatDeltaBp(26.4, 2.64)).toBe('-2376.0 bp')
-    expect(toChangeRows([correction])[0].delta).toBe('-2376.0 bp')
+  it('formats a correction as signed basis points with a true minus', () => {
+    const delta = formatBp((2.64 - 26.4) * 100)
+    expect(delta).toBe('−2,376.0 bp')
+    expect(toChangeRows([correction])[0].delta).toBe(delta)
   })
 
   it('shows a dash for a value first known later', () => {
     const [row] = toChangeRows([firstKnownLater])
 
-    expect(formatDeltaBp(null, 2.5)).toBe('–')
-    expect(row).toMatchObject({ oldValue: '–', delta: '–', source: '–', newValue: '2.5' })
+    expect(row).toMatchObject({
+      oldValue: '–',
+      delta: '–',
+      source: '–',
+      newValue: formatYield(2.5),
+    })
     expect(row.knownFrom).toBe('17 Oct 2026, 08:00:00 UTC')
   })
 
