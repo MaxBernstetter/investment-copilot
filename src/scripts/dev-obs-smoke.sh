@@ -118,8 +118,8 @@ check_metrics() {
 			--otlp-attributes "service.instance.id=\"run-$run\"" \
 			--otlp-metric-name yl_obs_smoke --metric-type Sum --aggregation-temporality delta \
 			--metrics 3
-		wait_for "metrics of run $run in Prometheus" metric_visible
 	done
+	wait_for "metrics of runs 1 and 2 in Prometheus" metric_visible
 }
 
 check_trace() {
