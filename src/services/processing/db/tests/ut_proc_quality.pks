@@ -10,5 +10,8 @@ create or replace package ut_proc_quality as
 
   --%test(Recording the same natural key twice replaces one run)
   procedure record_check_twice_is_idempotent;
+
+  --%test(The latest check run per curve reports its warn days)
+  procedure latest_run_reports_warn_days;
 end ut_proc_quality;
 /

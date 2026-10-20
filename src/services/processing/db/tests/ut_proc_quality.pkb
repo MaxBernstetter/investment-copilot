@@ -116,5 +116,33 @@ create or replace package body ut_proc_quality as
     ut.expect(day_status(c_t1)).to_equal('passed');
   end record_check_twice_is_idempotent;
 
+  function latest_warn_days return number is
+    l_cursor sys_refcursor;
+    l_curve_id varchar2(64 char);
+    l_recorded_at timestamp;
+    l_warn_days number;
+    l_result number;
+  begin
+    l_cursor := proc_quality.latest_check_runs;
+    loop
+      fetch l_cursor into l_curve_id, l_recorded_at, l_warn_days;
+      exit when l_cursor%notfound;
+      if l_curve_id = c_curve then
+        l_result := l_warn_days;
+      end if;
+    end loop;
+    close l_cursor;
+    return l_result;
+  end latest_warn_days;
+
+  procedure latest_run_reports_warn_days is
+  begin
+    record_day('run-warn', c_t1, 'warn');
+    ut.expect(latest_warn_days()).to_equal(1);
+
+    record_day('run-passed', c_t2, 'passed');
+    ut.expect(latest_warn_days()).to_equal(0);
+  end latest_run_reports_warn_days;
+
 end ut_proc_quality;
 /

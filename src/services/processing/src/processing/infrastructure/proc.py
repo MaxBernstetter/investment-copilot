@@ -10,6 +10,7 @@ import oracledb
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Tracer
 
+from processing.application.alerts import LatestCheckRun
 from processing.config import DatabaseSettings
 from processing.domain.assessment import CheckedDay, DayStatus, QualityCheck, ValueStatus
 from processing.domain.quality import Finding, Rule, Severity, Status
@@ -181,6 +182,22 @@ class OracleQualityStore:
                 status=Status(status),
             )
             for version_id, maturity_value, valid_date, status in rows
+        ]
+
+    async def latest_check_runs(self) -> list[LatestCheckRun]:
+        async with self._session("latest_check_runs") as connection:
+            cursor = connection.cursor()
+            result = await cursor.callfunc(
+                "proc.proc_quality.latest_check_runs", oracledb.DB_TYPE_CURSOR, []
+            )
+            rows = await result.fetchall()
+        return [
+            LatestCheckRun(
+                curve_id=str(curve_id),
+                recorded_at=_as_utc(recorded_at),
+                warn_days=int(warn_days),
+            )
+            for curve_id, recorded_at, warn_days in rows
         ]
 
     async def current_time(self) -> datetime:

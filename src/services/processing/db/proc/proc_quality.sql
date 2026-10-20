@@ -42,6 +42,8 @@ create or replace package proc_quality authid definer as
     p_as_of    in timestamp
   ) return sys_refcursor;
 
+  function latest_check_runs return sys_refcursor;
+
   function current_time return timestamp;
 end proc_quality;
 /
@@ -209,6 +211,30 @@ create or replace package body proc_quality as
        order by vq.valid_date, vq.maturity;
     return l_result;
   end get_value_quality;
+
+  function latest_check_runs return sys_refcursor is
+    l_result sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'latest_check_runs');
+    open l_result for
+      select curve_id, recorded_at, warn_days
+        from (
+          select r.curve_id,
+                 r.recorded_at,
+                 (select count(*)
+                    from checked_day d
+                   where d.check_run_id = r.check_run_id
+                     and d.status = 'warn') as warn_days,
+                 row_number() over (
+                   partition by r.curve_id
+                   order by r.recorded_at desc, r.check_run_id desc
+                 ) as rn
+            from check_run r
+        )
+       where rn = 1
+       order by curve_id;
+    return l_result;
+  end latest_check_runs;
 
   function current_time return timestamp is
   begin
