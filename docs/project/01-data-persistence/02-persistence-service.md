@@ -79,6 +79,8 @@ Environment variables, validated at startup (pydantic-settings):
 
 Migrations additionally read `PERSISTENCE_DB_ADMIN_PASSWORD` (`SYSTEM`) and `PERSISTENCE_DB_OWNER_PASSWORD` (`CORE`). `PERSISTENCE_DB_PASSWORD` sets the `CORE_APP` password.
 
+Logs are JSON lines on stderr (`log_config.json`, applied by uvicorn `--log-config`).
+
 ## Running locally
 
 ```sh
@@ -101,7 +103,7 @@ CI: `.github/workflows/persistence.yml` (also triggered by `src/contracts/**`).
 
 ## Not yet in place
 
-Transparency interface (`/v1/runs`, lineage, alerts), domain metrics, JSON logs, traces, the `Idempotency-Key` header of [[02-interfaces-and-contracts#REST standards]], the `job` process type and the OpenAPI document in `contracts`. They follow in their own issues.
+Transparency interface (`/v1/runs`, lineage, alerts), domain metrics, traces, the `Idempotency-Key` header of [[02-interfaces-and-contracts#REST standards]], the `job` process type and the OpenAPI document in `contracts`. They follow in their own issues.
 
 ## Container image
 
