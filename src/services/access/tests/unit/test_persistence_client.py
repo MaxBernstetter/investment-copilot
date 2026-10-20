@@ -56,8 +56,8 @@ CURVE_BODY = {
         "curve_id": "ecb-aaa-spot",
         "valid_date": "2026-03-12",
         "points": [
-            {"maturity": "3M", "months": 3, "value": None},
-            {"maturity": "10Y", "months": 120, "value": 2.61},
+            {"maturity": "3M", "months": 3, "value": None, "version_id": None},
+            {"maturity": "10Y", "months": 120, "value": 2.61, "version_id": 7},
         ],
     },
     "meta": {"as_of": "2026-03-13T08:00:00Z"},
@@ -162,8 +162,8 @@ SERIES_BODY = {
         "curve_id": "ecb-aaa-spot",
         "maturity": "10Y",
         "points": [
-            {"valid_date": "2026-03-12", "value": 2.61},
-            {"valid_date": "2026-03-14", "value": 2.7},
+            {"valid_date": "2026-03-12", "value": 2.61, "version_id": 7},
+            {"valid_date": "2026-03-14", "value": 2.7, "version_id": 9},
         ],
     },
     "meta": {"as_of": "2026-03-13T08:00:00Z"},

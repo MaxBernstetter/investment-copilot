@@ -227,3 +227,26 @@ async def test_points_as_of_returns_the_grid_with_microsecond_as_of(
     assert {p.maturity: p.value for p in points}["2Y"] == 2.1
     assert {p.maturity: p.value for p in points}["10Y"] == 2.61
     assert all(p.value is None for p in before)
+
+
+async def test_a_correction_shows_a_new_version_id_and_the_old_one_as_of_before(
+    oracle: OracleDatabase, repository: OracleObservationRepository, curve_id: str
+) -> None:
+    first = await repository.record_versions([observation(curve_id, "10Y", "2.61")])
+    (old_version,) = stored_versions(oracle, curve_id)
+    correction = await repository.record_versions([observation(curve_id, "10Y", "2.70")])
+    new_version = next(v for v in stored_versions(oracle, curve_id) if v["value"] == 2.7)
+
+    after = await repository.points_as_of(curve_id, date(2026, 3, 12), correction.known_from)
+    before = await repository.points_as_of(curve_id, date(2026, 3, 12), first.known_from)
+    series = await repository.series_as_of(
+        curve_id, "10Y", date(2026, 3, 12), date(2026, 3, 12), correction.known_from
+    )
+
+    ten_year_after = next(p for p in after if p.maturity == "10Y")
+    ten_year_before = next(p for p in before if p.maturity == "10Y")
+    assert (ten_year_before.value, ten_year_before.version_id) == (2.61, old_version["version_id"])
+    assert (ten_year_after.value, ten_year_after.version_id) == (2.7, new_version["version_id"])
+    assert new_version["version_id"] != old_version["version_id"]
+    assert [(p.value, p.version_id) for p in series] == [(2.7, new_version["version_id"])]
+    assert all(p.version_id is None for p in after if p.value is None)

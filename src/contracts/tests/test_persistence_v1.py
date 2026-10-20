@@ -149,8 +149,8 @@ def curve_response(**overrides: Any) -> dict[str, Any]:
             "curve_id": "ecb-aaa-spot",
             "valid_date": "2026-03-12",
             "points": [
-                {"maturity": "3M", "months": 3, "value": None},
-                {"maturity": "10Y", "months": 120, "value": 2.61},
+                {"maturity": "3M", "months": 3, "value": None, "version_id": None},
+                {"maturity": "10Y", "months": 120, "value": 2.61, "version_id": 7},
             ],
         },
         "meta": {"as_of": "2026-03-13T09:00:00Z"},
@@ -174,9 +174,17 @@ def test_curve_response_requires_an_aware_as_of() -> None:
 
 
 def test_curve_point_value_is_a_json_number() -> None:
-    point = CurvePoint(maturity="10Y", months=120, value=2.61)
+    point = CurvePoint(maturity="10Y", months=120, value=2.61, version_id=7)
 
     assert '"value":2.61' in point.model_dump_json()
+
+
+def test_curve_point_version_id_is_null_exactly_when_value_is_null() -> None:
+    with pytest.raises(ValidationError, match="version_id"):
+        CurvePoint(maturity="10Y", months=120, value=2.61, version_id=None)
+    with pytest.raises(ValidationError, match="version_id"):
+        CurvePoint(maturity="3M", months=3, value=None, version_id=7)
+    assert CurvePoint(maturity="3M", months=3, value=None, version_id=None).version_id is None
 
 
 def series_response(**overrides: Any) -> dict[str, Any]:
@@ -185,8 +193,8 @@ def series_response(**overrides: Any) -> dict[str, Any]:
             "curve_id": "ecb-aaa-spot",
             "maturity": "10Y",
             "points": [
-                {"valid_date": "2026-03-12", "value": 2.61},
-                {"valid_date": "2026-03-14", "value": 2.7},
+                {"valid_date": "2026-03-12", "value": 2.61, "version_id": 7},
+                {"valid_date": "2026-03-14", "value": 2.7, "version_id": 9},
             ],
         },
         "meta": {"as_of": "2026-03-15T09:00:00Z"},

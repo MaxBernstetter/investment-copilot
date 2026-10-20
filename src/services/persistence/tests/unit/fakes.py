@@ -88,6 +88,8 @@ class FakeCurveReader:
     values: dict[tuple[str, date], dict[str, float]] = field(default_factory=dict)
     versions: dict[tuple[str, str, date], list[ValueVersion]] = field(default_factory=dict)
     value_changes: dict[str, list[ValueChange]] = field(default_factory=dict)
+    version_ids: dict[tuple[str, str, date], int] = field(default_factory=dict)
+    """The version id of a published value; a value without one has version id 1."""
     change_reads: list[tuple[datetime, datetime]] = field(default_factory=list)
     """The (since, as_of) knowledge times each changes read was made at, oldest first."""
 
@@ -110,9 +112,19 @@ class FakeCurveReader:
             return []
         known = self.values.get((curve_id, valid_date), {}) if as_of >= self.known_from else {}
         return [
-            CurvePoint(maturity=maturity, months=months, value=known.get(maturity))
+            CurvePoint(
+                maturity=maturity,
+                months=months,
+                value=known.get(maturity),
+                version_id=self._version_id(curve_id, maturity, valid_date)
+                if maturity in known
+                else None,
+            )
             for maturity, months in GRID
         ]
+
+    def _version_id(self, curve_id: str, maturity: str, valid_date: date) -> int:
+        return self.version_ids.get((curve_id, maturity, valid_date), 1)
 
     async def has_maturity(self, curve_id: str, maturity: str) -> bool:
         return curve_id in self.curves and maturity in {name for name, _ in GRID}
@@ -165,4 +177,11 @@ class FakeCurveReader:
             for (key, valid_date), known in self.values.items()
             if key == curve_id and maturity in known and valid_from <= valid_date <= valid_to
         )
-        return [SeriesPoint(valid_date=valid_date, value=value) for valid_date, value in dated]
+        return [
+            SeriesPoint(
+                valid_date=valid_date,
+                value=value,
+                version_id=self._version_id(curve_id, maturity, valid_date),
+            )
+            for valid_date, value in dated
+        ]

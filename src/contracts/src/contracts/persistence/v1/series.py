@@ -28,6 +28,10 @@ class SeriesPoint(BaseModel):
         description="Yield in percent",
         examples=[2.61],
     )
+    version_id: int = Field(
+        description="Version id of the visible version, the lineage reference",
+        examples=[4711],
+    )
 
 
 class SeriesObservations(BaseModel):
