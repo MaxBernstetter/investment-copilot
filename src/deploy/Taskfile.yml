@@ -58,3 +58,19 @@ tasks:
       START: '{{.START | default "2024-01-01"}}'
     cmds:
       - ../scripts/dev-seed.sh {{.START}}
+
+  compose:config:
+    desc: Validate the deploy compose file including the Airflow profile
+    cmds:
+      - docker compose --profile airflow config
+
+  airflow:up:
+    desc: Build job images and start the Airflow profile (opt-in; default stack unchanged)
+    cmds:
+      - docker compose --profile airflow build ingestion processing-job
+      - docker compose --profile airflow up --detach --wait airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
+
+  airflow:down:
+    desc: Stop the Airflow profile (does not tear down the default stack)
+    cmds:
+      - docker compose --profile airflow down
