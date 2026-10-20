@@ -13,6 +13,7 @@ import httpx
 import oracledb
 import pytest
 from contracts.persistence import v1
+from opentelemetry.sdk.metrics.export import HistogramDataPoint, NumberDataPoint
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import StatusCode, format_span_id, format_trace_id
 from pydantic import SecretStr
@@ -21,10 +22,17 @@ from processing.application.ports import QualityStore
 from processing.config import DatabaseSettings
 from processing.domain.assessment import QualityCheck
 from processing.domain.quality import Rule, Status
+from processing.infrastructure.metrics import (
+    CHECK_DURATION,
+    METRIC_NAMES,
+    QUALITY_CHECKS,
+    QUALITY_FINDINGS,
+    VALUES_CHECKED,
+)
 from processing.infrastructure.proc import OracleQualityStore
 from processing.infrastructure.telemetry import Telemetry
 from processing.job import main, oracle_quality_store
-from tests.unit.fakes import job_telemetry
+from tests.unit.fakes import RecordingMetricExporter, job_telemetry
 
 URL = "http://persistence.test:8001"
 CHECKED_AS_OF = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
@@ -106,6 +114,20 @@ def _curve_after_bad_value() -> dict[tuple[str, date], tuple[float, int]]:
     add(date(2026, 10, 6), "0.01")
     add(date(2026, 10, 7), "0.02", without=frozenset({"10Y", "30Y"}))
     add(date(2026, 10, 8), "0.03", overrides={"10Y": "26.40"})
+    return observations
+
+
+def _curve_after_correction() -> dict[tuple[str, date], tuple[float, int]]:
+    """The bad-value state, then the gap filled and the bad 10Y value corrected in new versions."""
+    observations = _curve_after_bad_value()
+    version_id = max(version for _, version in observations.values())
+    for key, value in (
+        (("10Y", date(2026, 10, 7)), 2.63),
+        (("30Y", date(2026, 10, 7)), 3.03),
+        (("10Y", date(2026, 10, 8)), 2.64),
+    ):
+        version_id += 1
+        observations[key] = (value, version_id)
     return observations
 
 
@@ -307,6 +329,123 @@ def test_persistence_unavailable_exits_1_with_a_json_failure(
     failure = json.loads(result.stderr)
     assert failure["event"] == "quality_check_failed"
     assert failure["error"] == "PersistenceReadError"
+
+
+def points(rec: RecordingMetricExporter, name: str) -> dict[frozenset[tuple[str, str]], float]:
+    """Values of one metric in the last export, keyed by label set.
+
+    A counter gives its cumulative sum; a histogram gives its recorded count.
+    An empty dict when nothing was exported or the metric has no points.
+    """
+    if not rec.exported:
+        return {}
+    values: dict[frozenset[tuple[str, str]], float] = {}
+    for resource in rec.exported[-1].resource_metrics:
+        for scope in resource.scope_metrics:
+            for metric in scope.metrics:
+                if metric.name != name:
+                    continue
+                for point in metric.data.data_points:
+                    labels = frozenset(
+                        (str(k), str(v)) for k, v in (point.attributes or {}).items()
+                    )
+                    if isinstance(point, HistogramDataPoint):
+                        values[labels] = float(point.count)
+                    elif isinstance(point, NumberDataPoint):
+                        values[labels] = float(point.value)
+    return values
+
+
+def _labels(**labels: str) -> frozenset[tuple[str, str]]:
+    return frozenset(labels.items())
+
+
+def _run_with_metrics(
+    capsys: pytest.CaptureFixture[str],
+    *,
+    observations: dict[tuple[str, date], tuple[float, int]] | None = None,
+    transport: httpx.MockTransport | None = None,
+    argv: list[str] | None = None,
+) -> RecordingMetricExporter:
+    telemetry, _, metrics = job_telemetry()
+    run(
+        capsys,
+        argv or [CURVE_ID, "--from", FROM.isoformat(), "--to", TO.isoformat()],
+        transport=transport or _transport(observations or _curve_after_bad_value()),
+        telemetry=telemetry,
+    )
+    return metrics
+
+
+def test_bad_value_run_counts_one_warn_check(capsys: pytest.CaptureFixture[str]) -> None:
+    metrics = _run_with_metrics(capsys)
+
+    assert points(metrics, QUALITY_CHECKS) == {
+        _labels(curve=CURVE_ID, status="warn"): 1,
+    }
+
+
+def test_corrected_run_counts_one_passed_check(capsys: pytest.CaptureFixture[str]) -> None:
+    metrics = _run_with_metrics(capsys, observations=_curve_after_correction())
+
+    assert points(metrics, QUALITY_CHECKS) == {
+        _labels(curve=CURVE_ID, status="passed"): 1,
+    }
+
+
+def test_unreachable_persistence_counts_one_failed_check(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    metrics = _run_with_metrics(
+        capsys,
+        transport=httpx.MockTransport(lambda _: httpx.Response(503, json={"detail": "x"})),
+    )
+
+    assert points(metrics, QUALITY_CHECKS)[_labels(curve=CURVE_ID, status="failed")] == 1
+    assert points(metrics, CHECK_DURATION)[_labels(curve=CURVE_ID)] == 1
+
+
+def test_bad_value_run_counts_findings_by_rule(capsys: pytest.CaptureFixture[str]) -> None:
+    metrics = _run_with_metrics(capsys)
+
+    findings = points(metrics, QUALITY_FINDINGS)
+    warn_by_rule = {
+        dict(labels)["rule"]: count
+        for labels, count in findings.items()
+        if dict(labels)["severity"] == "warn"
+    }
+    assert warn_by_rule == {"missing-maturity": 2, "range": 1, "jump": 1}
+
+
+def test_values_checked_counts_the_run_values(capsys: pytest.CaptureFixture[str]) -> None:
+    telemetry, _, metrics = job_telemetry()
+    result = run(
+        capsys,
+        [CURVE_ID, "--from", FROM.isoformat(), "--to", TO.isoformat()],
+        transport=_transport(_curve_after_bad_value()),
+        telemetry=telemetry,
+    )
+
+    assert points(metrics, VALUES_CHECKED)[_labels(curve=CURVE_ID)] == result.summary["values"]
+
+
+def test_duration_is_recorded_on_success(capsys: pytest.CaptureFixture[str]) -> None:
+    metrics = _run_with_metrics(capsys)
+
+    assert points(metrics, CHECK_DURATION) == {_labels(curve=CURVE_ID): 1}
+
+
+def test_unknown_curve_records_no_metrics(capsys: pytest.CaptureFixture[str]) -> None:
+    telemetry, _, metrics = job_telemetry()
+    run(
+        capsys,
+        ["unknown-curve", "--from", FROM.isoformat(), "--to", TO.isoformat()],
+        transport=_transport(_curve_after_bad_value()),
+        telemetry=telemetry,
+    )
+
+    for name in METRIC_NAMES:
+        assert points(metrics, name) == {}
 
 
 def _root_spans(spans: list[ReadableSpan]) -> list[ReadableSpan]:

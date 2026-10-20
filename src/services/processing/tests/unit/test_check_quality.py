@@ -2,10 +2,10 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from processing.application.check_quality import CheckQuality, UnknownCurveError
+from processing.application.check_quality import CheckQuality, FindingCount, UnknownCurveError
 from processing.application.ports import Grid, ObservationReader, QualityStore
 from processing.domain.assessment import QualityCheck
-from processing.domain.quality import Value
+from processing.domain.quality import Rule, Severity, Status, Value
 
 pytestmark = pytest.mark.anyio
 
@@ -68,6 +68,10 @@ async def test_a_range_longer_than_a_year_is_checked_in_chunks_at_one_knowledge_
 
     assert summary.chunks == 2
     assert summary.checked_as_of == CHECKED_AS_OF
+    assert summary.worst_status is Status.WARN
+    assert summary.finding_counts == (
+        FindingCount(rule=Rule.MISSING_DATE, severity=Severity.WARN, count=256),
+    )
     assert len(store.checks) == 2
     assert store.checks[0].valid_from == valid_from
     assert store.checks[0].valid_to == date(2026, 1, 1)
