@@ -1,8 +1,13 @@
 # Design guidelines
 
-Binding reference for the frontend. **Direction A (Calm editorial) is binding**, chosen by the user on 2026-10-20, with the compact table density (`verticalSpacing="xs"`).
+Binding reference for the frontend. **Direction A (Calm editorial) is binding**, chosen by the user on 2026-10-20, with the compact table density (`verticalSpacing="xs"`). The Burger/Navbar below `sm` is legacy and not required (see Display range).
 Rule IDs (T, L, D, Q, C, A, Don't) are cited by the `designer` agent and by visual review. Taste is not a criterion; cite a rule.
 The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
+
+## Display range
+- **Decided by the user on 2026-10-20: desktop only.** The frontend must look good on regular desktop displays, 1280–1920 px wide. Phone layouts (390 px) are no longer a requirement.
+- Review and snapshot sizes: 1280×800, 1440×900 and 1920×1080, in light and dark.
+- The Burger/Navbar below `sm` is legacy code that stays on main. No new mobile-specific work is done.
 
 ## Tokens
 - T1 Type scale: body md 16; secondary sm 14; captions/labels xs 12. Headings 600: h1 26 (page title, one per page),
@@ -19,14 +24,14 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   Colour follows the series (a date keeps its colour when others are removed).
 
 ## Layout
-- L1 AppShell: header 56 px; no desktop sidebar (≤5 views). Below `sm`: Burger opens AppShell.Navbar
+- L1 AppShell: header 56 px; no desktop sidebar (≤5 views). Below `sm` (legacy, not required): Burger opens AppShell.Navbar
   (NavLinks + curve choice); header keeps logo, Burger and the as-of status.
 - L2 Body: `Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg"`. Each page = PageHeader + sections in Cards.
-- L3 PageHeader: Title order 1 + one-line dimmed subtitle (what, which unit) + actions right (wrap below on mobile).
+- L3 PageHeader: Title order 1 + one-line dimmed subtitle (what, which unit) + actions right .
 - L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): source + licence
-  left; API docs, Methodology, GitHub, version · commit right. Not fixed (saves mobile height).
-- L5 Key figures as a 2-col (mobile) / 4-col (desktop) SimpleGrid of StatCards above the chart. Max 4.
-- L6 No horizontal page scroll at 390 px; wide tables scroll inside `Table.ScrollContainer`.
+  left; API docs, Methodology, GitHub, version · commit right. Not fixed.
+- L5 Key figures as a 4-col (desktop) SimpleGrid of StatCards above the chart. Max 4.
+- L6 No horizontal page scroll at 1280 px; wide tables scroll inside `Table.ScrollContainer`.
 
 ## Data display
 - D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric columns `ta="right"`, header too.

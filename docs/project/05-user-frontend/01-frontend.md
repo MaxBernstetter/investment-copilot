@@ -156,6 +156,7 @@ On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx
 
 The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow footer. The default colour scheme is light; the header's toggle switches to dark and back.
 
+- **Display range:** desktop only, 1280–1920 px wide (decided by the user on 2026-10-20). Phone widths (390 px) are not supported. The Navbar below `sm` is legacy and kept as is.
 - **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs (a `nav` labelled "Views", from `sm`) and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, and the colour-scheme toggle, an `ActionIcon` with `aria-label` "Toggle colour scheme". The as-of status will go to the right of the toggle.
 - **Navbar (below `sm`):** a `nav` labelled "Views" with one Mantine `NavLink` per view (the active one has `aria-current="page"`) and the curve choice, opened by the Burger and closed after a choice.
 - **Body:** `Container` at 1200 px; the page title is its `h1` (`PageHeader`); sections are cards. The background comes from the theme.
