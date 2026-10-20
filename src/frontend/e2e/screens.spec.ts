@@ -39,6 +39,28 @@ async function assertAxeAt(page: Page, schemes: ('light' | 'dark')[]) {
   }
 }
 
+/** Opens the Quality tab on the default curve; the fixture days are not awaited here. */
+async function openQualityTab(page: Page) {
+  await page.goto('/')
+  await waitForCurveLoaded(page)
+  await page.getByRole('tab', { name: 'Quality' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Data quality' })).toBeVisible()
+}
+
+async function openQuality(page: Page) {
+  await openQualityTab(page)
+  await expect(page.getByRole('cell', { name: '2026-10-16' })).toBeVisible()
+}
+
+/** Overrides the quality endpoint for one test; registered after beforeEach, so it wins. */
+async function routeQuality(page: Page, status: number, body: unknown) {
+  await page.route('**/v1/curves/*/quality**', (route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
+  )
+}
+
+const QUALITY_META = { as_of: '2026-10-19T12:00:00Z', source_attribution: 'Source: ECB statistics' }
+
 test.beforeEach(async ({ page, context }) => {
   await context.addInitScript(() => {
     window.matchMedia = (query: string) => ({
@@ -121,7 +143,8 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await page.getByRole('tab', { name: 'Time series' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Time series' })).toBeVisible()
-    await expect(page.locator('.mantine-Skeleton-root')).toHaveCount(0)
+    // Inactive views stay in the DOM with their own skeletons, so count only this panel's.
+    await expect(page.getByRole('tabpanel', { name: 'Time series' }).locator('.mantine-Skeleton-root')).toHaveCount(0)
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S5', ['light'])
   })
@@ -181,5 +204,60 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('No data known for this date.')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S10', ['light'])
+  })
+
+  test('S11 data quality view', async ({ page }) => {
+    await openQuality(page)
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S11', ['light', 'dark'])
+  })
+
+  test('S12 quality flag popover', async ({ page }) => {
+    await openQuality(page)
+    const flag = page.getByRole('button', { name: 'Jump · warn, 10Y' })
+    const link = page.getByRole('link', { name: 'How we check this' })
+    for (const { width, height } of VIEWPORTS) {
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height })
+        await setColorScheme(page, scheme)
+        await flag.focus()
+        await page.keyboard.press('Enter')
+        await expect(link).toBeFocused()
+        await page.mouse.move(0, 0)
+        if (width === AXE_VIEWPORT.width) {
+          await runAxe(page)
+        }
+        await expect(link).toBeVisible()
+        await expect(page).toHaveScreenshot(screenshotName('S12', width, height, scheme))
+        await page.keyboard.press('Escape')
+        await expect(link).toBeHidden()
+      }
+    }
+  })
+
+  test('S13 quality no business days', async ({ page }) => {
+    await routeQuality(page, 200, {
+      data: { curve_id: 'ecb-aaa-spot', valid_from: '2026-09-19', valid_to: '2026-10-19', days: [] },
+      meta: QUALITY_META,
+    })
+    await openQualityTab(page)
+    await expect(page.getByText('No business days in this range')).toBeVisible()
+    await captureSnapshots(page, 'S13', ['light'])
+  })
+
+  test('S14 quality loading', async ({ page }) => {
+    await page.route('**/v1/curves/*/quality**', () => {})
+    await openQualityTab(page)
+    const panel = page.getByRole('tabpanel', { name: 'Quality' })
+    await expect(panel.getByText('Loading…')).toBeAttached()
+    await expect(panel.locator('.mantine-Skeleton-root')).toHaveCount(5)
+    await captureSnapshots(page, 'S14', ['light'])
+  })
+
+  test('S15 quality backend offline', async ({ page }) => {
+    await routeQuality(page, 503, { detail: 'The quality service is not reachable; try again later.' })
+    await openQualityTab(page)
+    await expect(page.getByRole('alert')).toContainText('Backend offline')
+    await captureSnapshots(page, 'S15', ['light'])
   })
 })

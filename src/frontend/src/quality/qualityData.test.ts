@@ -151,9 +151,12 @@ describe('defaultQualityRange', () => {
 })
 
 describe('rangeError', () => {
-  it('rangeError accepts 366 days, rejects 367 and to < from', () => {
-    expect(rangeError({ from: '2025-10-19', to: '2026-10-20' })).toBeUndefined()
-    expect(rangeError({ from: '2025-10-19', to: '2026-10-21' })).toBe(
+  it('rangeError accepts 366 dates, rejects 367 and to < from', () => {
+    expect(rangeError({ from: '2025-10-19', to: '2026-10-19' })).toBeUndefined()
+    expect(rangeError({ from: '2025-10-16', to: '2026-10-17' })).toBe(
+      'Choose a range of at most 366 days.',
+    )
+    expect(rangeError({ from: '2025-10-19', to: '2026-10-20' })).toBe(
       'Choose a range of at most 366 days.',
     )
     expect(rangeError({ from: '2026-10-19', to: '2026-10-18' })).toBe(

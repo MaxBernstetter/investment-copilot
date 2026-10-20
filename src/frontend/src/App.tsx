@@ -12,6 +12,7 @@ import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
 import { curveById, readCurveId, writeCurveId } from './curve/curves'
 import SeriesView from './series/SeriesView'
+import QualityView from './quality/QualityView'
 
 type BackendState = 'checking' | 'online' | 'offline'
 
@@ -125,6 +126,9 @@ export default function App() {
                 </Tabs.Panel>
                 <Tabs.Panel value="changes">
                   <ChangesView key={curveId} curveId={curveId} asOf={asOf} />
+                </Tabs.Panel>
+                <Tabs.Panel value="quality">
+                  <QualityView key={curveId} curveId={curveId} asOf={asOf} />
                 </Tabs.Panel>
               </Stack>
             )}

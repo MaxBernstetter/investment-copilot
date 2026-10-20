@@ -1,0 +1,289 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T12:00:00Z",
+    "source_attribution": "Source: ECB statistics"
+  },
+  "days": [
+    {
+      "valid_date": "2026-10-07",
+      "status": "unchecked",
+      "run_id": null,
+      "checked_as_of": null,
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "unchecked",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "unchecked",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "unchecked",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "unchecked",
+          "finding_count": 0
+        }
+      ],
+      "findings": []
+    },
+    {
+      "valid_date": "2026-10-08",
+      "status": "passed",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "unchecked",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": []
+    },
+    {
+      "valid_date": "2026-10-09",
+      "status": "warn",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "warn",
+          "finding_count": 1
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": [
+        {
+          "rule": "missing-date",
+          "severity": "warn",
+          "maturity": null,
+          "version_id": null,
+          "value": null,
+          "explanation": "No value was published for this TARGET business day.",
+          "evidence": "No value was published for 2026-10-09."
+        }
+      ]
+    },
+    {
+      "valid_date": "2026-10-12",
+      "status": "passed",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": []
+    },
+    {
+      "valid_date": "2026-10-13",
+      "status": "warn",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "warn",
+          "finding_count": 1
+        }
+      ],
+      "findings": [
+        {
+          "rule": "missing-maturity",
+          "severity": "warn",
+          "maturity": "7Y",
+          "version_id": null,
+          "value": null,
+          "explanation": "No value for this maturity on a TARGET business day on which other maturities have one.",
+          "evidence": "No value for 7Y on 2026-10-13."
+        }
+      ]
+    },
+    {
+      "valid_date": "2026-10-14",
+      "status": "passed",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": []
+    },
+    {
+      "valid_date": "2026-10-15",
+      "status": "info",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "info",
+          "finding_count": 1
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": [
+        {
+          "rule": "jump",
+          "severity": "info",
+          "maturity": "2Y",
+          "version_id": 1,
+          "value": 1.74,
+          "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
+          "evidence": "2Y moved \u221227.0 bp, from 2.010\u202f% to 1.740\u202f%."
+        }
+      ]
+    },
+    {
+      "valid_date": "2026-10-16",
+      "status": "warn",
+      "run_id": "run-2026-10-19",
+      "checked_as_of": "2026-10-19T06:00:00Z",
+      "rules": [
+        {
+          "rule": "range",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "jump",
+          "outcome": "warn",
+          "finding_count": 2
+        },
+        {
+          "rule": "missing-date",
+          "outcome": "passed",
+          "finding_count": 0
+        },
+        {
+          "rule": "missing-maturity",
+          "outcome": "passed",
+          "finding_count": 0
+        }
+      ],
+      "findings": [
+        {
+          "rule": "jump",
+          "severity": "warn",
+          "maturity": "10Y",
+          "version_id": 1,
+          "value": 3.375,
+          "explanation": "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data.",
+          "evidence": "10Y moved +56.0 bp, from 2.815\u202f% to 3.375\u202f%."
+        },
+        {
+          "rule": "jump",
+          "severity": "info",
+          "maturity": "30Y",
+          "version_id": 1,
+          "value": 3.43,
+          "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
+          "evidence": "30Y moved +31.0 bp, from 3.120\u202f% to 3.430\u202f%."
+        }
+      ]
+    }
+  ]
+}
