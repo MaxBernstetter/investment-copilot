@@ -30,6 +30,7 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 - A task attempt is cut off after 30 minutes (`execution_timeout`) and then retried like any failure.
 - The job's JSON output (`load_finished`, `load_failed`) goes into the task log.
 - When the task has failed for good, the failure callback logs one JSON line at `ERROR`: `event = task_failed`, `dag_id`, `task_id`, `run_id`, `try_number`, `error`, `message`. The failed task and run also stay in Airflow's run history.
+- A retried or finally failed load task runs `ingestion-load-ecb fail-unfinished` in Docker, which marks the still-running attempt of its run `failed` (the error type is the exception class: `AirflowTaskTimeout` when Airflow killed the task; `AttemptNotFinished` when the task has no exception). The run id comes from XCom (`ingestion_run_id`), which the load task pushes before it starts the job.
 
 ## How the tasks run the jobs
 
@@ -76,5 +77,5 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 
 ## Not yet in place
 
-- The transparency api over the run history (`GET /v1/runs`, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32); see [[06-run-history]]), an Airflow callback that runs `fail-unfinished` on killed attempts (#32 PR-4), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
+- The transparency api over the run history (`GET /v1/runs`, [#32](https://github.com/MaxBernstetter/yield-lens/issues/32); see [[06-run-history]]), alerting on final failures ([#43](https://github.com/MaxBernstetter/yield-lens/issues/43)).
 - OpenLineage events and `traceparent` propagation from the task.

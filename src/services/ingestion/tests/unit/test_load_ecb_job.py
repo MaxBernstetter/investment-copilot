@@ -13,11 +13,11 @@ import pytest
 from contracts.persistence import v1
 
 from ingestion.domain.delivery import RawDelivery
-from ingestion.domain.run import Operation, RunCounts, RunStatus
+from ingestion.domain.run import Operation, RunCounts, RunOutcome, RunStatus
 from ingestion.infrastructure.http import USER_AGENT
 from ingestion.job import main
 from tests.fake_deliveries import FakeDeliveryStore
-from tests.fake_run_log import FakeRunLog
+from tests.fake_run_log import FakeRunLog, RecordedAttempt
 from tests.recorded import (
     DAILY,
     EMPTY_WINDOW,
@@ -438,6 +438,8 @@ def test_replay_of_a_malformed_payload_fails_the_run(capsys: pytest.CaptureFixtu
         ["history", "--start", "2026-01-02", "--end", "2026-01-01"],
         ["replay", "--fetched-from", "2026-10-18", "--fetched-to", "2026-10-17"],
         ["weekly", "--valid-date", "2026-10-15"],
+        ["fail-unfinished"],
+        ["fail-unfinished", "--run-id", "r"],
     ],
 )
 def test_invalid_arguments_are_usage_errors(argv: list[str]) -> None:
@@ -629,3 +631,59 @@ def test_a_configuration_error_records_no_attempt(
 
     assert result.exit_code == 2
     assert runs.attempts == []
+
+
+def test_fail_unfinished_marks_the_open_attempt_failed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runs = FakeRunLog()
+    runs.attempts.append(RecordedAttempt("dag-run-9", 1, Operation.DAILY))
+
+    result = run(
+        capsys,
+        [
+            "fail-unfinished",
+            "--run-id",
+            "dag-run-9",
+            "--error-type",
+            "AirflowTaskTimeout",
+            "--error-message",
+            "killed after 30 minutes",
+        ],
+        StubEcb({}),
+        StubPersistence(),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 0
+    assert result.summary == {
+        "event": "unfinished_failed",
+        "source": "ecb",
+        "run_id": "dag-run-9",
+        "failed_count": 1,
+    }
+    [recorded] = runs.attempts
+    assert recorded.outcome is not None
+    assert recorded.outcome.status == RunStatus.FAILED
+    assert recorded.outcome.error_type == "AirflowTaskTimeout"
+
+
+def test_fail_unfinished_leaves_a_finished_attempt_alone(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runs = FakeRunLog()
+    finished = RunOutcome(RunStatus.SUCCEEDED, RunCounts(121, 121, 0))
+    runs.attempts.append(RecordedAttempt("dag-run-9", 1, Operation.DAILY, finished))
+
+    result = run(
+        capsys,
+        ["fail-unfinished", "--run-id", "dag-run-9", "--error-type", "AirflowTaskTimeout"],
+        StubEcb({}),
+        StubPersistence(),
+        run_log=runs,
+    )
+
+    assert result.exit_code == 0
+    assert result.summary["failed_count"] == 0
+    [recorded] = runs.attempts
+    assert recorded.outcome == finished

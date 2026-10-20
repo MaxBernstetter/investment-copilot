@@ -18,6 +18,9 @@ class FakeRunLog:
     async def finish(self, run_id: str, attempt: int, outcome: RunOutcome) -> None:
         raise RuntimeError("db down")
 
+    async def fail_unfinished(self, run_id: str, error_type: str, error_message: str | None) -> int:
+        return 0
+
 
 async def _failing_steps() -> AsyncIterator[Never]:
     raise ValueError("boom")

@@ -68,6 +68,22 @@ class OracleRunLog:
         )
         await connection.commit()
 
+    async def fail_unfinished(self, run_id: str, error_type: str, error_message: str | None) -> int:
+        connection = self._connected()
+        if error_message is not None:
+            error_message = error_message[:4000]
+        changed = await connection.cursor().callfunc(
+            "ing.ing_run.fail_unfinished_run",
+            int,
+            keyword_parameters={
+                "p_run_id": run_id,
+                "p_error_type": error_type[:128],
+                "p_error_message": error_message,
+            },
+        )
+        await connection.commit()
+        return int(changed)
+
     def _connected(self) -> oracledb.AsyncConnection:
         if self._connection is None:
             raise RuntimeError("OracleRunLog is used outside its context")

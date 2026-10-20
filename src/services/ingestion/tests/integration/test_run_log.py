@@ -86,6 +86,21 @@ async def test_finish_twice_keeps_the_first_outcome(oracle: OracleDatabase) -> N
     assert row["recorded_count"] == 1
 
 
+async def test_fail_unfinished_marks_only_the_running_attempt(oracle: OracleDatabase) -> None:
+    run_id = "it-run-log-fail-unfinished"
+    async with OracleRunLog(settings(oracle)) as runs:
+        first = await runs.start(run_id, Operation.DAILY)
+        await runs.finish(run_id, first, RunOutcome(RunStatus.SUCCEEDED, RunCounts(1, 1, 0)))
+        second = await runs.start(run_id, Operation.DAILY)
+        changed = await runs.fail_unfinished(run_id, "AirflowTaskTimeout", "killed")
+
+    assert changed == 1
+    failed = read_attempt(oracle, run_id, second)
+    assert failed["status"] == "failed"
+    assert failed["error_type"] == "AirflowTaskTimeout"
+    assert read_attempt(oracle, run_id, first)["status"] == "succeeded"
+
+
 async def test_a_long_error_message_is_cut_to_4000_characters(oracle: OracleDatabase) -> None:
     run_id = "it-run-log-truncate"
     message = "x" * 5000

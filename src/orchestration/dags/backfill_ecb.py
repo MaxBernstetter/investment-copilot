@@ -11,7 +11,12 @@ from datetime import date, timedelta
 from airflow.sdk import Param, dag, get_current_context, task
 
 from orchestration.ecb_backfill import backfill_years, history_command
-from orchestration.ecb_daily_load import report_final_failure, run_job
+from orchestration.ecb_daily_load import (
+    mark_unfinished_attempt_failed,
+    remember_run_id,
+    report_final_failure,
+    run_job,
+)
 from orchestration.quality_check import range_check_command
 
 DAG_ID = "backfill_ecb"
@@ -45,12 +50,16 @@ def backfill_ecb() -> None:
         retry_delay=timedelta(minutes=10),
         retry_exponential_backoff=2.0,
         execution_timeout=timedelta(minutes=30),
-        on_failure_callback=report_final_failure,
+        on_failure_callback=[report_final_failure, mark_unfinished_attempt_failed],
+        on_retry_callback=mark_unfinished_attempt_failed,
     )
     def load_year(chunk: dict[str, str]) -> None:
+        context = get_current_context()
         start = date.fromisoformat(chunk["start"])
         end = date.fromisoformat(chunk["end"])
-        run_job(history_command(start, end, f"{DAG_ID}-{start.isoformat()}-{end.isoformat()}"))
+        run_id = f"{DAG_ID}-{start.isoformat()}-{end.isoformat()}"
+        remember_run_id(context["ti"], run_id)
+        run_job(history_command(start, end, run_id))
 
     @task(
         retries=2,

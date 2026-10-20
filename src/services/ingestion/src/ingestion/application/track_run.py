@@ -25,6 +25,10 @@ class RunLog(Protocol):
 
     async def finish(self, run_id: str, attempt: int, outcome: RunOutcome) -> None: ...
 
+    async def fail_unfinished(self, run_id: str, error_type: str, error_message: str | None) -> int:
+        """Marks every running attempt of the run failed; returns how many."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class TrackedRun[S: Step]:

@@ -29,6 +29,7 @@ ingestion-load-ecb ──▶ LoadPublishedCurve ──▶ EcbSpotCurveSource ─
 ingestion-load-ecb daily --valid-date 2026-10-15 [--run-id ID]
 ingestion-load-ecb history --start 2004-09-06 --end 2026-10-16 [--run-id ID]
 ingestion-load-ecb replay --fetched-from 2026-10-01 --fetched-to 2026-10-18 [--run-id ID]
+ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-message TEXT]
 ```
 
 | Command | Requests | Window |
