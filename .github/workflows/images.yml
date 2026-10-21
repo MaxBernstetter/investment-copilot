@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [persistence, access, ingestion, processing]
+        service: [persistence, access, ingestion, processing, caddy]
     env:
       SERVICE: ${{ matrix.service }}
     steps:
@@ -70,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [persistence, access, ingestion, processing]
+        service: [persistence, access, ingestion, processing, caddy]
     env:
       SERVICE: ${{ matrix.service }}
     steps:

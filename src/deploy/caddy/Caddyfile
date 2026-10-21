@@ -1,0 +1,17 @@
+# Public entry point of the live VM: TLS from Let's Encrypt, a rate limit per client IP, access only.
+# {$VAR} values come from the caddy service in src/deploy/compose.vm.yaml.
+{
+	email {$YIELDLENS_ACME_EMAIL}
+	order rate_limit before reverse_proxy
+}
+
+{$YIELDLENS_DOMAIN} {
+	rate_limit {
+		zone per_client_ip {
+			key {remote_host}
+			events 120
+			window 1m
+		}
+	}
+	reverse_proxy access:8000
+}

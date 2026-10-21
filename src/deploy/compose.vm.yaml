@@ -1,0 +1,107 @@
+# Live VM overlay on compose.yaml and compose.observability.yaml (docs/architecture/09-deployment.md).
+# Images come from GHCR at YIELDLENS_TAG (set by src/scripts/deploy-vm.sh); nothing builds on the VM.
+# Only caddy publishes public ports; every other port stays on 127.0.0.1 (SSH tunnel).
+# Values come from the VM .env (template: vm.env.example), never from the dev Taskfile.
+name: yieldlens
+
+x-vm-airflow-env: &vm-airflow-env
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_POSTGRES_PASSWORD:?set AIRFLOW_POSTGRES_PASSWORD}@airflow-postgres/airflow
+  AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:?set AIRFLOW__CORE__FERNET_KEY}
+  AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:?set AIRFLOW__API_AUTH__JWT_SECRET}
+  YIELDLENS_INGESTION_JOB_IMAGE: ghcr.io/maxbernstetter/yield-lens-ingestion:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+  YIELDLENS_PROCESSING_JOB_IMAGE: ghcr.io/maxbernstetter/yield-lens-processing:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+  YIELDLENS_DOCKER_NETWORK: ${YIELDLENS_DOCKER_NETWORK:-yieldlens_default}
+
+networks:
+  default:
+    name: ${YIELDLENS_DOCKER_NETWORK:-yieldlens_default}
+
+services:
+  oracle:
+    restart: unless-stopped
+
+  # `!reset` (drops the dev build) needs Docker Compose >= 2.24.4.
+  persistence:
+    image: ghcr.io/maxbernstetter/yield-lens-persistence:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+    restart: unless-stopped
+
+  processing:
+    image: ghcr.io/maxbernstetter/yield-lens-processing:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+    restart: unless-stopped
+
+  access:
+    image: ghcr.io/maxbernstetter/yield-lens-access:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+    environment:
+      ACCESS_CORS_ORIGINS: https://maxbernstetter.github.io
+    restart: unless-stopped
+
+  ingestion-api:
+    image: ghcr.io/maxbernstetter/yield-lens-ingestion:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+    restart: unless-stopped
+
+  # One-shot jobs: not restarted; Airflow starts them on demand.
+  ingestion:
+    image: ghcr.io/maxbernstetter/yield-lens-ingestion:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+
+  processing-job:
+    image: ghcr.io/maxbernstetter/yield-lens-processing:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    build: !reset null
+
+  airflow-postgres:
+    environment:
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:?set AIRFLOW_POSTGRES_PASSWORD}
+    restart: unless-stopped
+
+  airflow-init:
+    environment:
+      <<: *vm-airflow-env
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?set AIRFLOW_ADMIN_PASSWORD}
+
+  airflow-scheduler:
+    environment: *vm-airflow-env
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    environment: *vm-airflow-env
+    restart: unless-stopped
+
+  airflow-apiserver:
+    environment: *vm-airflow-env
+    restart: unless-stopped
+
+  otel-collector:
+    restart: unless-stopped
+
+  prometheus:
+    restart: unless-stopped
+
+  tempo:
+    restart: unless-stopped
+
+  grafana:
+    restart: unless-stopped
+
+  caddy:
+    image: ghcr.io/maxbernstetter/yield-lens-caddy:${YIELDLENS_TAG:?set YIELDLENS_TAG}
+    environment:
+      YIELDLENS_DOMAIN: ${YIELDLENS_DOMAIN:?set YIELDLENS_DOMAIN}
+      YIELDLENS_ACME_EMAIL: ${YIELDLENS_ACME_EMAIL:?set YIELDLENS_ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      access:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -6,7 +6,7 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 
 | Layer | Tool | Role |
 |---|---|---|
-| Toolchain | devbox (Nix) | Pins every tool and version (task, uv, Python, Node, bats, …); identical locally and in CI |
+| Toolchain | devbox (Nix) | Pins every tool and version (task, uv, Python, Node, bats, jq, …); identical locally and in CI |
 | Task interface | go-task (`Taskfile.yml`) | The standardized entry point for every task |
 | Logic | Bash scripts in `src/scripts/` | Anything beyond calling a command; linted and tested |
 | Commit-time checks | pre-commit | Fast, file-scoped checks before a commit |
@@ -74,16 +74,18 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 | `frontend.yml` | Pull requests; pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the root Taskfile or devbox; manual | `frontend:` `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build`, `size`; job `frontend: e2e` runs `frontend:e2e` after `build` in `mcr.microsoft.com/playwright:v1.55.1-noble` | `devbox run -- task frontend:<task>` |
 | `pages.yml` | Pushes to `main` changing `src/frontend/`, `src/contracts/openapi/access/`, the workflow, the root Taskfile or devbox; manual | Job `configured` checks that `vars.VITE_ACCESS_URL` is set on the `github-pages` Environment; jobs `build` (`frontend:build:pages`, then the Pages artifact) and `deploy` (`actions/deploy-pages`) are skipped until it is set | `devbox run -- task frontend:build:pages` |
 | `e2e.yml` | Pull requests; pushes to `main` changing `src/`, the workflow, the root Taskfile or devbox; manual | `dev:reset`, `dev:up`, `dev:e2e` (the corrected-yield test on a fresh stack), `dev:reset` again at the end | `devbox run -- task dev:e2e` after `dev:reset` and `dev:up` |
-| `images.yml` | Pull requests, pushes to `main` (no path filter), manual | PRs and manual: `<service>:image` for amd64 and arm64 (build only), then `image` and `image:scan`. Pushes to `main`: `image`, `image:scan`, then `image` with `OUTPUT=type=registry` for amd64 and arm64 | `devbox run -- task <service>:image` and `devbox run -- task <service>:image:scan` |
+| `images.yml` | Pull requests, pushes to `main` (no path filter), manual | For each service `persistence`, `access`, `ingestion`, `processing` and `caddy`: PRs and manual: `<service>:image` for amd64 and arm64 (build only), then `image` and `image:scan`. Pushes to `main`: `image`, `image:scan`, then `image` with `OUTPUT=type=registry` for amd64 and arm64 | `devbox run -- task <service>:image` and `devbox run -- task <service>:image:scan` |
+| `deploy-checks.yml` | Pull requests; pushes to `main` changing `src/deploy/`, `src/scripts/`, the deploy workflow, `images.yml`, the root Taskfile or devbox; manual | `deploy:config` (the VM overlay and Caddyfile, with the local Caddy image) and `deploy:test:unit` (bats tests of the deploy script) | `devbox run -- task deploy:config` and `devbox run -- task deploy:test:unit` |
 
 ### Images
 
-- Container images are named `ghcr.io/maxbernstetter/yield-lens-<service>` for `persistence`, `access`, `ingestion` and `processing`, tagged only with the full 40-character commit SHA.
+- Container images are named `ghcr.io/maxbernstetter/yield-lens-<service>` for `persistence`, `access`, `ingestion` and `processing`, and `yield-lens-caddy` for `caddy` (the live VM's entry point, which is no service), tagged only with the full 40-character commit SHA. Five images in total.
 - Published images are multi-arch (`linux/amd64` and `linux/arm64`); CI uses Docker Buildx with QEMU for arm64.
 - Pull requests build and scan images but never push; only the `publish` job on pushes to `main` gets `packages: write` and pushes to GHCR.
 - There is no path filter: every commit on `main` gets a complete set of four images under the same SHA so deploys can pin any commit with one tag.
 - After the amd64 image is built locally in Docker, Trivy scans it using `trivy.yaml` at the repository root (fixable HIGH and CRITICAL vulnerabilities fail the job). Accepted exceptions go in `.trivyignore` with a reason.
 - The `images: build and scan <service>` checks are not required on `main` yet; add them to the ruleset after they have been green for a while.
+- The Caddy image (`caddy`) follows the same rules as the services; its tasks are `caddy:image` and `caddy:image:scan`.
 - Locally, `task <service>:image` builds the host platform by default. A multi-platform build needs a `docker-container` builder (`docker buildx create --use`) and binfmt/QEMU support.
 
 ### Required checks
@@ -117,6 +119,14 @@ The root `Taskfile.yml` only includes components. Repository-wide tooling lives 
 | `toolchain:setup` | Install the git hooks and their environments |
 | `toolchain:lint` | All static analysis: every pre-commit hook on all files (used by CI) |
 | `toolchain:update` | Update pinned hook versions |
+
+The live VM stack is described in [[09-deployment]] (Live VM). Its checks are `deploy:config` and `deploy:test:unit`, and `caddy:` builds and scans the Caddy image:
+
+| Task | Does |
+|---|---|
+| `deploy:config` | Validate the VM overlay with `vm.env.example` (no builds, only Caddy publishes ports, CORS is the Pages origin) and the Caddyfile (`caddy validate` in the locally built Caddy image) |
+| `deploy:test:unit` | Run the bats tests of `src/scripts/deploy-vm.sh` (fake `docker` and `curl`) |
+| `caddy:image`, `caddy:image:scan` | Build and scan the Caddy image (`yield-lens-caddy`), like the services |
 
 The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, persistence, processing, access and ingestion apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
 

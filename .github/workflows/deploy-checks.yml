@@ -1,0 +1,64 @@
+# Live VM deployment checks: the overlay and Caddyfile (deploy:config) and the deploy script tests (deploy:test:unit).
+# Thin by design: provision the devbox toolchain, then run the same tasks as locally.
+# See docs/architecture/13-build-and-ci.md.
+#
+# Local equivalent: devbox run -- task deploy:config && devbox run -- task deploy:test:unit
+name: Deploy checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/deploy/**
+      - src/scripts/**
+      - .github/workflows/deploy-checks.yml
+      - .github/workflows/images.yml
+      - Taskfile.yml
+      - devbox.json
+      - devbox.lock
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  config:
+    name: "deploy: config"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Validate the VM overlay and Caddyfile
+        run: devbox run -- task deploy:config
+
+  scripts:
+    name: "deploy: script tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install devbox toolchain
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+        with:
+          enable-cache: true
+
+      - name: Run the deploy script tests
+        run: devbox run -- task deploy:test:unit
