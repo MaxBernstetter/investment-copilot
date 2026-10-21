@@ -164,3 +164,13 @@ tasks:
       COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
     cmds:
       - ../scripts/dev-obs-smoke.sh
+
+  obs:firing-check:
+    desc: 'Manual check that quality-warn fires and clears for ecb-aaa-spot-sim (after dev:obs:up; fresh stack: dev:reset dev:up dev:obs:up)'
+    vars:
+      DEV_COMPOSE_FILE:
+        sh: if [ -n "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=otel-collector --filter status=running 2>/dev/null)" ]; then echo compose.yaml:compose.observability.yaml; else echo compose.yaml; fi
+    env:
+      COMPOSE_FILE: '{{.DEV_COMPOSE_FILE}}'
+    cmds:
+      - ../scripts/dev-obs-firing-check.sh
