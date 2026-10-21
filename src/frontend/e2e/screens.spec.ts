@@ -113,6 +113,7 @@ test.describe('visual snapshots §7', () => {
     await page.goto('/?curve=ecb-aaa-spot-sim')
     await waitForCurveLoaded(page)
     const drawerHeading = page.getByRole('heading', { name: 'History of 10Y on 2026-10-16' })
+    const drawer = page.getByRole('dialog')
     for (const scheme of ['light', 'dark'] as const) {
       await page.setViewportSize(AXE_VIEWPORT)
       await setColorScheme(page, scheme)
@@ -120,13 +121,17 @@ test.describe('visual snapshots §7', () => {
       await page.getByRole('button', { name: 'History 10Y' }).click()
       await expect(drawerHeading).toBeVisible()
       await settleAnimations(page)
+      // The drawer fades in on a timer, so wait for full opacity before axe samples colours.
+      await expectOpaque(drawer)
       await runAxe(page)
       await page.keyboard.press('Escape')
-      await expect(page.getByRole('dialog')).toBeHidden()
+      await expect(drawer).toBeHidden()
     }
     await setColorScheme(page, 'light')
     await page.getByRole('button', { name: 'History 10Y' }).click()
     await expect(drawerHeading).toBeVisible()
+    await settleAnimations(page)
+    await expectOpaque(drawer)
     await captureSnapshots(page, 'S4', ['light'], false)
   })
 
