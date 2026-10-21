@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AppShell, Alert, Button, Container, Group, Loader, Stack, Tabs, Text } from '@mantine/core'
+import { AppShell, Alert, Button, Container, Skeleton, Stack, Tabs, Text, VisuallyHidden } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
@@ -92,10 +92,8 @@ export default function App() {
             {state === 'checking' && (
               <Stack gap="lg">
                 <PageHeader title="Connecting" />
-                <Group gap="xs">
-                  <Loader size="sm" />
-                  <Text>Loading…</Text>
-                </Group>
+                <Skeleton h={320} />
+                <VisuallyHidden>Loading…</VisuallyHidden>
               </Stack>
             )}
             {state === 'offline' && (

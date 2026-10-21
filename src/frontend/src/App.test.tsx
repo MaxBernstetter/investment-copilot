@@ -76,6 +76,16 @@ describe('App', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
+  it('shows a chart-sized skeleton and no spinner while the health check runs', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+
+    render(<App />)
+
+    expect(document.querySelectorAll('.mantine-Skeleton-root')).toHaveLength(1)
+    expect(document.querySelector('.mantine-Loader-root')).not.toBeInTheDocument()
+    expect(screen.getByText('Loading…').closest('.mantine-VisuallyHidden-root')).not.toBeNull()
+  })
+
   it('exposes the page landmarks and no YieldLens heading', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
 
