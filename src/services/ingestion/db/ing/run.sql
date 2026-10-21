@@ -49,3 +49,7 @@ comment on column run.recorded_count is 'New versions stored in this attempt';
 comment on column run.unchanged_count is 'Values already stored unchanged in this attempt';
 comment on column run.error_type is 'Exception type when status is partial or failed';
 comment on column run.error_message is 'Exception message when status is partial or failed';
+
+--changeset yieldlens:run-operation-attempt-index
+create index run_operation_attempt_ix on run (operation, attempt_id);
+--rollback drop index run_operation_attempt_ix;

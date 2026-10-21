@@ -37,6 +37,12 @@ class OracleRunHistory:
     async def get_attempts(self, run_id: str) -> Sequence[RunAttempt]:
         return await self._call("ing.ing_run.get_run", {"p_run_id": run_id})
 
+    async def alert_attempts(self, *, cleared_after: datetime) -> Sequence[RunAttempt]:
+        return await self._call(
+            "ing.ing_run.get_alert_attempts",
+            {"p_cleared_after": _naive_utc(cleared_after)},
+        )
+
     async def _call(self, function: str, parameters: dict[str, Any]) -> list[RunAttempt]:
         async with self._pool.acquire() as connection:
             connection.call_timeout = self._call_timeout_ms

@@ -244,5 +244,29 @@ create or replace package body ut_ing_run as
     );
   end get_run_lists_every_attempt_in_order;
 
+  procedure get_alert_attempts_starts_after_the_last_success_before_the_window is
+    l_cursor sys_refcursor;
+    l_row    run%rowtype;
+    l_seen   varchar2(4000);
+  begin
+    insert_ut_run('ut-alert-0', 1, 'history', 'succeeded', timestamp '2001-01-01 00:00:00', timestamp '2001-01-01 00:00:00', null);
+    insert_ut_run('ut-alert-1', 1, 'history', 'failed', timestamp '2001-01-10 00:00:00', timestamp '2001-01-10 00:00:00', 'E');
+    insert_ut_run('ut-alert-2', 1, 'history', 'running', timestamp '2001-01-11 00:00:00');
+    insert_ut_run('ut-alert-3', 1, 'history', 'succeeded', timestamp '2001-01-20 00:00:00', timestamp '2001-01-20 00:00:00', null);
+    insert_ut_run('ut-alert-4', 1, 'history', 'partial', timestamp '2001-01-21 00:00:00', timestamp '2001-01-21 00:00:00', 'E');
+
+    l_cursor := ing_run.get_alert_attempts(c_jan_2001);
+    loop
+      fetch l_cursor into l_row;
+      exit when l_cursor%notfound;
+      if l_row.run_id like 'ut-alert-%' then
+        l_seen := l_seen || l_row.run_id || ',';
+      end if;
+    end loop;
+    close l_cursor;
+
+    ut.expect(l_seen).to_equal('ut-alert-1,ut-alert-3,ut-alert-4,');
+  end get_alert_attempts_starts_after_the_last_success_before_the_window;
+
 end ut_ing_run;
 /
