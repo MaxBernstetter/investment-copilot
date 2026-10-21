@@ -12,6 +12,46 @@ tasks:
         vars: { TAG: local }
       - ../scripts/deploy-vm.sh config
 
+  login:
+    desc: Log in to GHCR with the read-only token of YIELDLENS_ENV_FILE
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - ../scripts/deploy-vm.sh login
+
+  pull:
+    desc: Pull the images of the checked-out commit (YIELDLENS_ENV_FILE)
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - ../scripts/deploy-vm.sh pull
+
+  migrate:
+    desc: Run the Liquibase migrations CORE, ING and PROC of the checked-out commit (YIELDLENS_ENV_FILE)
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - ../scripts/deploy-vm.sh migrate
+
+  up:
+    desc: Start the stack and wait until its services are healthy (YIELDLENS_ENV_FILE)
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - ../scripts/deploy-vm.sh up
+
+  ready:
+    desc: Check that the four apis answer /ready on 127.0.0.1 (fails when one does not)
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - ../scripts/deploy-vm.sh ready
+
+  all:
+    desc: "Deploy the checked-out commit on the VM: login, pull, migrate, up, ready (fails when an api is not ready)"
+    requires: { vars: [YIELDLENS_ENV_FILE] }
+    cmds:
+      - task: login
+      - task: pull
+      - task: migrate
+      - task: up
+      - task: ready
+
   test:unit:
     desc: Run the bats tests of the deploy script
     cmds:
