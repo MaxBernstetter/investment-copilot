@@ -63,9 +63,11 @@ def test_a_spread_of_exactly_zero_is_not_inverted() -> None:
 
 
 def test_measures_are_not_rounded() -> None:
-    point = measure_point(D, _inputs({"2Y": "1.955", "10Y": "2.6125"}))
+    point = measure_point(D, _inputs({"2Y": "1.95", "10Y": "2.61234"}))
 
-    assert point.spread_2y_10y == Decimal("65.7500")
+    assert point.spread_2y_10y == Decimal("66.234")
+    assert str(point.spread_2y_10y) == "66.23400"
+    assert point.spread_2y_10y.as_tuple().exponent == -5
 
 
 def test_a_missing_5y_nulls_only_the_curvature() -> None:
