@@ -14,7 +14,7 @@ export default function StatCard({ label, value, hint }: StatCardProps) {
         <Text size="xs" c="dimmed" tt="uppercase">
           {label}
         </Text>
-        <Text fw={600} fz={rem(15)} lh={1.4} style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Text variant="tabular" fw={600} fz={rem(15)} lh={1.4}>
           {value}
         </Text>
         {hint !== undefined && (

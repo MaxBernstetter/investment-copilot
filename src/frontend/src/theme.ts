@@ -12,6 +12,7 @@ import {
   type BadgeProps,
   Card,
   Table,
+  Text,
   Title,
   Tooltip,
   createTheme,
@@ -89,6 +90,12 @@ export const theme = createTheme({
       defaultProps: { tabularNums: true, verticalSpacing: 'xs', highlightOnHover: true },
     }),
     Title: Title.extend({ styles: { root: { fontVariantNumeric: 'tabular-nums' } } }),
+    // Figures in Text use tabular numerals (D1); Mantine has no style prop for font-variant-numeric.
+    Text: Text.extend({
+      styles: (_theme, props) => ({
+        root: props.variant === 'tabular' ? { fontVariantNumeric: 'tabular-nums' } : {},
+      }),
+    }),
     Badge: Badge.extend({
       defaultProps: { variant: 'light', radius: 'sm' },
       styles: { label: { textTransform: 'none' } },
