@@ -14,6 +14,7 @@ class StubRunHistory:
     attempts: list[RunAttempt] = field(default_factory=list)
     list_calls: list[dict[str, object]] = field(default_factory=list)
     get_calls: list[str] = field(default_factory=list)
+    alert_calls: list[datetime] = field(default_factory=list)
 
     async def list_attempts(
         self,
@@ -44,3 +45,7 @@ class StubRunHistory:
             (attempt for attempt in self.attempts if attempt.run_id == run_id),
             key=lambda attempt: attempt.attempt,
         )
+
+    async def alert_attempts(self, *, cleared_after: datetime) -> Sequence[RunAttempt]:
+        self.alert_calls.append(cleared_after)
+        return self.attempts

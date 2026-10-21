@@ -96,7 +96,7 @@ def utplsql(oracle: OracleDatabase) -> OracleDatabase:
 
 @pytest.mark.parametrize(
     ("suite", "expected_tests"),
-    [("ut_ing_delivery", 6), ("ut_ing_run", 13)],
+    [("ut_ing_delivery", 6), ("ut_ing_run", 14)],
 )
 def test_package_suite_passes(utplsql: OracleDatabase, suite: str, expected_tests: int) -> None:
     with utplsql.connect_as_owner() as connection:

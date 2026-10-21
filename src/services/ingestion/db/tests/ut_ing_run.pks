@@ -44,5 +44,8 @@ create or replace package ut_ing_run as
 
   --%test(Lists every attempt of a run in attempt order)
   procedure get_run_lists_every_attempt_in_order;
+
+  --%test(Returns finished attempts after the last success before the window)
+  procedure get_alert_attempts_starts_after_the_last_success_before_the_window;
 end ut_ing_run;
 /

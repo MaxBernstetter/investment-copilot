@@ -41,6 +41,10 @@ create or replace package ing_run authid definer as
 
   -- Every attempt of a run id, in attempt order.
   function get_run(p_run_id in varchar2) return sys_refcursor;
+
+  -- Finished attempts of each operation that come after its last success finished before
+  -- p_cleared_after, in operation then attempt_id order. The operation list mirrors run_operation_ck.
+  function get_alert_attempts(p_cleared_after in timestamp) return sys_refcursor;
 end ing_run;
 /
 
@@ -177,6 +181,38 @@ create or replace package body ing_run as
       dbms_application_info.set_module(null, null);
       raise;
   end get_run;
+
+  function get_alert_attempts(p_cleared_after in timestamp) return sys_refcursor is
+    l_attempts sys_refcursor;
+  begin
+    dbms_application_info.set_module('ing_run', 'get_alert_attempts');
+    -- The operation list mirrors run_operation_ck.
+    open l_attempts for
+      with anchor as (
+        select o.operation,
+               (select s.attempt_id
+                  from run s
+                 where s.operation = o.operation
+                   and s.status = 'succeeded'
+                   and s.finished_at < p_cleared_after
+                 order by s.attempt_id desc
+                 fetch first 1 row only) as attempt_id
+          from (select 'daily' operation from dual
+                union all select 'history' from dual
+                union all select 'replay' from dual) o)
+      select r.attempt_id, r.run_id, r.attempt, r.operation, r.status, r.started_at, r.finished_at,
+             r.delivered_count, r.recorded_count, r.unchanged_count, r.error_type, r.error_message
+        from anchor a
+        join run r on r.operation = a.operation and r.attempt_id > nvl(a.attempt_id, 0)
+       where r.status <> 'running'
+       order by r.operation, r.attempt_id;
+    dbms_application_info.set_module(null, null);
+    return l_attempts;
+  exception
+    when others then
+      dbms_application_info.set_module(null, null);
+      raise;
+  end get_alert_attempts;
 
 end ing_run;
 /
