@@ -1,0 +1,598 @@
+{
+  "components": {
+    "schemas": {
+      "Finding": {
+        "additionalProperties": false,
+        "description": "One rule finding on a valid date, or on one published value.",
+        "properties": {
+          "evidence": {
+            "description": "What was found, with the numbers",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "explanation": {
+            "description": "Why the rule exists, in user language",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "maturity": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "10Y"
+            ],
+            "title": "Maturity"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Yield in percent the finding is about, if any",
+            "examples": [
+              2.61
+            ],
+            "title": "Value"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lineage reference of the value; null for date-level findings",
+            "title": "Version Id"
+          }
+        },
+        "required": [
+          "rule",
+          "severity",
+          "explanation",
+          "evidence"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "QualityDay": {
+        "additionalProperties": false,
+        "description": "Quality of one valid date of a curve, with the rules that produced it.",
+        "properties": {
+          "checked_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Knowledge time the check run assessed; null if unchecked",
+            "title": "Checked As Of"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleOutcome"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Identifier of the check run; null if unchecked",
+            "title": "Run Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_date",
+          "status",
+          "rules",
+          "findings"
+        ],
+        "title": "QualityDay",
+        "type": "object"
+      },
+      "QualityDays": {
+        "additionalProperties": false,
+        "description": "Quality of a curve over a range of valid dates, in valid-date order.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/QualityDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "valid_from": {
+            "description": "Valid time: first valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Valid time: last valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_from",
+          "valid_to",
+          "days"
+        ],
+        "title": "QualityDays",
+        "type": "object"
+      },
+      "QualityDaysResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/quality``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/QualityDays"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/QualityMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "QualityDaysResponse",
+        "type": "object"
+      },
+      "QualityMeta": {
+        "additionalProperties": false,
+        "description": "How the answer was determined.",
+        "properties": {
+          "as_of": {
+            "description": "The effective knowledge time (UTC) the quality results describe",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of"
+        ],
+        "title": "QualityMeta",
+        "type": "object"
+      },
+      "QualityStatus": {
+        "description": "Outcome of checks: ``unchecked`` means no result is known for the date or value.",
+        "enum": [
+          "passed",
+          "info",
+          "warn",
+          "unchecked"
+        ],
+        "title": "QualityStatus",
+        "type": "string"
+      },
+      "Rule": {
+        "description": "A plausibility or completeness rule of the processing service.",
+        "enum": [
+          "range",
+          "jump",
+          "missing-date",
+          "missing-maturity"
+        ],
+        "title": "Rule",
+        "type": "string"
+      },
+      "RuleOutcome": {
+        "additionalProperties": false,
+        "description": "Outcome of one rule for one valid date.",
+        "properties": {
+          "finding_count": {
+            "minimum": 0.0,
+            "title": "Finding Count",
+            "type": "integer"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          }
+        },
+        "required": [
+          "rule",
+          "outcome",
+          "finding_count"
+        ],
+        "title": "RuleOutcome",
+        "type": "object"
+      },
+      "Severity": {
+        "description": "How serious a finding is: ``warn`` is shown as a warning, ``info`` as a note.",
+        "enum": [
+          "warn",
+          "info"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "ValueQualities": {
+        "additionalProperties": false,
+        "description": "Quality of the published values of a curve over a range of valid dates.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "valid_from": {
+            "description": "Valid time: first valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Valid time: last valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ValueQuality"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_from",
+          "valid_to",
+          "values"
+        ],
+        "title": "ValueQualities",
+        "type": "object"
+      },
+      "ValueQuality": {
+        "additionalProperties": false,
+        "description": "Quality of one published value, with the findings that flag it.",
+        "properties": {
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the value",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          },
+          "version_id": {
+            "description": "Lineage reference of the value",
+            "title": "Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_id",
+          "maturity",
+          "valid_date",
+          "status",
+          "flags"
+        ],
+        "title": "ValueQuality",
+        "type": "object"
+      },
+      "ValueQualityResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/value-quality``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ValueQualities"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/QualityMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ValueQualityResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "YieldLens processing",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "Liveness: the process is up.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness: the processing database is reachable.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Ready"
+      }
+    },
+    "/v1/curves/{curve_id}/quality": {
+      "get": {
+        "description": "Quality of each TARGET business day of a curve as known at ``as_of`` (default: now).",
+        "operationId": "quality_days_v1_curves__curve_id__quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityDaysResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "The curve is unknown"
+          },
+          "422": {
+            "description": "The request is invalid"
+          }
+        },
+        "summary": "Quality Days"
+      }
+    },
+    "/v1/curves/{curve_id}/value-quality": {
+      "get": {
+        "description": "Quality of published values of a curve as known at ``as_of`` (default: now).",
+        "operationId": "value_quality_v1_curves__curve_id__value_quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maturity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Maturity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValueQualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "The curve is unknown"
+          },
+          "422": {
+            "description": "The request is invalid"
+          }
+        },
+        "summary": "Value Quality"
+      }
+    }
+  }
+}
