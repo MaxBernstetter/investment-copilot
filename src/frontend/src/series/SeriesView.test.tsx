@@ -106,6 +106,13 @@ describe('SeriesView', () => {
     expect(await screen.findByRole('heading', { name: '10Y yield (%)' })).toBeInTheDocument()
   })
 
+  it('puts the chart in the padded card body, not a card section', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByRole('heading', { name: '10Y yield (%)' })).toBeInTheDocument()
+    expect(document.querySelector('.mantine-Card-section')).toBeNull()
+  })
+
   it('passes asOf to the fetch', async () => {
     render(<SeriesView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
 

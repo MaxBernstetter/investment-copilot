@@ -38,6 +38,38 @@ export async function waitForCurveLoaded(page: Page) {
   await expect(page.getByRole('button', { name: 'Add to overlay' })).toBeEnabled({ timeout: 15_000 })
 }
 
+/** Inner padding of a chart card (design T2/L2): chart content keeps at least this many px from the border. */
+const MIN_CARD_INSET_PX = 16
+
+/**
+ * Fails when the chart surface, a tick label, a dot or the card title sits closer than MIN_CARD_INSET_PX
+ * to the card's border box on any side (main's ~1 px flush layout fails, Card padding "lg" passes).
+ */
+export async function expectChartsInsideCards(page: Page) {
+  const tooClose = await page.evaluate((minInset) =>
+    Array.from(document.querySelectorAll('.recharts-wrapper')).flatMap((chart) => {
+      const cardEl = chart.closest('.mantine-Card-root')
+      const card = cardEl?.getBoundingClientRect()
+      if (!cardEl || !card || card.width === 0) return []
+      const content = [
+        chart.querySelector('svg'),
+        ...chart.querySelectorAll('.recharts-cartesian-axis-tick-value, .recharts-dot'),
+        cardEl.querySelector('h2'),
+      ]
+      return content
+        .filter((el): el is Element => el !== null)
+        .map((el) => ({ label: el.textContent?.trim() || el.tagName, r: el.getBoundingClientRect() }))
+        .map(({ label, r }) => ({
+          label,
+          inset: Math.min(r.left - card.left, card.right - r.right, r.top - card.top, card.bottom - r.bottom),
+        }))
+        .filter(({ inset }) => inset < minInset)
+        .map(({ label, inset }) => `${label}: ${inset.toFixed(1)} px`)
+    }),
+  MIN_CARD_INSET_PX)
+  expect(tooClose).toEqual([])
+}
+
 export function screenshotName(id: string, width: number, height: number, scheme: 'light' | 'dark') {
   return `${id}-${width}x${height}-${scheme}.png`
 }

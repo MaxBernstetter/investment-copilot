@@ -236,7 +236,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

@@ -141,36 +141,32 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
             <StatCard label="Curve date" value={shownDate} />
             <StatCard label="Knowledge" value={asOf ? formatUtc(asOf) : 'Live'} />
           </SimpleGrid>
-          <Card padding={0}>
-            <Card.Section withBorder inheritPadding py="sm">
-              <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-                <Title order={2}>Spot curve (%)</Title>
-                {overlayDates.length > 0 && (
-                  <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
-                    {overlayDates.map((date) => (
-                      <Pill
-                        key={date}
-                        component="li"
-                        withRemoveButton
-                        removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
-                        onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
-                      >
-                        {date}
-                      </Pill>
-                    ))}
-                  </Group>
-                )}
-              </Group>
-            </Card.Section>
-            <Card.Section inheritPadding py="md">
-              <CurveChart curves={curves} />
-              {(missing.length > 0 || flagged.length > 0) && (
-                <Stack gap={4} mt="sm">
-                  {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}
-                  {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
-                </Stack>
+          <Card>
+            <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
+              <Title order={2}>Spot curve (%)</Title>
+              {overlayDates.length > 0 && (
+                <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
+                  {overlayDates.map((date) => (
+                    <Pill
+                      key={date}
+                      component="li"
+                      withRemoveButton
+                      removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
+                      onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
+                    >
+                      {date}
+                    </Pill>
+                  ))}
+                </Group>
               )}
-            </Card.Section>
+            </Group>
+            <CurveChart curves={curves} />
+            {(missing.length > 0 || flagged.length > 0) && (
+              <Stack gap={4} mt="sm">
+                {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}
+                {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
+              </Stack>
+            )}
           </Card>
           <Card>
             <Title order={2} mb="md">Values</Title>
