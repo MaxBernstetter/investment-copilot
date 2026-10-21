@@ -56,7 +56,7 @@ write_config() {
 @test "config passes with the overlay, the profiles and the Caddyfile check" {
 	run "$script" config
 	[ "$status" -eq 0 ]
-	grep -qF "compose --env-file $BATS_TEST_TMPDIR/vm.env --profile airflow --profile observability config --format json" "$BATS_TEST_TMPDIR/docker.log"
+	grep -qF "compose --env-file $BATS_TEST_TMPDIR/vm.env --profile airflow --profile observability --profile tools config --format json" "$BATS_TEST_TMPDIR/docker.log"
 	grep -qF "run --rm" "$BATS_TEST_TMPDIR/docker.log"
 	grep -qF "yield-lens-caddy:local caddy validate" "$BATS_TEST_TMPDIR/docker.log"
 }
