@@ -70,7 +70,7 @@ Environment variables, validated at startup (pydantic-settings):
 | `ACCESS_PERSISTENCE_TIMEOUT_SECONDS` | `10` | Timeout of one call to persistence |
 | `ACCESS_PROCESSING_URL` | – (required) | Base URL of the processing api, e.g. `http://localhost:8002` |
 | `ACCESS_PROCESSING_TIMEOUT_SECONDS` | `5` | Timeout of one call to processing |
-| `ACCESS_CORS_ORIGINS` | `http://localhost:5174` | Comma-separated origins allowed to call the API (the Vite dev server by default) |
+| `ACCESS_CORS_ORIGINS` | `http://localhost:5174` | Comma-separated origins allowed to call the API (the Vite dev server by default). Live: `https://maxbernstetter.github.io` (the Pages origin only), set on the VM (#182) |
 
 ## Running locally
 
