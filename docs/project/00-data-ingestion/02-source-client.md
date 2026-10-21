@@ -32,7 +32,7 @@ from ingestion.infrastructure.http import Outcome, SourceClient
 settings = IngestionSettings()  # once at startup; fails on invalid or unknown variables
 
 async with SourceClient(
-    "ecb", settings.sources.ecb, is_no_data=ecb_no_results
+    "ecb", settings.sources.ecb, is_no_data=ecb_no_results, meter=telemetry.meter
 ) as client:
     response = await client.get(url, params={...}, if_modified_since=last_modified)
 
@@ -47,7 +47,7 @@ match response.outcome:
 
 | Name | Meaning |
 |---|---|
-| `SourceClient(source, settings, *, is_no_data, transport, clock, jitter, meter)` | `source` is the metric label. `transport`, `clock`, `jitter` and `meter` are injected for tests; the defaults are the real ones |
+| `SourceClient(source, settings, *, is_no_data, transport, clock, jitter, meter)` | `source` is the metric label. `meter` (required) is the job's OpenTelemetry meter; the request counter is created on it. `transport`, `clock` and `jitter` are injected for tests; the defaults are the real ones |
 | `SourceClient.get(url, *, params, if_modified_since, if_none_match) -> SourceResponse` | One polite GET, retries included |
 | `SourceResponse(outcome, status_code, content, headers)` | The answer; `headers` keep delivery metadata for the raw layer |
 | `Outcome` | `DELIVERED`, `NOT_MODIFIED`, `NO_DATA` |
