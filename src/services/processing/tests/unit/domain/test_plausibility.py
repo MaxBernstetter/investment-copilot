@@ -30,7 +30,7 @@ def test_the_scenario_bad_value_is_a_range_warn() -> None:
     finding = findings[0]
     assert finding.rule is Rule.RANGE
     assert finding.severity is Severity.WARN
-    assert finding.evidence == "26.40 % on 2026-10-08"
+    assert finding.evidence == "26.400\u202f% on 2026-10-08"
     assert finding.explanation == RANGE_WARN
     assert finding.version_id == 1
     assert finding.value == Decimal("26.40")
@@ -46,7 +46,10 @@ def test_the_scenario_bad_value_is_a_jump_warn() -> None:
     assert finding.rule is Rule.JUMP
     assert finding.severity is Severity.WARN
     assert finding.valid_date == OCT_08
-    assert finding.evidence == "26.40 % on 2026-10-08 after 2.62 % on 2026-10-06 (+2378.0 bp)"
+    assert (
+        finding.evidence
+        == "26.400\u202f% on 2026-10-08 after 2.620\u202f% on 2026-10-06 (+2,378.0 bp)"
+    )
     assert finding.explanation == JUMP_WARN
 
 
@@ -65,7 +68,10 @@ def test_a_30_bp_move_is_info() -> None:
     assert len(findings) == 1
     assert findings[0].severity is Severity.INFO
     assert findings[0].explanation == JUMP_INFO
-    assert findings[0].evidence == "2.92 % on 2026-10-07 after 2.62 % on 2026-10-06 (+30.0 bp)"
+    assert (
+        findings[0].evidence
+        == "2.920\u202f% on 2026-10-07 after 2.620\u202f% on 2026-10-06 (+30.0 bp)"
+    )
 
 
 def test_exactly_25_bp_is_not_flagged_and_exactly_50_bp_is_only_info() -> None:
@@ -87,8 +93,8 @@ def test_range_bounds_are_not_flagged() -> None:
     findings = check_range(outside, ECB_AAA_SPOT)
     assert [finding.severity for finding in findings] == [Severity.WARN, Severity.WARN]
     assert [finding.evidence for finding in findings] == [
-        "-2.01 % on 2026-10-06",
-        "8.01 % on 2026-10-07",
+        "\u22122.010\u202f% on 2026-10-06",
+        "8.010\u202f% on 2026-10-07",
     ]
 
 
@@ -100,7 +106,10 @@ def test_a_jump_skips_a_gap_to_the_previous_value() -> None:
     findings = check_jumps(series, friday, ECB_AAA_SPOT)
 
     assert len(findings) == 1
-    assert findings[0].evidence == "2.92 % on 2026-10-05 after 2.62 % on 2026-10-02 (+30.0 bp)"
+    assert (
+        findings[0].evidence
+        == "2.920\u202f% on 2026-10-05 after 2.620\u202f% on 2026-10-02 (+30.0 bp)"
+    )
 
 
 def test_the_first_value_has_no_jump() -> None:
@@ -148,10 +157,37 @@ def test_a_downward_move_is_flagged_like_an_upward_one() -> None:
 
     assert len(info) == 1
     assert info[0].severity is Severity.INFO
-    assert info[0].evidence == "2.62 % on 2026-10-07 after 2.92 % on 2026-10-06 (-30.0 bp)"
+    assert (
+        info[0].evidence
+        == "2.620\u202f% on 2026-10-07 after 2.920\u202f% on 2026-10-06 (\u221230.0 bp)"
+    )
     assert len(warn) == 1
     assert warn[0].severity is Severity.WARN
 
 
 def test_exactly_minus_25_bp_is_not_flagged() -> None:
     assert check_jumps([value(OCT_06, "2.87"), value(OCT_07, "2.62")], OCT_06, ECB_AAA_SPOT) == []
+
+
+def test_a_downward_move_of_1000_bp_or_more_is_signed_with_a_true_minus_and_a_separator() -> None:
+    findings = check_jumps([value(OCT_06, "26.40"), value(OCT_07, "2.62")], OCT_06, ECB_AAA_SPOT)
+
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.WARN
+    assert findings[0].evidence == (
+        "2.620\u202f% on 2026-10-07 after 26.400\u202f% on 2026-10-06 (\u22122,378.0 bp)"
+    )
+
+
+def test_a_yield_keeps_three_decimals_in_range_evidence() -> None:
+    findings = check_range([value(OCT_08, "8.125")], ECB_AAA_SPOT)
+
+    assert [finding.evidence for finding in findings] == ["8.125\u202f% on 2026-10-08"]
+
+
+def test_a_three_decimal_yield_is_shown_with_three_decimals_in_a_jump() -> None:
+    findings = check_jumps([value(OCT_06, "2.625"), value(OCT_07, "2.905")], OCT_06, ECB_AAA_SPOT)
+
+    assert [finding.evidence for finding in findings] == [
+        "2.905\u202f% on 2026-10-07 after 2.625\u202f% on 2026-10-06 (+28.0 bp)"
+    ]

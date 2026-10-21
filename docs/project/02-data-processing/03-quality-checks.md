@@ -16,7 +16,7 @@ The rules that check the published values of a curve, the severities and statuse
 - **Jumps** compare a value with the previous valid date that has a value for the same maturity, so a gap such as a weekend or a TARGET holiday is spanned. A previous value more than 31 days back is not compared.
 - **Weekends and TARGET holidays** have no values and are not flagged.
 - **Thresholds** are configuration per curve in the processing code. The simulated curve `ecb-aaa-spot-sim` uses the thresholds of the real curve.
-- **Explanations** are fixed texts per flag. They match "How users see it" in [[01-plausibility-thresholds]].
+- **Explanations** are fixed texts per flag. They match "How users see it" in [[01-plausibility-thresholds]]. Findings recorded before the number formats of the evidence texts changed (issue #225) keep their old evidence text until they are checked again.
 
 ## Completeness
 

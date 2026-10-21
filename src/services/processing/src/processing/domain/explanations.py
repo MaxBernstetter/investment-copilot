@@ -1,12 +1,14 @@
 """Explanations shown per flag. They match "How users see it" in the methodology note."""
 
 # docs/project/02-data-processing/01-plausibility-thresholds.md
-# The minus is the Unicode MINUS SIGN, as in the note.
+# The minus is the Unicode MINUS SIGN and the space before % is a NARROW NO-BREAK SPACE (U+202F),
+# as in the note. The escapes keep these characters visible in the source.
 _MINUS = "\N{MINUS SIGN}"
+_PCT = "\N{NARROW NO-BREAK SPACE}%"
 
 RANGE_WARN = (
-    f"Outside the plausible range of {_MINUS}2.00 % to 8.00 %. "
-    f"ECB AAA spot yields stayed between {_MINUS}1.00 % and 5.18 % since 2004."
+    f"Outside the plausible range of {_MINUS}2.00{_PCT} to 8.00{_PCT}. "
+    f"ECB AAA spot yields stayed between {_MINUS}1.00{_PCT} and 5.18{_PCT} since 2004."
 )
 JUMP_INFO = (
     "Moved more than 25 bp since the previous business day. "
