@@ -233,7 +233,7 @@
           "version_id": 1,
           "value": 1.74,
           "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
-          "evidence": "1.740 % on 2026-10-15 after 2.010 % on 2026-10-14 (−27.0 bp)"
+          "evidence": "1.740\u202f% on 2026-10-15 after 2.010\u202f% on 2026-10-14 (\u221227.0 bp)"
         }
       ]
     },
@@ -272,7 +272,7 @@
           "version_id": 1,
           "value": 3.375,
           "explanation": "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data.",
-          "evidence": "3.375 % on 2026-10-16 after 2.815 % on 2026-10-15 (+56.0 bp)"
+          "evidence": "3.375\u202f% on 2026-10-16 after 2.815\u202f% on 2026-10-15 (+56.0 bp)"
         },
         {
           "rule": "jump",
@@ -281,7 +281,7 @@
           "version_id": 1,
           "value": 3.43,
           "explanation": "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress.",
-          "evidence": "3.430 % on 2026-10-16 after 3.120 % on 2026-10-15 (+31.0 bp)"
+          "evidence": "3.430\u202f% on 2026-10-16 after 3.120\u202f% on 2026-10-15 (+31.0 bp)"
         }
       ]
     }
