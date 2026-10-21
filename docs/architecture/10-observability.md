@@ -51,6 +51,14 @@ Oracle exporter, Airflow (OTel metrics), Caddy, node/container exporters ──�
   - Locally the stack runs as the opt-in Compose profile `observability` (see [[09-deployment]]); Loki and notifications are not set up yet.
   - Collectors and exporters are swappable: moving to a managed backend (e.g. Grafana Cloud) only changes the collector exporter config.
 
+### Local profile and firing check
+
+- **Profile:** `task dev:obs:up` starts four services (the OpenTelemetry Collector, Prometheus, Tempo and Grafana) plus the one-shot `grafana-provisioning` step, on top of `dev:up` (see [[09-deployment]]).
+- **Connection:** the apis and jobs export OTLP to `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, set in `compose.observability.yaml`. Jobs export delta metrics.
+- **Provisioning:** the `grafana-provisioning` service copies every service's `observability/` folder into Grafana (dashboards and alert rules); datasources come from `src/observability/grafana/datasources.yaml`. Its list of services is in `src/observability/grafana/gather-provisioning.sh`; a missing or empty folder is skipped. Adding a service is one change: append its name to that list. Dashboards go to the folder `YieldLens` and reload every 30 s. Alert files are read once at Grafana start, so `task dev:obs:down dev:obs:up` reloads them.
+- **Firing check:** `task dev:obs:firing-check` proves that the `quality-warn` alert fires and clears. It runs on `ecb-aaa-spot-sim` for 2026-10-05 to 2026-10-08. The steps are: a gap and a bad value, the processing job, wait for `Alerting`; a late value and a correction, the job again, wait for `Normal`. It reads the Grafana rules API (`/api/prometheus/grafana/api/v1/rules`). Each wait allows 300 s, which covers the worst path of about 140 s: the OTLP export (60 s), the Prometheus scrape (15 s) and the rule evaluation (1 m). The rule must load within 60 s. The script stops early if the rule is already `Alerting`. A fresh stack is recommended for the PR run (`task dev:reset dev:up dev:obs:up`). The script never runs `dev:reset` and can be run again on an existing stack. It is manual and not part of CI.
+- Logs (Loki) and notifications ([#217](https://github.com/MaxBernstetter/yield-lens/issues/217)) are not set up yet.
+
 ## What each service applies (its "instance")
 
 Each service ships an `observability/` folder that the platform loads at startup:
@@ -60,6 +68,8 @@ Each service ships an `observability/` folder that the platform loads at startup
   - domain metrics
   - links to logs and traces
 - `alerts/*.yaml`: alert rules for its business and service-level alerts.
+
+The `grafana-provisioning` step at `task dev:obs:up` copies these folders into Grafana. The list of services is in `src/observability/grafana/gather-provisioning.sh`; a missing or empty folder does not stop startup. Adding a service means appending its name to that list. See [[09-deployment]] for the local profile and the firing check.
 - The service also documents its domain metrics and business alerts in its domain note under `docs/project/`.
 
 ## Conventions
