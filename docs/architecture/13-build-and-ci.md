@@ -80,9 +80,9 @@ Every task (format, lint, test, build, run, deploy) is run the same way by devel
 ### Images
 
 - Container images are named `ghcr.io/maxbernstetter/yield-lens-<service>` for `persistence`, `access`, `ingestion` and `processing`, and `yield-lens-caddy` for `caddy` (the live VM's entry point, which is no service), tagged only with the full 40-character commit SHA. Five images in total.
-- Published images are multi-arch (`linux/amd64` and `linux/arm64`); CI uses Docker Buildx with QEMU for arm64.
+- Published images are multi-arch (`linux/amd64` and `linux/arm64`); CI uses Docker Buildx with QEMU for arm64, except `caddy`, which cross-compiles in its Go builder stage.
 - Pull requests build and scan images but never push; only the `publish` job on pushes to `main` gets `packages: write` and pushes to GHCR.
-- There is no path filter: every commit on `main` gets a complete set of four images under the same SHA so deploys can pin any commit with one tag.
+- There is no path filter: every commit on `main` gets a complete set of five images under the same SHA so deploys can pin any commit with one tag.
 - After the amd64 image is built locally in Docker, Trivy scans it using `trivy.yaml` at the repository root (fixable HIGH and CRITICAL vulnerabilities fail the job). Accepted exceptions go in `.trivyignore` with a reason.
 - The `images: build and scan <service>` checks are not required on `main` yet; add them to the ruleset after they have been green for a while.
 - The Caddy image (`caddy`) follows the same rules as the services; its tasks are `caddy:image` and `caddy:image:scan`.

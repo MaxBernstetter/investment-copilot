@@ -50,7 +50,7 @@ compose() {
 
 check_config() {
 	local config public builds cors
-	config="$(compose --profile airflow --profile observability config --format json)" || fail "docker compose config failed"
+	config="$(compose --profile airflow --profile observability --profile tools config --format json)" || fail "docker compose config failed"
 	public="$(jq -r '.services | to_entries[] | .key as $s | (.value.ports // [])[] | select(.host_ip != "127.0.0.1") | "\($s):\(.published)"' <<<"$config" | sort | paste -sd ' ' -)"
 	[[ $public == "caddy:443 caddy:80" ]] || fail "only caddy may publish public ports (80, 443); found: ${public:-none}"
 	builds="$(jq -r '.services | to_entries[] | select(.value.build) | .key' <<<"$config" | paste -sd ' ' -)"
