@@ -63,6 +63,18 @@ tasks:
     cmds:
       - npm run build
 
+  build:pages:
+    desc: Build the bundle for GitHub Pages (base /yield-lens/); needs VITE_ACCESS_URL
+    deps: [generate]
+    vars:
+      COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo dev
+    env:
+      VITE_COMMIT: '{{.COMMIT}}'
+    cmds:
+      - npm run build -- --mode pages
+      - grep -q 'src="/yield-lens/assets/' dist/index.html
+
   size:
     desc: Check the bundle budget
     deps: [build]

@@ -38,6 +38,14 @@ Browser ──▶ GitHub Pages (React SPA)
 
 GitHub Actions publishes multi-arch service images as `ghcr.io/maxbernstetter/yield-lens-<service>:<commit sha>` (`linux/amd64` and `linux/arm64`) via `images.yml` on every push to `main`, after a Trivy scan. It also deploys the frontend to Pages and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].
 
+## Frontend on GitHub Pages
+
+- **Workflow:** `.github/workflows/pages.yml` runs on pushes to `main` that change the frontend, and on manual dispatch. Job `configured` reads `vars.VITE_ACCESS_URL` from the `github-pages` Environment; the variable is read in its own job because environment variables are not visible in a job-level `if` of the job that uses the environment. Jobs `build` (`task frontend:build:pages`, then the Pages artifact) and `deploy` (`actions/deploy-pages`) run only when it is set. Until then the run is skipped, not red. Set the variable to the VM domain without a trailing slash, e.g. `https://<subdomain>.duckdns.org`.
+- **Pages source:** a one-off repository setting, Settings → Pages → Source "GitHub Actions".
+- **Build:** `vite build --mode pages` sets the base to `/yield-lens/`. The Vite config refuses a Pages build without `VITE_ACCESS_URL`, and the task checks that the bundle references `/yield-lens/assets/`.
+- **CORS:** the VM allows only the Pages origin `https://maxbernstetter.github.io` (`ACCESS_CORS_ORIGINS`, set in the VM overlay, #182).
+- **Offline state:** when the VM is unreachable, the app shows "Backend offline" with a "Try again" button (see [[01-frontend]]). The page itself stays available.
+
 ## Backup
 
 Daily Data Pump exports of all schemas go to OCI Object Storage (Always Free), with a tested restore procedure. See [[0012-backup-and-restore]].

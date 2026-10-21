@@ -144,7 +144,7 @@ Each shown value can be traced to the versions it had, via `GET /v1/curves/{curv
 
 | Variable | Default | Use |
 |---|---|---|
-| `VITE_ACCESS_URL` | `http://localhost:8000` | Base URL of the `access` API, read at build time (`src/config.ts`) |
+| `VITE_ACCESS_URL` | `http://localhost:8000` | Base URL of the `access` API, read at build time (`src/config.ts`). Live: the `github-pages` Environment variable, the VM domain without trailing slash; the Pages build refuses to run without it |
 | `VITE_COMMIT` | `dev` | Short git commit shown in the footer; set by `frontend:build` (`git rev-parse --short HEAD`) |
 
 The version shown in the footer is `version` in `package.json` (`0.1.0`), defined at build time in `vite.config.ts`. See [Versioning](../../architecture/13-build-and-ci.md#versioning).
@@ -182,6 +182,10 @@ The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) an
 ## Offline state
 
 On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows "Loading…". Both states are inside the app shell, so the header and footer stay visible.
+
+## Hosting
+
+The live app is served by GitHub Pages at `https://maxbernstetter.github.io/yield-lens/`. `vite build --mode pages` (task `frontend:build:pages`) sets the base path to `/yield-lens/`; the dev server, `build`, `preview` and the e2e tests keep base `/`. The access API is the VM behind Caddy (see [[09-deployment]]). If the VM is down, the offline state above is shown. The workflow is `.github/workflows/pages.yml`; it is skipped until `VITE_ACCESS_URL` is set on the `github-pages` Environment.
 
 ## Layout
 
@@ -228,6 +232,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:typecheck` | `tsc -b` (app and Vite config) |
 | `frontend:test:unit` | Vitest, single run |
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
+| `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
 | `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S10, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
