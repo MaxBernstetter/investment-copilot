@@ -41,7 +41,7 @@ Every version of an observation is a row; rows are never updated in place except
 ## Marts (`PROC`)
 
 - Quality results of the `processing` service (see [[02-processing-service]] in the data processing project notes): `check_run` (one per curve, valid range and knowledge time; rerunning the same key replaces its children), `checked_day`, `value_quality` and `quality_finding`. `value_quality` refers to the persistence version it assessed by an opaque `version_id` with no foreign key, since CORE is another schema.
-- Consumer-ready marts: curves (current and as-of), spreads/slope, quality.
+- Consumer-ready marts: curves (current and as-of), quality. Derived measures are computed on read and not stored (see [[0020-derived-measures-computed-on-read]]).
 - They are built from data that processing reads via the persistence interfaces (bulk Arrow), never by cross-schema SQL.
 - Marts are partitioned and published by **write–audit–publish**: build into a staging table, validate, then partition exchange (see [[0011-validation-gates-and-wap]]).
 - At scale, refresh is incremental per affected partition (see [[08-scalability]]).
