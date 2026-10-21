@@ -58,6 +58,11 @@ tasks:
     cmds:
       - uv run --locked uvicorn --factory processing.api:create_app_from_environment --port {{.PORT}} --log-config log_config.json
 
+  openapi:
+    desc: Export the processing OpenAPI document
+    cmds:
+      - uv run --locked processing-openapi ../../contracts/openapi/processing/v1.json
+
   check-quality:
     desc: Run a quality check for CURVE between FROM and TO (inclusive valid dates)
     cmds:
