@@ -61,7 +61,7 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 - **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
 - **Key figures:** last, min and max yield (`formatYield`, 3 dp) and change over the range in basis points (`seriesStats` and `formatBp`, signed, true minus).
-- **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values.
+- **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, y-axis ticks at 3 dp without unit (the card title carries %), no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values.
 - **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
 - **Navigation:** the header tabs "Curve", "Time series", "Changes" and "Quality" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
