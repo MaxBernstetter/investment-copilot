@@ -83,3 +83,13 @@ comment on column quality_finding.maturity is 'Maturity of the value the finding
 comment on column quality_finding.version_id is 'Opaque persistence reference of the value; null for day-level findings; no foreign key';
 comment on column quality_finding.explanation is 'What the rule means, in words a user can read';
 comment on column quality_finding.evidence is 'The concrete facts that triggered the finding';
+
+--changeset yieldlens:proc-check-run-value-count
+--comment: Counts the values a run checked, and indexes the run history reads by run id and recorded time.
+alter table check_run add (value_count number(10) default 0 not null);
+update check_run r
+   set value_count = (select count(*) from value_quality v where v.check_run_id = r.check_run_id);
+create index check_run_run_ix on check_run (run_id, recorded_at, check_run_id);
+comment on column check_run.value_count is 'Values the run checked; equals its value_quality rows';
+--rollback drop index check_run_run_ix;
+--rollback alter table check_run drop column value_count;

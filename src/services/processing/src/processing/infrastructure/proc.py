@@ -1,6 +1,6 @@
 """Oracle adapter: the connection pool of the PROC schema and its health check."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -13,6 +13,7 @@ from opentelemetry.trace import SpanKind, Tracer
 from processing.application.alerts import LatestCheckRun
 from processing.config import DatabaseSettings
 from processing.domain.assessment import CheckedDay, DayStatus, QualityCheck, ValueStatus
+from processing.domain.check_run import CheckRunAttempt
 from processing.domain.quality import Finding, Rule, Severity, Status
 from processing.infrastructure.telemetry import trace_fields
 
@@ -200,6 +201,38 @@ class OracleQualityStore:
             for curve_id, recorded_at, warn_days in rows
         ]
 
+    async def list_check_runs(
+        self,
+        *,
+        recorded_from: datetime | None,
+        recorded_before: datetime | None,
+        before_check_run_id: int | None,
+        limit: int,
+    ) -> Sequence[CheckRunAttempt]:
+        async with self._session("get_runs") as connection:
+            result = await connection.cursor().callfunc(
+                "proc.proc_quality.get_runs",
+                oracledb.DB_TYPE_CURSOR,
+                keyword_parameters={
+                    "p_recorded_from": _naive_utc(recorded_from),
+                    "p_recorded_before": _naive_utc(recorded_before),
+                    "p_before_check_run_id": before_check_run_id,
+                    "p_limit": limit,
+                },
+            )
+            rows = await result.fetchall()
+        return [_check_run_attempt(row) for row in rows]
+
+    async def get_check_runs(self, run_id: str) -> Sequence[CheckRunAttempt]:
+        async with self._session("get_run") as connection:
+            result = await connection.cursor().callfunc(
+                "proc.proc_quality.get_run",
+                oracledb.DB_TYPE_CURSOR,
+                keyword_parameters={"p_run_id": run_id},
+            )
+            rows = await result.fetchall()
+        return [_check_run_attempt(row) for row in rows]
+
     async def current_time(self) -> datetime:
         async with self._session("current_time") as connection:
             now = await connection.cursor().callfunc(
@@ -266,6 +299,24 @@ def _bind_timestamp(cursor: oracledb.AsyncCursor, timestamp: datetime) -> oracle
 
 def _as_utc(timestamp: datetime) -> datetime:
     return timestamp.replace(tzinfo=UTC)
+
+
+def _naive_utc(moment: datetime | None) -> datetime | None:
+    """Oracle ``timestamp`` columns hold UTC without a zone."""
+    if moment is None:
+        return None
+    return moment.astimezone(UTC).replace(tzinfo=None)
+
+
+def _check_run_attempt(row: tuple[Any, ...]) -> CheckRunAttempt:
+    check_run_id, run_id, attempt, recorded_at, value_count = row
+    return CheckRunAttempt(
+        check_run_id=int(check_run_id),
+        run_id=str(run_id),
+        attempt=int(attempt),
+        recorded_at=_as_utc(recorded_at),
+        value_count=int(value_count),
+    )
 
 
 def _as_date(value: date | datetime) -> date:
