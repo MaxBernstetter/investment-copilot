@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check the local observability profile (task dev:obs:up): the apis and jobs get their OTEL_*
-# settings, Grafana provisions its datasources, and telemetrygen metrics and a trace reach
+# settings, Grafana provisions its datasources, dashboards and alert rules, and telemetrygen metrics and a trace reach
 # Prometheus and Tempo. Run it after dev:obs:up; task dev:obs:smoke runs it from src/deploy.
 #
 # Usage: dev-obs-smoke.sh
@@ -90,6 +90,14 @@ grafana_datasource() {
 	curl -fsS --max-time 5 -o /dev/null -u "admin:$GRAFANA_ADMIN_PASSWORD" "$grafana/api/datasources/uid/$1"
 }
 
+grafana_dashboard() {
+	curl -fsS --max-time 5 -o /dev/null -u "admin:$GRAFANA_ADMIN_PASSWORD" "$grafana/api/dashboards/uid/processing"
+}
+
+grafana_rule() {
+	curl -fsS --max-time 5 -o /dev/null -u "admin:$GRAFANA_ADMIN_PASSWORD" "$grafana/api/v1/provisioning/alert-rules/processing-quality-warn"
+}
+
 check_retention() {
 	local flags
 	flags=$(curl -fsS --max-time 5 "$prometheus/api/v1/status/flags")
@@ -148,6 +156,8 @@ wait_for "Prometheus ready" prometheus_ready
 wait_for "Tempo ready" tempo_ready
 wait_for "Grafana datasource prometheus" grafana_datasource prometheus
 wait_for "Grafana datasource tempo" grafana_datasource tempo
+wait_for "Grafana dashboard processing" grafana_dashboard
+wait_for "Grafana alert rule processing-quality-warn" grafana_rule
 check_retention
 check_metrics
 check_trace

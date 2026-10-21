@@ -1,0 +1,15 @@
+# Dashboard provider for the local observability profile. The dashboards are gathered from every
+# service's observability/dashboards by gather-provisioning.sh and reload every 30 s.
+apiVersion: 1
+
+providers:
+  - name: yieldlens
+    orgId: 1
+    folder: YieldLens
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

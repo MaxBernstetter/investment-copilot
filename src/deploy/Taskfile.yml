@@ -150,7 +150,7 @@ tasks:
   obs:down:
     desc: Stop the observability profile (keeps its data), restart the apis without OTEL_* and, when it runs, the Airflow scheduler without OTEL_*
     cmds:
-      - docker compose -f compose.yaml --profile observability down otel-collector prometheus tempo grafana
+      - docker compose -f compose.yaml --profile observability down otel-collector prometheus tempo grafana grafana-provisioning
       - docker compose -f compose.yaml up --detach --wait persistence processing access ingestion-api
       - task: airflow:scheduler:recreate
         vars: {COMPOSE_FILE: compose.yaml}

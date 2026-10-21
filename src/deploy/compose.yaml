@@ -362,15 +362,34 @@ services:
     ports:
       - 127.0.0.1:3200:3200
 
+  # Copies every service's observability/ folder into the volumes Grafana provisions from; Grafana's
+  # alerting provisioning reads one flat directory, so the folders cannot be mounted directly.
+  grafana-provisioning:
+    profiles: [observability]
+    image: grafana/grafana:13.2.4
+    user: "0"
+    entrypoint: [/bin/sh, /yieldlens/gather-provisioning.sh]
+    volumes:
+      - ../observability/grafana/gather-provisioning.sh:/yieldlens/gather-provisioning.sh:ro
+      - ../services:/yieldlens/services:ro
+      - grafana-alerting:/out/alerting
+      - grafana-dashboards:/out/dashboards
+
   grafana:
     profiles: [observability]
     image: grafana/grafana:13.2.4
+    depends_on:
+      grafana-provisioning:
+        condition: service_completed_successfully
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
     volumes:
       - ../observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ../observability/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - grafana-alerting:/etc/grafana/provisioning/alerting:ro
+      - grafana-dashboards:/var/lib/grafana/dashboards:ro
     ports:
       # 3300 on the host: port 3000 is often taken by other local Grafana stacks
       - 127.0.0.1:3300:3000
@@ -380,3 +399,5 @@ volumes:
   airflow-postgres-data:
   prometheus-data:
   tempo-data:
+  grafana-alerting:
+  grafana-dashboards:
