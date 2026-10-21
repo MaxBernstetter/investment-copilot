@@ -62,7 +62,7 @@ The live VM runs the Compose stack from `src/deploy/compose.yaml` and `compose.o
 
 Open the admin UIs with an SSH tunnel, for example `ssh -L 8088:127.0.0.1:8088 -L 3300:127.0.0.1:3300 <user>@<vm>`.
 
-**Caddy.** Caddy terminates TLS with a Let's Encrypt certificate for `YIELDLENS_DOMAIN` (a DuckDNS subdomain). It limits each client IP to 120 requests per minute (`caddy-ratelimit`; the limit is a constant in the Caddyfile) and proxies every path to `access` only. The image is built with `caddy-ratelimit`, which the stock image lacks; it pins `golang.org/x/net` to the fixed release and uses a Go builder at 1.27.2 or later.
+**Caddy.** Caddy terminates TLS with a Let's Encrypt certificate for `YIELDLENS_DOMAIN` (a DuckDNS subdomain). It limits each client IP to 120 requests per minute (`caddy-ratelimit`; the limit is a constant in the Caddyfile) and proxies every path to `access` only. The image is built with `caddy-ratelimit`, which the stock image lacks; it pins `golang.org/x/net` to the fixed release and uses a Go builder at 1.27.3 or later.
 
 **CORS.** `ACCESS_CORS_ORIGINS` is fixed to `https://maxbernstetter.github.io`, the Pages origin, in the overlay.
 
