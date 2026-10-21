@@ -8,6 +8,7 @@ import {
   newestFirst,
   qualityStats,
   rangeError,
+  ruleLabel,
   sortFindings,
   uncheckedRuleLabels,
   type QualityDay,
@@ -106,6 +107,23 @@ describe('sortFindings', () => {
       ['info', '10Y'],
       ['info', 'XX'],
     ])
+  })
+})
+
+describe('ruleLabel', () => {
+  it('ruleLabel maps known rules and passes unknown rules through', () => {
+    expect(ruleLabel('missing-date')).toBe('Missing date')
+    expect(ruleLabel('curvature')).toBe('curvature')
+  })
+})
+
+describe('sortFindings value flags', () => {
+  it('sortFindings orders value flags without maturity by severity', () => {
+    const sorted = sortFindings([
+      { rule: 'jump', severity: 'info', explanation: '', evidence: '' },
+      { rule: 'range', severity: 'warn', explanation: '', evidence: '' },
+    ])
+    expect(sorted.map((flag) => flag.rule)).toEqual(['range', 'jump'])
   })
 })
 

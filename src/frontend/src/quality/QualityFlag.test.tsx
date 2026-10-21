@@ -67,6 +67,11 @@ describe('QualityFlag', () => {
     expect(link).toHaveAttribute('target', '_blank')
   })
 
+  it('shows an unknown rule by its raw name', () => {
+    render(<QualityFlag finding={{ rule: 'curvature', severity: 'info', maturity: '10Y', explanation: '', evidence: '' }} />)
+    expect(screen.getByRole('button', { name: 'curvature · info, 10Y' })).toBeInTheDocument()
+  })
+
   it('aria-label names the maturity', () => {
     render(<QualityFlag finding={finding} />)
     expect(screen.getByRole('button', { name: 'Range · warn, 10Y' })).toBeInTheDocument()
