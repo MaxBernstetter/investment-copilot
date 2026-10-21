@@ -31,8 +31,8 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
 - **Valid date:** in the page header, with an info tooltip (ECB business day). Picking a date refetches for that date. Clearing the input returns to the latest curve.
 - **Key figures:** 10Y yield (`formatYield`, 3 dp), 2Y–10Y spread in basis points (`spread2s10s` and `formatBp`, signed), curve date and knowledge (`Live` or `formatUtc(asOf)`).
-- **Gaps:** maturities without a published value (`value: null`) are plotted as gaps, not zeros, and listed in dimmed text under the chart ("No value for: …"). Points keep the API's grid order.
-- **Values table:** every grid maturity with yield to three decimals and a subtle "History" row action (`aria-label` "History {maturity}").
+- **Gaps and flags:** maturities without a published value (`value: null`) are plotted as gaps, not zeros. Dimmed captions under the chart list them ("No value for: …") and the maturities with an info or warn flag ("Flagged: …", `flaggedMaturities`), in grid order. The chart has no quality marks. Points keep the API's grid order.
+- **Values table:** every grid maturity with yield to three decimals, its quality and a subtle "History" row action (`aria-label` "History {maturity}"), in a `Table.ScrollContainer` with a minimum width of 560 px. The Quality column (`ValueQualityCell`) shows one flag badge per flag (Q1, warnings first, `aria-label` "{rule} · {severity}, {maturity}"). Its popover shows the API's explanation and evidence and links to the methodology note. Info or warn without flags shows a static status badge, an unchecked value a static "Unchecked" badge, a passed value only a visually hidden "Passed", and a missing value nothing. When a value is unchecked, `UncheckedNote` under the table explains it and links "How we check this". The key figures and the history drawer show no quality.
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
 
@@ -51,7 +51,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 | `src/curve/CurveView.tsx` | Curve page: header actions, stat cards, chart and values cards |
 | `src/curve/CurveChart.tsx` | Mantine line chart, one line per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
-| `src/curve/curveData.ts` | Chart series, missing maturities, `yield10y`, `spread2s10s` |
+| `src/curve/curveData.ts` | Chart series, missing and flagged maturities, `yield10y`, `spread2s10s` |
 
 ## Time series
 
@@ -120,8 +120,10 @@ The "Quality" tab shows the plausibility and completeness checks per TARGET busi
 |---|---|
 | `src/quality/QualityView.tsx` | Data quality page: range controls, state messages, stat cards, filter and day table |
 | `src/quality/fetchQuality.ts` | API call and mapping of responses to `QualityResult` |
-| `src/quality/qualityData.ts` | Stats, filters, finding order, unchecked rule labels, default range and range validation |
+| `src/quality/qualityData.ts` | Stats, filters, finding order, rule labels, unchecked rule labels, default range and range validation |
 | `src/quality/QualityFlag.tsx` | Flag badge with its explanation popover |
+| `src/quality/ValueQualityCell.tsx` | Quality cell of a table value: flag badges, a static status badge or nothing |
+| `src/quality/UncheckedNote.tsx` | Note under a table that explains Unchecked |
 | `src/quality/HowWeCheck.tsx` | "How we check" method card with one accordion item per rule |
 
 ## Version history files
@@ -234,7 +236,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S10, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S16, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

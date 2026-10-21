@@ -20,9 +20,11 @@ import { IconInfoCircle } from '@tabler/icons-react'
 import StatCard from '../components/StatCard'
 import { formatBp, formatUtc, formatYield } from '../format'
 import PageHeader from '../layout/PageHeader'
+import UncheckedNote from '../quality/UncheckedNote'
+import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
-import { missingMaturities, spread2s10s, yield10y, type LabelledCurve } from './curveData'
+import { flaggedMaturities, missingMaturities, spread2s10s, yield10y, type LabelledCurve } from './curveData'
 import { curveById } from './curves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 
@@ -91,6 +93,8 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
 
   const points = result?.kind === 'ok' ? result.curve.data.points : []
   const missing = result?.kind === 'ok' ? missingMaturities(points) : []
+  const flagged = flaggedMaturities(points)
+  const hasUnchecked = points.some((point) => point.quality?.status === 'unchecked')
 
   const y10 = yield10y(points)
   const spread = spread2s10s(points)
@@ -160,21 +164,23 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
             </Card.Section>
             <Card.Section inheritPadding py="md">
               <CurveChart curves={curves} />
-              {missing.length > 0 && (
-                <Text size="sm" c="dimmed" mt="sm">
-                  No value for: {missing.join(', ')}
-                </Text>
+              {(missing.length > 0 || flagged.length > 0) && (
+                <Stack gap={4} mt="sm">
+                  {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}
+                  {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
+                </Stack>
               )}
             </Card.Section>
           </Card>
           <Card>
             <Title order={2} mb="md">Values</Title>
-            <Table.ScrollContainer minWidth={400}>
+            <Table.ScrollContainer minWidth={560}>
               <Table>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th scope="col">Maturity</Table.Th>
                     <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
+                    <Table.Th scope="col">Quality</Table.Th>
                     <Table.Th scope="col" />
                   </Table.Tr>
                 </Table.Thead>
@@ -184,6 +190,9 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
                       <Table.Td>{point.maturity}</Table.Td>
                       <Table.Td ta="right">
                         {point.value === null ? EMPTY : formatYield(point.value)}
+                      </Table.Td>
+                      <Table.Td>
+                        <ValueQualityCell quality={point.quality} maturity={point.maturity} />
                       </Table.Td>
                       <Table.Td>
                         {point.value !== null && (
@@ -202,6 +211,7 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
+            {hasUnchecked && <UncheckedNote />}
           </Card>
           <VersionHistory
             curveId={curveId}
