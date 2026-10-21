@@ -6,6 +6,7 @@ import CurveChart from './CurveChart'
 import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchVersions } from '../versions/fetchVersions'
+import type { ValueQuality } from '../quality/qualityData'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -25,7 +26,12 @@ const mockedChart = vi.mocked(CurveChart)
 
 const passedQuality = { status: 'passed' as const, flags: [] }
 
-function curveResult(validDate: string, values: (number | null)[]): CurveResult {
+/** qualities[i], when given, replaces the default quality of grid point i. */
+function curveResult(
+  validDate: string,
+  values: (number | null)[],
+  qualities?: (ValueQuality | null)[],
+): CurveResult {
   const grid = ['3M', '1Y', '2Y', '10Y', '15Y', '20Y']
   const months = [3, 12, 24, 120, 180, 240]
   return {
@@ -40,7 +46,7 @@ function curveResult(validDate: string, values: (number | null)[]): CurveResult 
           value: values[i],
           version_id: values[i] === null ? null : 1,
           origin: 'published' as const,
-          quality: values[i] === null ? null : passedQuality,
+          quality: qualities?.[i] !== undefined ? qualities[i] : values[i] === null ? null : passedQuality,
         })),
       },
       meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
@@ -146,6 +152,78 @@ describe('CurveView', () => {
     await renderLoaded()
 
     expectStatValue('2Y–10Y spread', '−40.0 bp')
+  })
+
+  it('values table has a Quality column after Yield', async () => {
+    await renderLoaded()
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent)
+    expect(headers).toEqual(['Maturity', 'Yield (%)', 'Quality', ''])
+  })
+
+  it('shows flag badges in the 10Y row before History', async () => {
+    const range = { rule: 'range', severity: 'warn' as const, explanation: 'Out of range.', evidence: '26.400 % on 2026-10-16' }
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 26.4, null, null], [
+        null,
+        null,
+        null,
+        { status: 'warn', flags: [range] },
+        null,
+        null,
+      ]),
+    )
+    await renderLoaded()
+
+    const row = screen.getByRole('button', { name: 'History 10Y' }).closest('tr')
+    expect(row).not.toBeNull()
+    const names = within(row!).getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent)
+    expect(names).toEqual(['Range · warn, 10Y', 'History 10Y'])
+  })
+
+  it('captions list flagged maturities under the chart', async () => {
+    const range = { rule: 'range', severity: 'warn' as const, explanation: 'Out of range.', evidence: '26.400 % on 2026-10-16' }
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 26.4, null, null], [
+        null,
+        null,
+        null,
+        { status: 'warn', flags: [range] },
+        null,
+        null,
+      ]),
+    )
+    await renderLoaded()
+
+    expect(screen.getByText('Flagged: 10Y')).toBeInTheDocument()
+  })
+
+  it('no flagged caption when all values pass', async () => {
+    await renderLoaded()
+
+    expect(screen.queryByText(/^Flagged:/)).toBeNull()
+  })
+
+  it('shows the unchecked note only when a value is unchecked', async () => {
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null], [
+        { status: 'unchecked', flags: [] },
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]),
+    )
+    await renderLoaded()
+
+    expect(screen.getByText('Unchecked means the quality checks have not run on the value yet.')).toBeInTheDocument()
+  })
+
+  it('no unchecked note when all values are checked', async () => {
+    await renderLoaded()
+
+    expect(screen.queryByText('Unchecked means the quality checks have not run on the value yet.')).toBeNull()
   })
 
   it('marks missing points', async () => {

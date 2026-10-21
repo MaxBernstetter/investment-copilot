@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { missingMaturities, overlayRows, overlaySeries, spread2s10s, yield10y, type CurvePoint } from './curveData'
+import { flaggedMaturities, missingMaturities, overlayRows, overlaySeries, spread2s10s, yield10y, type CurvePoint } from './curveData'
 
 const passed = { status: 'passed' as const, flags: [] }
 
@@ -37,6 +37,18 @@ describe('curveData', () => {
     ]
     expect(spread2s10s(with2y)).toBeCloseTo(10)
     expect(spread2s10s([with2y[0], { ...with2y[1], value: 2.4 }])).toBeCloseTo(-10)
+  })
+
+  it('flaggedMaturities lists info and warn maturities in grid order', () => {
+    const flag = { rule: 'range', severity: 'warn' as const, explanation: '', evidence: '' }
+    const grid: CurvePoint[] = [
+      { maturity: '3M', months: 3, value: 2.1, version_id: 1, origin: 'published', quality: passed },
+      { maturity: '2Y', months: 24, value: 2.3, version_id: 1, origin: 'published', quality: { status: 'info', flags: [] } },
+      { maturity: '5Y', months: 60, value: 2.5, version_id: 1, origin: 'published', quality: { status: 'unchecked', flags: [] } },
+      { maturity: '10Y', months: 120, value: 26.4, version_id: 1, origin: 'published', quality: { status: 'warn', flags: [flag] } },
+      { maturity: '15Y', months: 180, value: null, version_id: null, origin: 'published', quality: null },
+    ]
+    expect(flaggedMaturities(grid)).toEqual(['2Y', '10Y'])
   })
 
   it('one series per curve named by valid date', () => {

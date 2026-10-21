@@ -33,6 +33,13 @@ export function missingMaturities(points: CurvePoint[]): string[] {
   return points.filter((point) => point.value === null).map((point) => point.maturity)
 }
 
+/** Maturities whose value has an info or warn flag, in grid order. */
+export function flaggedMaturities(points: CurvePoint[]): string[] {
+  return points
+    .filter((point) => point.quality?.status === 'info' || point.quality?.status === 'warn')
+    .map((point) => point.maturity)
+}
+
 const yieldAt = (points: CurvePoint[], maturity: string): number | undefined => {
   const value = points.find((point) => point.maturity === maturity)?.value
   return value === null || value === undefined ? undefined : value
