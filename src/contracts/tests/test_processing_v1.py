@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from contracts.processing.v1 import (
     Finding,
+    MeasuresResponse,
     QualityDay,
     QualityStatus,
     Rule,
@@ -77,3 +78,58 @@ def test_unknown_fields_are_rejected() -> None:
                 "unexpected": 1,
             }
         )
+
+
+def measures_response(**point_overrides: Any) -> dict[str, Any]:
+    point: dict[str, Any] = {
+        "valid_date": "2026-10-08",
+        "spread_2y_10y": 66.0,
+        "spread_3m_10y": 71.0,
+        "curvature_2y_5y_10y": None,
+        "inverted": False,
+        "inputs": [
+            {"maturity": "3M", "value": 1.9, "version_id": 1, "status": "passed"},
+            {"maturity": "2Y", "value": 1.95, "version_id": 2, "status": "passed"},
+            {"maturity": "10Y", "value": 2.61, "version_id": 4, "status": "warn"},
+        ],
+        "missing": ["5Y"],
+        "quality": {"status": "warn", "flagged": ["10Y"]},
+    }
+    return {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-10-08",
+            "valid_to": "2026-10-08",
+            "points": [point | point_overrides],
+        },
+        "meta": {"as_of": "2026-10-09T08:00:00Z", "method_version": "1"},
+    }
+
+
+def test_a_measures_response_round_trips_json() -> None:
+    response = MeasuresResponse.model_validate(measures_response())
+
+    point = response.data.points[0]
+    assert point.curvature_2y_5y_10y is None
+    assert point.missing == ["5Y"]
+    assert point.quality.flagged == ["10Y"]
+    assert point.inputs[2].status is QualityStatus.WARN
+    assert MeasuresResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_measure_points_reject_unknown_fields() -> None:
+    with pytest.raises(ValidationError):
+        MeasuresResponse.model_validate(measures_response(unexpected=1))
+
+
+def test_measure_values_reject_nan() -> None:
+    with pytest.raises(ValidationError):
+        MeasuresResponse.model_validate(measures_response(spread_2y_10y=float("nan")))
+
+
+def test_measures_meta_requires_a_timezone() -> None:
+    body = measures_response()
+    body["meta"]["as_of"] = "2026-10-09T08:00:00"
+
+    with pytest.raises(ValidationError):
+        MeasuresResponse.model_validate(body)
