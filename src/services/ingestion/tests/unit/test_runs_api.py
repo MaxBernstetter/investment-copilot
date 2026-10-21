@@ -44,7 +44,7 @@ def _client(runs: StubRunHistory) -> TestClient:
         async def ready() -> bool:
             return True
 
-        yield Services(ready, runs)
+        yield Services(ready, runs, runs)
 
     return TestClient(create_app(services))
 

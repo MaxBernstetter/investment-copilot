@@ -26,13 +26,15 @@ async def _unreachable() -> bool:
 
 @asynccontextmanager
 async def _services() -> AsyncIterator[Services]:
-    yield Services(_reachable, StubRunHistory())
+    runs = StubRunHistory()
+    yield Services(_reachable, runs, runs)
 
 
 def _client(is_ready: Callable[[], Awaitable[bool]] = _reachable) -> TestClient:
     @asynccontextmanager
     async def services() -> AsyncIterator[Services]:
-        yield Services(is_ready, StubRunHistory())
+        runs = StubRunHistory()
+        yield Services(is_ready, runs, runs)
 
     return TestClient(create_app(services))
 
