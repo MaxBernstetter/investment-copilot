@@ -17,7 +17,7 @@ A spread of exactly zero is not inverted. The inputs are the four maturities 3M,
 
 ## Method version
 
-Every result carries `method_version` (currently `"1"`). Any change to a formula or to the input set bumps the version and is documented on this page. A consumer that stored a result can tell which definition produced it.
+Every result carries `method_version` (currently `"1"`). A changed definition gets a new measure id; an existing id never changes meaning. `method_version` is bumped and the change is documented on this page. A consumer that stored a result can tell which definition produced it.
 
 ## Missing inputs
 
@@ -34,7 +34,7 @@ A measure is still computed when one of its inputs has a quality flag. The point
 
 ## As-of
 
-Inputs and their quality are read at one effective as-of time, so a measure reflects the same knowledge state as the curve it is built from. The effective time is the requested `as_of` capped at the knowledge horizon: a time later than the horizon is answered at the horizon. The result's `as_of` is that effective time. Corrections made later are visible only to reads at or after their knowledge time (see [[0017-commit-safe-knowledge-time]] and [[0019-quality-results-as-of-checked-knowledge-time]]).
+Inputs and their quality are read at one effective as-of time, so a measure reflects the same knowledge state as the curve it is built from. The effective time is the requested `as_of` capped at the knowledge horizon: a time later than the horizon is answered at the horizon. The result's `as_of` is that effective time. An `as_of` later than the database clock is rejected with 422. Corrections made later are visible only to reads at or after their knowledge time (see [[0017-commit-safe-knowledge-time]] and [[0019-quality-results-as-of-checked-knowledge-time]]).
 
 ## Range
 

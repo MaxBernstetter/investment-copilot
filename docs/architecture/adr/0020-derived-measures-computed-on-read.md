@@ -24,4 +24,4 @@ Option (a). Processing computes the measures on read with one pure function per 
 - As-of reproducibility follows from the bitemporal inputs and the knowledge clock: a read at `T` gives the same measures for as long as the inputs known at `T` do not change.
 - The cost per request is bounded by the 3660-day range and the four input maturities; no interpolation or configurable method keeps the calculation small.
 - Storing measures later (a mart) needs a new ADR, once a measured need exists. Until then the table set does not grow.
-- A change to a formula or the input set bumps `method_version` and is documented in [[04-derived-measures]].
+- A changed definition gets a new measure id; an existing id never changes meaning. `method_version` is bumped and the change is documented in [[04-derived-measures]].
