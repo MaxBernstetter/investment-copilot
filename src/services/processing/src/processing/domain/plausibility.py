@@ -5,6 +5,7 @@ from datetime import date
 from itertools import pairwise
 
 from processing.domain.explanations import JUMP_INFO, JUMP_WARN, RANGE_WARN
+from processing.domain.formatting import format_bp, format_yield
 from processing.domain.quality import Finding, Rule, Severity, Value
 from processing.domain.rule_config import PlausibilityThresholds
 
@@ -26,7 +27,7 @@ def check_range(values: Iterable[Value], t: PlausibilityThresholds) -> list[Find
                     version_id=value.version_id,
                     value=value.value,
                     explanation=RANGE_WARN,
-                    evidence=f"{value.value:.2f} % on {value.valid_date}",
+                    evidence=f"{format_yield(value.value)} on {value.valid_date}",
                 )
             )
     return findings
@@ -65,9 +66,9 @@ def check_jumps(
                 value=current.value,
                 explanation=explanation,
                 evidence=(
-                    f"{current.value:.2f} % on {current.valid_date} "
-                    f"after {previous.value:.2f} % on {previous.valid_date} "
-                    f"({delta_bp:+.1f} bp)"
+                    f"{format_yield(current.value)} on {current.valid_date} "
+                    f"after {format_yield(previous.value)} on {previous.valid_date} "
+                    f"({format_bp(float(delta_bp))})"
                 ),
             )
         )

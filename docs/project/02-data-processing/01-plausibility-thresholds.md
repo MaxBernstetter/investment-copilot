@@ -55,7 +55,7 @@ The thresholds are configuration per curve. The simulated curve `ecb-aaa-spot-si
 
 Every flag in the explorer carries a short explanation that states the rule and the evidence, for example:
 
-- **Range (warn):** "Outside the plausible range of −2.00 % to 8.00 %. ECB AAA spot yields stayed between −1.00 % and 5.18 % since 2004."
+- **Range (warn):** "Outside the plausible range of −2.00 % to 8.00 %. ECB AAA spot yields stayed between −1.00 % and 5.18 % since 2004."
 - **Jump (info):** "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress."
 - **Jump (warn):** "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data."
 - **Missing date (warn):** "No value was published for this TARGET business day."
