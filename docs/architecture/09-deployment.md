@@ -34,6 +34,44 @@ Browser ──▶ GitHub Pages (React SPA)
   - **Observability (opt-in):** `task dev:obs:up` starts the `observability` Compose profile on top of `dev:up`, and restarts the persistence, processing, access and ingestion apis with `OTEL_*` settings. `task dev:obs:down` stops the profile (keeps its data) and restarts the apis without `OTEL_*`. `task dev:obs:smoke` checks the wiring, the Grafana datasources, OTLP metrics and a trace (telemetrygen) and needs the profile up. The profile has four services: an OpenTelemetry Collector (internal only, OTLP on 4317/4318), Prometheus, Tempo and Grafana. Grafana is at `http://127.0.0.1:3300` (port 3000 is often taken by other local Grafana stacks), user `admin`, password `GRAFANA_ADMIN_PASSWORD` (the Taskfile sets a local default). Prometheus (9090) and Tempo (3200) are bound to 127.0.0.1 as well. `compose.observability.yaml` adds the `OTEL_*` settings to the apis and the `ingestion` and `processing-job` services; the Taskfile sets `COMPOSE_FILE` to include it only while the collector runs, so plain `dev:up` stays unchanged. Jobs export delta metrics and the collector converts them to cumulative (`deltatocumulative`) and drops `service.instance.id` so short-lived jobs do not create one series per run. Retention is 15 d for metrics and 3 d for traces. Logs and notifications are not set up yet. It also sets `YIELDLENS_JOB_OTEL_ENDPOINT` on `airflow-scheduler`; when it is non-empty, the scheduler passes `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` (`ingestion-job`, `processing-job`) and delta temporality to the job containers it starts on `yieldlens-dev_default`. `task dev:obs:up` and `dev:obs:down` recreate the scheduler when it runs, so the setting follows the profile. Measured idle RAM of the four services: about 570 MB in total (`docker stats`, 2 minutes after the corrected-yield scenario: collector 89 MiB, Prometheus 56 MiB, Tempo 79 MiB, Grafana 316 MiB). Grafana provisions the services' dashboards and alert rules ([[10-observability]]). `task dev:obs:firing-check` proves that `quality-warn` fires and clears (manual, not CI).
 - **Live:** the Compose stack on the VM with `compose.vm.yaml` (see [Live VM](#live-vm)), plus the frontend on Pages.
 
+## Live VM
+
+The live VM runs the Compose stack from `src/deploy/compose.yaml` and `compose.observability.yaml`, with the overlay `src/deploy/compose.vm.yaml` on top (the VM sets `COMPOSE_FILE` to all three). Files:
+
+- `src/deploy/compose.vm.yaml`: the overlay (GHCR images, Caddy, CORS, restart policy, network name).
+- `src/deploy/vm.env.example`: the template for the VM `.env`. The real file is `/opt/yieldlens/.env` (chmod 600), outside the checkout; it is never committed, and all VM configuration comes from it.
+- `src/deploy/caddy/`: the Caddy image (`Dockerfile`, `Caddyfile`, `Taskfile.yml`).
+- `src/scripts/deploy-vm.sh`: the deploy steps, called through the `deploy:*` tasks in `src/deploy/Taskfile.vm.yml`.
+
+**Images and tag.** The VM never builds. Every service image is pulled from GHCR as `ghcr.io/maxbernstetter/yield-lens-<service>:<tag>`, and `YIELDLENS_TAG` is the full commit SHA that `images.yml` published; the deploy script sets it from the checkout, so images and migrations come from the same commit. The Caddy image `yield-lens-caddy` is published by the same workflow and scanned by Trivy. `task deploy:config` fails if any service would still build.
+
+**Project and network.** The Compose project is `yieldlens`, and its default network is `${YIELDLENS_DOCKER_NETWORK}` (default `yieldlens_default`). The Airflow job runner reads the same variable, so jobs join the network of the VM stack. The dev stack is `yieldlens-dev` and never clashes with it.
+
+**Profiles.** The `airflow` and `observability` profiles run on the VM as on the dev stack. The job images `ingestion` and `processing-job` are not long-running; Airflow starts them on demand.
+
+**Ports.** Only Caddy publishes public ports. Every other port is bound to `127.0.0.1` and is reached through an SSH tunnel.
+
+| Port | Bind | Service |
+|---|---|---|
+| 80, 443 | all interfaces (TCP) | Caddy only |
+| 8000 | 127.0.0.1 | access (read-only API) |
+| 8001, 8002, 8003 | 127.0.0.1 | persistence, processing, ingestion api |
+| 1521 | 127.0.0.1 | Oracle |
+| 8088 | 127.0.0.1 | Airflow UI |
+| 3300, 9090, 3200 | 127.0.0.1 | Grafana, Prometheus, Tempo |
+
+Open the admin UIs with an SSH tunnel, for example `ssh -L 8088:127.0.0.1:8088 -L 3300:127.0.0.1:3300 <user>@<vm>`.
+
+**Caddy.** Caddy terminates TLS with a Let's Encrypt certificate for `YIELDLENS_DOMAIN` (a DuckDNS subdomain). It limits each client IP to 120 requests per minute (`caddy-ratelimit`; the limit is a constant in the Caddyfile) and proxies every path to `access` only. The image is built with `caddy-ratelimit`, which the stock image lacks; it pins `golang.org/x/net` to the fixed release and uses a Go builder at 1.27.2 or later.
+
+**CORS.** `ACCESS_CORS_ORIGINS` is fixed to `https://maxbernstetter.github.io`, the Pages origin, in the overlay.
+
+**Secrets and environment.** The Airflow secrets (database password, Fernet key, JWT secret, admin password) and all other passwords come from the `.env`. The dev Taskfile defaults never reach the VM: Compose runs with `env -i` and only the env file.
+
+**Restarts.** The long-running services use `restart: unless-stopped`.
+
+**Check.** `task deploy:config` validates the overlay with the placeholders of `vm.env.example` (ports, builds, CORS, `caddy validate` with the local Caddy image). CI runs it as the job `deploy: config`. The overlay uses `!reset`, which needs Docker Compose 2.24.4 or later.
+
 ## Delivery
 
 GitHub Actions publishes multi-arch service images as `ghcr.io/maxbernstetter/yield-lens-<service>:<commit sha>` (`linux/amd64` and `linux/arm64`) via `images.yml` on every push to `main`, after a Trivy scan. It also deploys the frontend to Pages and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].
