@@ -1,0 +1,39 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: processing
+    folder: YieldLens
+    interval: 1m
+    rules:
+      - uid: processing-quality-warn
+        title: quality-warn
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: max by (curve) (yl_processing_alert_active{alert="quality-warn"})
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          alert: quality-warn
+          service: processing
+          severity: warning
+        annotations:
+          summary: "Quality check found a warn on curve {{ $labels.curve }}"
+          description: "The latest check run of {{ $labels.curve }} has at least one day with status warn."
+          runbook_url: https://github.com/MaxBernstetter/yield-lens/blob/main/docs/project/02-data-processing/02-processing-service.md#runbook-quality-warn
+          __dashboardUid__: processing
+          __panelId__: "10"
