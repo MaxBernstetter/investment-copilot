@@ -5,6 +5,7 @@ description = "YieldLens persistence service: the bitemporal core (CORE schema)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115",
+    "opentelemetry-api>=1.30",
     "oracledb>=3.0",
     "pydantic-settings>=2.8",
     "python-json-logger>=3.3",

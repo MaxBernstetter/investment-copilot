@@ -1,5 +1,6 @@
 """REST facade (``api`` process type): the write interface plus liveness and readiness."""
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from contracts.persistence import v1
 from fastapi import Depends, FastAPI, Path, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
 from pydantic import AwareDatetime
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
@@ -30,6 +32,7 @@ from persistence.facade.mapping import (
 )
 
 PROBLEM_JSON = "application/problem+json"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +248,31 @@ def _add_problem_handlers(app: FastAPI) -> None:
             "recorded. Send the batch again.",
         )
 
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, error: Exception) -> JSONResponse:
+        trace_fields = _trace_fields()
+        logger.exception(
+            "Unexpected error",
+            extra={
+                "event": "unexpected_error",
+                "method": request.method,
+                "path": request.url.path,
+            }
+            | trace_fields,
+        )
+        return _problem(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Internal server error",
+            "An unexpected error occurred.",
+            **trace_fields,
+        )
+
 
 def _problem(status_code: int, title: str, detail: str, **extensions: Any) -> JSONResponse:
     body = {"type": "about:blank", "title": title, "status": status_code, "detail": detail}
     return JSONResponse(body | extensions, status_code=status_code, media_type=PROBLEM_JSON)
+
+
+def _trace_fields() -> dict[str, str]:
+    context = trace.get_current_span().get_span_context()
+    return {"trace_id": trace.format_trace_id(context.trace_id)} if context.is_valid else {}
