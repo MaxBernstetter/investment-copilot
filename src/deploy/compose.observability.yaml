@@ -1,5 +1,6 @@
-# OTEL_* for the api and job services. The Taskfile adds this file through COMPOSE_FILE while the
-# observability profile runs; without it the services get no OTEL_* settings.
+# OTEL_* for the api and job services, and the job OTEL endpoint the Airflow scheduler passes to the
+# job containers it starts. The Taskfile adds this file through COMPOSE_FILE while the observability
+# profile runs; without it the services get no OTEL_* settings.
 services:
   persistence:
     environment:
@@ -32,3 +33,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_SERVICE_NAME: processing-job
       OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: delta
+
+  airflow-scheduler:
+    environment:
+      YIELDLENS_JOB_OTEL_ENDPOINT: http://otel-collector:4318
