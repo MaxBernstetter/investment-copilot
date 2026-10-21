@@ -1,12 +1,10 @@
 import { Anchor, Badge, Popover, Stack, Text } from '@mantine/core'
 import { METHODOLOGY_URL } from '../config'
 import { qualityBadgeProps } from '../theme'
-import { RULE_LABEL, flagAriaLabel, flagLabel, type QualityFinding } from './qualityData'
+import { flagAriaLabel, flagLabel, ruleLabel, type FlagDetails } from './qualityData'
 
-export default function QualityFlag({ finding }: { finding: QualityFinding }) {
-  const ruleTitle = finding.maturity
-    ? `${RULE_LABEL[finding.rule]} at ${finding.maturity}`
-    : RULE_LABEL[finding.rule]
+export default function QualityFlag({ finding }: { finding: FlagDetails }) {
+  const ruleTitle = finding.maturity ? `${ruleLabel(finding.rule)} at ${finding.maturity}` : ruleLabel(finding.rule)
 
   return (
     <Popover width={320} withArrow position="bottom-start" trapFocus returnFocus>

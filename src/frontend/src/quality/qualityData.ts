@@ -3,6 +3,7 @@ import { MATURITIES } from '../series/seriesData'
 
 export type QualityDay = components['schemas']['QualityDay']
 export type QualityFinding = components['schemas']['QualityFinding']
+export type ValueQuality = components['schemas']['ValueQuality']
 export type QualityStatus = components['schemas']['QualityStatus']
 export type Rule = components['schemas']['Rule']
 export type Severity = components['schemas']['Severity']
@@ -12,6 +13,14 @@ export const RULE_LABEL: Record<Rule, string> = {
   jump: 'Jump',
   'missing-date': 'Missing date',
   'missing-maturity': 'Missing maturity',
+}
+
+/** A flag as the badge shows it: a finding from the quality endpoint, or a value flag plus its maturity. */
+export type FlagDetails = { rule: string; severity: Severity; explanation: string; evidence: string; maturity?: string | null }
+
+/** Display name of a rule; an unknown rule (access types it as a plain string) shows as sent. */
+export function ruleLabel(rule: string): string {
+  return RULE_LABEL[rule as Rule] ?? rule
 }
 
 export const STATUS_LABEL: Record<QualityStatus, string> = {
@@ -83,7 +92,7 @@ function maturityRank(maturity: string | null | undefined): number {
 }
 
 /** Warnings before info; then date-level findings, then the grid order; unknown maturities last. */
-export function sortFindings(findings: QualityFinding[]): QualityFinding[] {
+export function sortFindings<T extends { severity: Severity; maturity?: string | null }>(findings: T[]): T[] {
   return [...findings].sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
     if (bySeverity !== 0) return bySeverity
@@ -100,11 +109,11 @@ export function uncheckedRuleLabels(day: QualityDay): string[] {
   return day.rules.filter((rule) => rule.outcome === 'unchecked').map((rule) => RULE_LABEL[rule.rule])
 }
 
-export function flagLabel(finding: QualityFinding): string {
-  return `${RULE_LABEL[finding.rule]} · ${finding.severity}`
+export function flagLabel(finding: Pick<FlagDetails, 'rule' | 'severity'>): string {
+  return `${ruleLabel(finding.rule)} · ${finding.severity}`
 }
 
-export function flagAriaLabel(finding: QualityFinding): string | undefined {
+export function flagAriaLabel(finding: Pick<FlagDetails, 'rule' | 'severity' | 'maturity'>): string | undefined {
   if (!finding.maturity) return undefined
   return `${flagLabel(finding)}, ${finding.maturity}`
 }
