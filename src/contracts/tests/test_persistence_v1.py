@@ -8,11 +8,14 @@ from pydantic import ValidationError
 from contracts.persistence.v1 import (
     MAX_BATCH_SIZE,
     ChangeReason,
+    Compounding,
     CurveChangesResponse,
+    CurveDefinition,
     CurveObservationsResponse,
     CurvePoint,
     ObservationVersion,
     Origin,
+    RateType,
     RecordVersionsRequest,
     RecordVersionsResponse,
     SeriesObservationsResponse,
@@ -318,3 +321,55 @@ def test_value_change_allows_a_missing_old_value() -> None:
 def test_value_change_rejects_a_non_finite_new_value() -> None:
     with pytest.raises(ValidationError, match="new_value"):
         ValueChange.model_validate(changes_response()["data"]["changes"][0] | {"new_value": "NaN"})
+
+
+def definition(**overrides: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+        "curve_id": "ecb-aaa-spot",
+        "label": "ECB euro area AAA spot",
+        "source_id": "ecb",
+        "area": "Euro area",
+        "attribution": "Source: ECB statistics",
+        "rate_type": "spot",
+        "compounding": "continuous",
+        "unit": "percent",
+        "source_model": "Svensson (ECB)",
+        "simulated": False,
+        "maturities": [
+            {"maturity": "3M", "months": 3},
+            {"maturity": "10Y", "months": 120},
+        ],
+    }
+    return fields | overrides
+
+
+def test_parses_a_curve_definition_from_json_types() -> None:
+    curve = CurveDefinition.model_validate(definition())
+
+    assert curve.rate_type is RateType.SPOT
+    assert curve.compounding is Compounding.CONTINUOUS
+    assert curve.simulated is False
+    assert curve.maturities[1].months == 120
+
+
+def test_curve_definition_source_model_may_be_null() -> None:
+    curve = CurveDefinition.model_validate(definition(source_model=None))
+
+    assert curve.source_model is None
+
+
+def test_curve_definition_rejects_maturities_out_of_grid_order() -> None:
+    maturities = [{"maturity": "10Y", "months": 120}, {"maturity": "3M", "months": 3}]
+
+    with pytest.raises(ValidationError, match="ordered by months"):
+        CurveDefinition.model_validate(definition(maturities=maturities))
+
+
+def test_curve_definition_rejects_an_unknown_rate_type() -> None:
+    with pytest.raises(ValidationError):
+        CurveDefinition.model_validate(definition(rate_type="zero"))
+
+
+def test_curve_definition_requires_an_attribution() -> None:
+    with pytest.raises(ValidationError):
+        CurveDefinition.model_validate(definition(attribution=""))
