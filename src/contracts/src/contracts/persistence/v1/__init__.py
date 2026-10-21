@@ -1,5 +1,14 @@
 """Interface models of the persistence service, version 1."""
 
+from contracts.persistence.v1.catalogue import (
+    CURVES_PATH,
+    Compounding,
+    CurveDefinition,
+    CurvesResponse,
+    GridMaturity,
+    RateType,
+    Unit,
+)
 from contracts.persistence.v1.changes import (
     CURVE_CHANGES_PATH,
     ChangesMeta,
@@ -37,6 +46,7 @@ from contracts.persistence.v1.versions import (
 )
 
 __all__ = [
+    "CURVES_PATH",
     "CURVE_CHANGES_PATH",
     "CURVE_OBSERVATIONS_PATH",
     "MAX_BATCH_SIZE",
@@ -45,19 +55,25 @@ __all__ = [
     "VALUE_VERSIONS_PATH",
     "ChangeReason",
     "ChangesMeta",
+    "Compounding",
     "CurveChanges",
     "CurveChangesResponse",
+    "CurveDefinition",
     "CurveMeta",
     "CurveObservations",
     "CurveObservationsResponse",
     "CurvePoint",
+    "CurvesResponse",
+    "GridMaturity",
     "ObservationVersion",
     "Origin",
+    "RateType",
     "RecordVersionsRequest",
     "RecordVersionsResponse",
     "SeriesObservations",
     "SeriesObservationsResponse",
     "SeriesPoint",
+    "Unit",
     "ValueChange",
     "ValueVersion",
     "ValueVersions",
