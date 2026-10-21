@@ -18,7 +18,9 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
         exclude: *recorded-fixtures
+      # The Compose overlay uses the `!reset` tag, which PyYAML cannot parse; `docker compose config` validates it (task deploy:config).
       - id: check-yaml
+        exclude: ^src/deploy/compose\.vm\.yaml$
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict

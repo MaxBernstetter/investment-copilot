@@ -1,0 +1,18 @@
+# Live VM deployment (namespace deploy), run from src/deploy. Glue only; logic in src/scripts/deploy-vm.sh.
+# No Taskfile-level env on purpose: the dev defaults must never reach the VM.
+version: "3"
+
+tasks:
+  config:
+    desc: Validate the VM overlay (compose config, public ports, no builds, CORS) and the Caddyfile with vm.env.example
+    env:
+      YIELDLENS_ENV_FILE: vm.env.example
+    cmds:
+      - task: :caddy:image
+        vars: { TAG: local }
+      - ../scripts/deploy-vm.sh config
+
+  test:unit:
+    desc: Run the bats tests of the deploy script
+    cmds:
+      - bats ../scripts/tests/deploy-vm.bats

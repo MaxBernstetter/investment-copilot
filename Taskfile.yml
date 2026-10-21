@@ -30,6 +30,12 @@ includes:
   dev:
     taskfile: ./src/deploy
     dir: ./src/deploy
+  caddy:
+    taskfile: ./src/deploy/caddy
+    dir: ./src/deploy/caddy
+  deploy:
+    taskfile: ./src/deploy/Taskfile.vm.yml
+    dir: ./src/deploy
 
 tasks:
   default:
