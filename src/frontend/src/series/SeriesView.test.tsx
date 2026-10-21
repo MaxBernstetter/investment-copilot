@@ -1,4 +1,5 @@
 import { formatYield } from '../format'
+import type { ValueQuality } from '../quality/qualityData'
 import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
@@ -39,6 +40,20 @@ const okResult: SeriesResult = {
     },
     meta: { as_of: '2026-10-19T10:00:00Z', source_attribution: 'Source: ECB statistics' },
   },
+}
+
+const rangeFlag = {
+  rule: 'range',
+  severity: 'warn' as const,
+  explanation: 'Outside the plausible range of \u22122.00\u202f% to 8.00\u202f%.',
+  evidence: '26.400\u202f% on 2026-10-16',
+}
+
+/** The OK result with one quality per point, in point order. */
+function withQualities(qualities: ValueQuality[]): SeriesResult {
+  if (okResult.kind !== 'ok') throw new Error('expected an ok result')
+  const points = okResult.series.data.points.map((point, index) => ({ ...point, quality: qualities[index] }))
+  return { kind: 'ok', series: { ...okResult.series, data: { ...okResult.series.data, points } } }
 }
 
 beforeEach(() => {
@@ -158,5 +173,86 @@ describe('SeriesView', () => {
     render(<SeriesView curveId="ecb-aaa-spot" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+  })
+
+  it('chart caption counts flagged values', async () => {
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'warn', flags: [rangeFlag] },
+        { status: 'passed', flags: [] },
+      ]),
+    )
+    const { unmount } = render(<SeriesView curveId="ecb-aaa-spot" />)
+    expect(await screen.findByText('Flagged: 1 value. Choose Table to see why.')).toBeInTheDocument()
+    unmount()
+
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'warn', flags: [rangeFlag] },
+        { status: 'info', flags: [] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+    expect(await screen.findByText('Flagged: 2 values. Choose Table to see why.')).toBeInTheDocument()
+  })
+
+  it('no caption when nothing is flagged or the table shows', async () => {
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'passed', flags: [] },
+        { status: 'passed', flags: [] },
+      ]),
+    )
+    const { unmount } = render(<SeriesView curveId="ecb-aaa-spot" />)
+    expect(await screen.findByTestId('series-chart')).toBeInTheDocument()
+    expect(screen.queryByText(/^Flagged:/)).not.toBeInTheDocument()
+    unmount()
+
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'warn', flags: [rangeFlag] },
+        { status: 'passed', flags: [] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+    expect(await screen.findByText('Flagged: 1 value. Choose Table to see why.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Table' }))
+    expect(screen.queryByText(/^Flagged:/)).not.toBeInTheDocument()
+  })
+
+  it('table shows a Quality column with flag badges', async () => {
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'passed', flags: [] },
+        { status: 'warn', flags: [rangeFlag] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Table' }))
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent)
+    expect(headers).toEqual(['Valid date', 'Yield (%)', 'Quality'])
+    expect(screen.getByRole('button', { name: 'Range · warn, 10Y' })).toBeInTheDocument()
+  })
+
+  it('table shows the unchecked note when a value is unchecked', async () => {
+    mockedFetch.mockResolvedValue(
+      withQualities([
+        { status: 'unchecked', flags: [] },
+        { status: 'passed', flags: [] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Table' }))
+    expect(screen.getByText(/Unchecked means the quality checks have not run on the value yet\./)).toBeInTheDocument()
+  })
+
+  it('table has no unchecked note when all values are passed', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Table' }))
+    expect(screen.queryByText(/Unchecked means/)).not.toBeInTheDocument()
   })
 })

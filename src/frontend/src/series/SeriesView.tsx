@@ -17,12 +17,18 @@ import {
 import StatCard from '../components/StatCard'
 import { formatBp, formatUtc, formatYield } from '../format'
 import PageHeader from '../layout/PageHeader'
+import UncheckedNote from '../quality/UncheckedNote'
+import ValueQualityCell from '../quality/ValueQualityCell'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesChart from './SeriesChart'
-import { defaultRange, MATURITIES, seriesStats } from './seriesData'
+import { defaultRange, flaggedCount, MATURITIES, seriesStats } from './seriesData'
 
 const DEFAULT_MATURITY = '10Y'
 const EMPTY = '–'
+
+function flaggedCaption(count: number): string {
+  return `Flagged: ${count} ${count === 1 ? 'value' : 'values'}. Choose Table to see why.`
+}
 
 type SeriesDisplay = 'chart' | 'table'
 
@@ -53,6 +59,8 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
     [result],
   )
   const stats = useMemo(() => seriesStats(points), [points])
+  const flagged = useMemo(() => flaggedCount(points), [points])
+  const hasUnchecked = points.some((point) => point.quality.status === 'unchecked')
 
   const headerActions = (
     <>
@@ -122,26 +130,40 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
             </Card.Section>
             <Card.Section inheritPadding py="md">
               {display === 'chart' ? (
-                <SeriesChart points={points} />
+                <>
+                  <SeriesChart points={points} />
+                  {flagged > 0 && (
+                    <Stack gap={4} mt="sm">
+                      <Text size="sm" c="dimmed">{flaggedCaption(flagged)}</Text>
+                    </Stack>
+                  )}
+                </>
               ) : (
-                <Table.ScrollContainer minWidth={400}>
-                  <Table>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th scope="col">Valid date</Table.Th>
-                        <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {points.map((point) => (
-                        <Table.Tr key={point.valid_date}>
-                          <Table.Td>{point.valid_date}</Table.Td>
-                          <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
+                <>
+                  <Table.ScrollContainer minWidth={560}>
+                    <Table>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th scope="col">Valid date</Table.Th>
+                          <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
+                          <Table.Th scope="col">Quality</Table.Th>
                         </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {points.map((point) => (
+                          <Table.Tr key={point.valid_date}>
+                            <Table.Td>{point.valid_date}</Table.Td>
+                            <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
+                            <Table.Td>
+                              <ValueQualityCell quality={point.quality} maturity={maturity} />
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </Table.ScrollContainer>
+                  {hasUnchecked && <UncheckedNote />}
+                </>
               )}
             </Card.Section>
           </Card>

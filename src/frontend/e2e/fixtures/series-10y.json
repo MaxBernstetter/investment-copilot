@@ -8,6 +8,6 @@
     { "valid_date": "2026-09-15", "value": 2.6 },
     { "valid_date": "2026-10-01", "value": 2.7 },
     { "valid_date": "2026-10-10", "value": 2.82 },
-    { "valid_date": "2026-10-16", "value": 2.871 }
+    { "valid_date": "2026-10-16", "value": 2.871, "quality": { "status": "unchecked", "flags": [] } }
   ]
 }

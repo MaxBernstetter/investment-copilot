@@ -73,6 +73,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   open with Enter/Space and close with Esc.
 - A3 Landmarks: header, nav, main, footer (contentinfo); one h1 per page.
 - A4 Live regions: as-of status `role="status"`; errors `role="alert"`.
+- A5 Links inside running text (an `Anchor` within a `Text` sentence) use `underline="always"`, so they never differ from the text by colour alone (WCAG 1.4.1, axe `link-in-text-block`). Links that stand alone (own line, `Group`, `Stack`, popover footer) keep the default underline on hover.
 
 ## Don't
 - No hand-written CSS files, `style={{…}}` props, or CSS modules (theme overrides only).

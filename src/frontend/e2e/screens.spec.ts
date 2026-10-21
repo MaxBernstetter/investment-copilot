@@ -179,8 +179,23 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Time series' })).toBeVisible()
     await page.locator('.mantine-SegmentedControl-label').filter({ hasText: 'Table' }).click()
     await expect(page.getByRole('columnheader', { name: 'Valid date' })).toBeVisible()
+    await expect(page.getByText('Unchecked means the quality checks have not run on the value yet.')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S5t', ['light'])
+  })
+
+  test('S17 time series table, simulated, flagged', async ({ page }) => {
+    await page.goto('/?curve=ecb-aaa-spot-sim')
+    await waitForCurveLoaded(page)
+    await page.getByRole('tab', { name: 'Time series' }).click()
+    const panel = page.getByRole('tabpanel', { name: 'Time series' })
+    await expect(panel.locator('.mantine-Skeleton-root')).toHaveCount(0)
+    await expect(panel.getByText('Flagged: 1 value. Choose Table to see why.')).toBeVisible()
+    await panel.locator('.mantine-SegmentedControl-label').filter({ hasText: 'Table' }).click()
+    await expect(panel.getByRole('columnheader', { name: 'Quality' })).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Range · warn, 10Y' })).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S17', ['light', 'dark'])
   })
 
   test('S6 changes with three rows', async ({ page }) => {
