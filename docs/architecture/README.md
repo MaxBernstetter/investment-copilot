@@ -40,3 +40,4 @@ Overview: `ARCHITECTURE.md` at the repository root.
 | [[0017-commit-safe-knowledge-time]] | Knowledge clock: one locked row makes knowledge times increase in commit order |
 | [[0018-mantine-ui-and-charts]] | Mantine 9 for the frontend UI and `@mantine/charts` (Recharts) for charts, replacing Plotly.js |
 | [[0019-quality-results-as-of-checked-knowledge-time]] | Quality reads pick the latest check run per day with `checked_as_of <=` the read time |
+| [[0020-derived-measures-computed-on-read]] | Spreads, curvature and inversion are computed on read in processing; nothing is stored |
