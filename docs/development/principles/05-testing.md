@@ -35,7 +35,7 @@ Each level lives next to the code it proves. The table says where it is, and whe
 | Unit | `src/services/<name>/tests/unit`, `src/frontend` (Vitest), `src/contracts` | `task <component>:test:unit` | Every pull request (required checks) |
 | PL/SQL | utPLSQL suites under `src/services/persistence` and `src/services/ingestion` (`ING`) | `task persistence:test:integration`, `task ingestion:test:integration` (Docker needed) | Integration jobs of `persistence.yml` and `ingestion.yml` |
 | Integration | `tests/integration` of the services; Oracle Free and HTTP through Testcontainers | Same tasks as PL/SQL (Docker needed) | Integration jobs (required checks) |
-| Contract | OpenAPI drift check in the access unit tests (`src/contracts/openapi/access/v1.json` must match the app); contracts unit tests | `task access:test:unit`, `task contracts:test:unit` | Every pull request |
+| Contract | OpenAPI drift checks in the access and processing unit tests (`src/contracts/openapi/access/v1.json` and `src/contracts/openapi/processing/v1.json` must match the app; the processing check runs in `task processing:test:unit`); contracts unit tests | `task access:test:unit`, `task processing:test:unit`, `task contracts:test:unit` | Every pull request |
 | End-to-end | `src/e2e`: the corrected-yield scenario through the access api | `task dev:reset`, `task dev:up`, `task dev:e2e` (Docker needed) | `e2e.yml` (required check) |
 
 Locally, unit tests need no Docker and run in seconds; integration and end-to-end tests need the Docker stack. Everything in CI is reproducible with the same `devbox run -- task ...` command.

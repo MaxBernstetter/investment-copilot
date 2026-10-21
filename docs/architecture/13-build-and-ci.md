@@ -169,6 +169,7 @@ Each service has its own Taskfile, included as `<service>:<task>` and run from t
 | `ingestion:load:ecb:replay` | Manual replay of stored ECB deliveries (`FROM`, `TO`: fetch days) against a running persistence api; never calls the ECB (see [[04-raw-deliveries#Replay]]) |
 | `ingestion:run` | Run the ingestion api locally on port 8003 against the ING database |
 | `ingestion:openapi` | Export the ingestion OpenAPI document to `src/contracts/openapi/ingestion/v1.json` (committed; the unit test fails when it is stale) |
+| `processing:openapi` | Export the processing OpenAPI document to `src/contracts/openapi/processing/v1.json` (committed; the unit test fails when it is stale) |
 | `access:openapi` | Export the access OpenAPI document to `src/contracts/openapi/access/v1.json` (committed; the unit test fails when it is stale) |
 
 ## Pre-commit hooks
