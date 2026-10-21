@@ -15,6 +15,11 @@ IMAGE_ENV = {
     "ingestion-load-ecb": "YIELDLENS_INGESTION_JOB_IMAGE",
     "processing-check-quality": "YIELDLENS_PROCESSING_JOB_IMAGE",
 }
+JOB_OTEL_ENDPOINT_ENV = "YIELDLENS_JOB_OTEL_ENDPOINT"
+OTEL_SERVICE_NAMES = {
+    "ingestion-load-ecb": "ingestion-job",
+    "processing-check-quality": "processing-job",
+}
 
 USAGE_OR_CONFIGURATION_ERROR = 2
 RUN_TIMEOUT_SECONDS = 30 * 60
@@ -27,13 +32,20 @@ class JobFailedError(Exception):
     """The job ended with a status that a retry may fix."""
 
 
-def job_container_env() -> dict[str, str]:
-    """Worker env vars passed through to the job container (ingestion and processing only)."""
-    return {
+def job_container_env(binary: str) -> dict[str, str]:
+    """Env vars for the job container: the worker's INGESTION_/PROCESSING_ keys, plus OTEL_* when
+    YIELDLENS_JOB_OTEL_ENDPOINT is non-empty (observability profile on)."""
+    environment = {
         key: value
         for key, value in os.environ.items()
         if key.startswith(("INGESTION_", "PROCESSING_"))
     }
+    endpoint = os.environ.get(JOB_OTEL_ENDPOINT_ENV, "")
+    if endpoint:
+        environment["OTEL_EXPORTER_OTLP_ENDPOINT"] = endpoint
+        environment["OTEL_SERVICE_NAME"] = OTEL_SERVICE_NAMES[binary]
+        environment["OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"] = "delta"
+    return environment
 
 
 def image_for(binary: str) -> str:
@@ -74,7 +86,7 @@ def run_job_container(command: Sequence[str]) -> None:
     binary = command[0]
     argv = list(command[1:])
     image = image_for(binary)
-    environment = job_container_env()
+    environment = job_container_env(binary)
     network_mode = os.environ["YIELDLENS_DOCKER_NETWORK"]
 
     hook = _docker_hook()

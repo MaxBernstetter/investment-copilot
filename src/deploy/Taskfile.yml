@@ -126,16 +126,34 @@ tasks:
     cmds:
       - docker compose --profile airflow down airflow-postgres airflow-init airflow-scheduler airflow-dag-processor airflow-apiserver
 
+  airflow:scheduler:recreate:
+    internal: true
+    desc: Recreate the Airflow scheduler with the given COMPOSE_FILE when it runs
+    vars:
+      DOCKER_GID:
+        sh: stat -c %g /var/run/docker.sock 2>/dev/null || stat -f %g /var/run/docker.sock
+    env:
+      DOCKER_GID: '{{.DOCKER_GID}}'
+      COMPOSE_FILE: '{{.COMPOSE_FILE}}'
+    status:
+      - '[ -z "$(docker ps -q --filter label=com.docker.compose.project=yieldlens-dev --filter label=com.docker.compose.service=airflow-scheduler --filter status=running 2>/dev/null)" ]'
+    cmds:
+      - docker compose --profile airflow up --detach --wait --no-deps airflow-scheduler
+
   obs:up:
-    desc: Start the observability profile (collector, Prometheus, Tempo, Grafana) on top of dev:up and restart the apis with OTEL_* (opt-in)
+    desc: Start the observability profile (collector, Prometheus, Tempo, Grafana) on top of dev:up, restart the apis with OTEL_* and, when it runs, the Airflow scheduler with OTEL_* (opt-in)
     cmds:
       - docker compose -f compose.yaml -f compose.observability.yaml --profile observability up --detach --wait otel-collector prometheus tempo grafana persistence processing access ingestion-api
+      - task: airflow:scheduler:recreate
+        vars: {COMPOSE_FILE: compose.yaml:compose.observability.yaml}
 
   obs:down:
-    desc: Stop the observability profile (keeps its data) and restart the apis without OTEL_*
+    desc: Stop the observability profile (keeps its data), restart the apis without OTEL_* and, when it runs, the Airflow scheduler without OTEL_*
     cmds:
       - docker compose -f compose.yaml --profile observability down otel-collector prometheus tempo grafana
       - docker compose -f compose.yaml up --detach --wait persistence processing access ingestion-api
+      - task: airflow:scheduler:recreate
+        vars: {COMPOSE_FILE: compose.yaml}
 
   obs:smoke:
     desc: 'Check the observability profile: OTEL_* wiring, Grafana datasources, OTLP metrics and a trace via telemetrygen (after dev:obs:up)'
