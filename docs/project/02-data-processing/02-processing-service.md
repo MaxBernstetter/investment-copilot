@@ -105,3 +105,4 @@ Run from the repository root (namespace `processing`, see [[13-build-and-ci]]):
 - `task processing:db:migrate`: apply the PROC changelogs to the local database started by `persistence:db:start`
 - `task processing:run`: run the `api` process on port 8002
 - `task processing:check-quality CURVE=… FROM=… TO=…`: run the quality check job locally
+- `task processing:openapi`: export the processing OpenAPI document to `src/contracts/openapi/processing/v1.json`; the committed document is checked for staleness by a unit test (`tests/unit/test_openapi.py`), so regenerate it after any route change
