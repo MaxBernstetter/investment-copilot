@@ -2,6 +2,7 @@ from datetime import date
 
 import httpx
 import pytest
+from opentelemetry.metrics import NoOpMeter
 
 from ingestion.config import SourceSettings
 from ingestion.domain.delivery import RawDelivery
@@ -43,6 +44,7 @@ async def fetch_and_parse(answer: httpx.Response) -> tuple[RawDelivery, int]:
         SourceSettings(min_interval_seconds=0),
         is_no_data=is_no_data,
         transport=httpx.MockTransport(lambda _request: answer),
+        meter=NoOpMeter("test"),
     ) as client:
         source = EcbSpotCurveSource(client)
         delivery = await source.fetch(WINDOW)

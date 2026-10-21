@@ -27,6 +27,7 @@ RUN useradd --system --uid 10001 --no-create-home app
 COPY --from=build /app/.venv /app/.venv
 COPY services/ingestion/log_config.json /app/log_config.json
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
+ENV OTEL_SEMCONV_STABILITY_OPT_IN=http OTEL_PYTHON_FASTAPI_EXCLUDED_URLS=health,ready
 USER 10001
 EXPOSE 8003
 CMD ["uvicorn", "--factory", "ingestion.api:create_app_from_environment", "--host", "0.0.0.0", "--port", "8003", "--log-config", "/app/log_config.json"]

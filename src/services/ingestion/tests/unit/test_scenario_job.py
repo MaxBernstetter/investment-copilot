@@ -5,8 +5,11 @@ import json
 from dataclasses import dataclass
 
 import pytest
+from opentelemetry.trace import StatusCode, format_span_id, format_trace_id
 
+from ingestion.infrastructure.telemetry import Telemetry
 from ingestion.job import run_scenario
+from tests.fake_telemetry import job_telemetry
 from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
 
 
@@ -34,8 +37,18 @@ def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_DB__PASSWORD", "not-a-secret")
 
 
-def run(capsys: pytest.CaptureFixture[str], argv: list[str], persistence: StubPersistence) -> Run:
-    exit_code = run_scenario(argv, persistence_transport=persistence.transport, sleep=_no_pause)
+def run(
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+    persistence: StubPersistence,
+    telemetry: Telemetry | None = None,
+) -> Run:
+    exit_code = run_scenario(
+        argv,
+        persistence_transport=persistence.transport,
+        sleep=_no_pause,
+        telemetry=telemetry,
+    )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
 
@@ -114,3 +127,36 @@ def test_rejected_write_fails_with_status_1(capsys: pytest.CaptureFixture[str]) 
     assert failure["event"] == "scenario_failed"
     assert failure["scenario"] == "corrected-yield"
     assert failure["error"]
+
+
+def test_a_scenario_run_has_one_root_span_and_trace_ids_in_its_summary(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, metrics = job_telemetry()
+
+    result = run(capsys, ["corrected-yield"], StubPersistence(), telemetry)
+
+    assert result.exit_code == 0
+    [span] = spans.get_finished_spans()
+    assert span.name == "ingestion-scenario"
+    assert span.parent is None
+    assert dict(span.attributes or {}) == {"scenario": "corrected-yield"}
+    assert result.summary["trace_id"] == format_trace_id(span.context.trace_id)
+    assert result.summary["span_id"] == format_span_id(span.context.span_id)
+    assert metrics.is_shut_down
+
+
+def test_a_failed_scenario_flushes_and_carries_trace_ids(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, metrics = job_telemetry()
+
+    result = run(capsys, ["corrected-yield"], StubPersistence(statuses=[422]), telemetry)
+
+    assert result.exit_code == 1
+    [span] = spans.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    failure = json.loads(result.stderr)
+    assert failure["trace_id"] == format_trace_id(span.context.trace_id)
+    assert failure["span_id"] == format_span_id(span.context.span_id)
+    assert metrics.is_shut_down

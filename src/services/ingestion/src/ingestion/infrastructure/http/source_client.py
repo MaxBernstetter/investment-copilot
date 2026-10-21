@@ -124,7 +124,8 @@ class SourceClient:
 
     ``is_no_data`` lets the source adapter recognise the source's "no data" answer
     (e.g. the ECB's ``404`` "No results found"); such a response is returned as
-    ``Outcome.NO_DATA`` and never retried.
+    ``Outcome.NO_DATA`` and never retried. The request counter is created on ``meter``, the
+    meter of the job's OpenTelemetry setup; it is exported only when an endpoint is set.
     """
 
     def __init__(
@@ -136,7 +137,7 @@ class SourceClient:
         transport: httpx.AsyncBaseTransport | None = None,
         clock: Clock | None = None,
         jitter: Callable[[], float] = random.random,
-        meter: metrics.Meter | None = None,
+        meter: metrics.Meter,
     ) -> None:
         self._source = source
         self._settings = settings
@@ -151,7 +152,7 @@ class SourceClient:
         self._slots = asyncio.Semaphore(settings.max_concurrent_requests)
         self._pacing = asyncio.Lock()
         self._next_start = float("-inf")
-        self._requests = (meter or metrics.get_meter("ingestion")).create_counter(
+        self._requests = meter.create_counter(
             REQUESTS_METRIC,
             unit="1",
             description="Requests (attempts) sent to a source, by source and HTTP status",

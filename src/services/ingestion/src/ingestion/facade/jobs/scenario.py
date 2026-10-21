@@ -9,7 +9,7 @@ scenario writes to its simulated curve only; it never calls a source.
 
 import argparse
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from ingestion.application.run_scenario import ScenarioResult
@@ -52,8 +52,8 @@ def parse_scenario_command(argv: Sequence[str] | None) -> ScenarioCommand:
     return ScenarioCommand(scenario, event_names)
 
 
-def scenario_summary(result: ScenarioResult) -> str:
-    """One JSON line describing the finished scenario."""
+def scenario_summary(result: ScenarioResult, trace: Mapping[str, str]) -> str:
+    """One JSON line describing the finished scenario, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "scenario_finished",
@@ -70,17 +70,20 @@ def scenario_summary(result: ScenarioResult) -> str:
                 }
                 for event in result.events
             ],
+            **trace,
         }
     )
 
 
-def scenario_failure(scenario: str | None, error: Exception) -> str:
-    """One JSON line describing a failed scenario run."""
+def scenario_failure(scenario: str | None, error: Exception, trace: Mapping[str, str]) -> str:
+    """One JSON line describing a failed scenario run, with the trace ids of its root span
+    (none before the span exists)."""
     return json.dumps(
         {
             "event": "scenario_failed",
             "scenario": scenario,
             "error": type(error).__name__,
             "message": str(error),
+            **trace,
         }
     )

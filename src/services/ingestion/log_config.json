@@ -7,10 +7,14 @@
       "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s"
     }
   },
+  "filters": {
+    "trace": {"()": "ingestion.infrastructure.telemetry.TraceContextFilter"}
+  },
   "handlers": {
     "stderr": {
       "class": "logging.StreamHandler",
       "formatter": "json",
+      "filters": ["trace"],
       "stream": "ext://sys.stderr"
     }
   },
