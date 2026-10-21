@@ -11,7 +11,13 @@ export type MockMode = 'online' | 'offline' | 'loading' | 'not-found'
 type CurveFixture = {
   meta: { as_of: string; source_attribution: string }
   valid_date?: string
-  points: { maturity: string; months: number; value: number | null; origin: string }[]
+  points: {
+    maturity: string
+    months: number
+    value: number | null
+    origin: string
+    quality?: { status: string; flags: unknown[] } | null
+  }[]
 }
 
 function loadJson<T>(name: string): T {
@@ -48,7 +54,7 @@ function curveBody(curveId: string, fixture: CurveFixture, validDate?: string) {
       points: fixture.points.map((point) => ({
         ...point,
         version_id: point.value === null ? null : 1,
-        quality: point.value === null ? null : { status: 'passed', flags: [] },
+        quality: point.quality ?? (point.value === null ? null : { status: 'passed', flags: [] }),
       })),
     },
     meta: fixture.meta,

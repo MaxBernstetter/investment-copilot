@@ -12,7 +12,14 @@
     { "maturity": "3Y", "months": 36, "value": 2.45, "origin": "published" },
     { "maturity": "5Y", "months": 60, "value": 2.55, "origin": "published" },
     { "maturity": "7Y", "months": 84, "value": 2.65, "origin": "published" },
-    { "maturity": "10Y", "months": 120, "value": 26.4, "origin": "published" },
+    { "maturity": "10Y", "months": 120, "value": 26.4, "origin": "published",
+      "quality": { "status": "warn", "flags": [
+        { "rule": "range", "severity": "warn",
+          "explanation": "Outside the plausible range of −2.00 % to 8.00 %. ECB AAA spot yields stayed between −1.00 % and 5.18 % since 2004.",
+          "evidence": "26.400 % on 2026-10-16" },
+        { "rule": "jump", "severity": "warn",
+          "explanation": "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data.",
+          "evidence": "26.400 % on 2026-10-16 after 2.800 % on 2026-10-15 (+2,360.0 bp)" } ] } },
     { "maturity": "15Y", "months": 180, "value": 2.9, "origin": "published" },
     { "maturity": "20Y", "months": 240, "value": 2.95, "origin": "published" },
     { "maturity": "30Y", "months": 360, "value": 3.0, "origin": "published" }

@@ -61,6 +61,31 @@ async function routeQuality(page: Page, status: number, body: unknown) {
   )
 }
 
+/** Opens one flag popover at every viewport and scheme, checks it, and closes it again. */
+async function captureFlagPopover(page: Page, flagName: string, id: string) {
+  const flag = page.getByRole('button', { name: flagName })
+  const link = page.getByRole('link', { name: 'How we check this' })
+  for (const { width, height } of VIEWPORTS) {
+    for (const scheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height })
+      await setColorScheme(page, scheme)
+      await flag.focus()
+      await page.keyboard.press('Enter')
+      await expect(link).toBeFocused()
+      await settleAnimations(page)
+      await expectOpaque(link)
+      await page.mouse.move(0, 0)
+      if (width === AXE_VIEWPORT.width) {
+        await runAxe(page)
+      }
+      await expect(link).toBeVisible()
+      await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme))
+      await page.keyboard.press('Escape')
+      await expect(link).toBeHidden()
+    }
+  }
+}
+
 const QUALITY_META = { as_of: '2026-10-19T12:00:00Z', source_attribution: 'Source: ECB statistics' }
 
 test.beforeEach(async ({ page, context }) => {
@@ -93,6 +118,7 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await expect(page.getByRole('status')).toContainText('As of 19 Oct 2026, 18:49:25 UTC')
     await expect(page.getByRole('note')).toBeVisible()
+    await expect(page.getByText('Flagged: 10Y')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S2', ['light'])
   })
@@ -213,27 +239,13 @@ test.describe('visual snapshots §7', () => {
 
   test('S12 quality flag popover', async ({ page }) => {
     await openQuality(page)
-    const flag = page.getByRole('button', { name: 'Jump · warn, 10Y' })
-    const link = page.getByRole('link', { name: 'How we check this' })
-    for (const { width, height } of VIEWPORTS) {
-      for (const scheme of ['light', 'dark'] as const) {
-        await page.setViewportSize({ width, height })
-        await setColorScheme(page, scheme)
-        await flag.focus()
-        await page.keyboard.press('Enter')
-        await expect(link).toBeFocused()
-        await settleAnimations(page)
-        await expectOpaque(link)
-        await page.mouse.move(0, 0)
-        if (width === AXE_VIEWPORT.width) {
-          await runAxe(page)
-        }
-        await expect(link).toBeVisible()
-        await expect(page).toHaveScreenshot(screenshotName('S12', width, height, scheme))
-        await page.keyboard.press('Escape')
-        await expect(link).toBeHidden()
-      }
-    }
+    await captureFlagPopover(page, 'Jump · warn, 10Y', 'S12')
+  })
+
+  test('S16 curve flag popover', async ({ page }) => {
+    await page.goto('/?curve=ecb-aaa-spot-sim&as_of=2026-10-19T18%3A49%3A25Z')
+    await waitForCurveLoaded(page)
+    await captureFlagPopover(page, 'Range · warn, 10Y', 'S16')
   })
 
   test('S13 quality no business days', async ({ page }) => {
