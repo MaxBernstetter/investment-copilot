@@ -14,14 +14,14 @@ How changes get from a commit to the live system, and the security rules every p
 - **Artifacts:** multi-arch (amd64/arm64) images pushed to GHCR, tagged with the commit SHA.
 - **Deploy:**
   - Frontend: build → GitHub Pages.
-  - Backend: SSH to the VM → `docker compose pull && docker compose up -d` → Liquibase migrations → readiness check.
+  - Backend: SSH to the VM → checkout of the deployed commit → `task deploy:all` (GHCR login with a read-only token, pull, Liquibase migrations, `up -d`, readiness check).
 
 ## Security
 
 - No secrets in the repository. Use GitHub Secrets and a `.env` on the VM (not committed).
 - One least-privilege DB user per schema.
 - Only `access` is public: read-only, rate-limited, CORS restricted to the Pages origin.
-- Internal APIs and the Airflow UI are reachable only through an SSH tunnel.
+- Internal APIs, the Airflow UI and Grafana are reachable only through an SSH tunnel.
 - Dependency and image scanning in CI (Dependabot, Trivy); an image with a fixable HIGH or CRITICAL vulnerability is not published.
 - Workflows pin actions to commit SHAs, use least-privilege token permissions, and never persist checkout credentials.
 

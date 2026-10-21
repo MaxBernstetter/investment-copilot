@@ -48,8 +48,7 @@ write_config() {
 }
 
 @test "a missing env file exits 2" {
-	export YIELDLENS_ENV_FILE="$BATS_TEST_TMPDIR/missing.env"
-	run "$script" config
+	YIELDLENS_ENV_FILE="$BATS_TEST_TMPDIR/missing.env" run "$script" config
 	[ "$status" -eq 2 ]
 }
 
@@ -82,11 +81,71 @@ write_config() {
 }
 
 @test "compose runs with a clean environment and the VM tag" {
-	export PERSISTENCE_DB_PASSWORD=LocalApp_1
-	run "$script" config
+	PERSISTENCE_DB_PASSWORD=LocalApp_1 run "$script" config
 	[ "$status" -eq 0 ]
 	run grep -q '^PERSISTENCE_DB_PASSWORD=' "$BATS_TEST_TMPDIR/docker.env"
 	[ "$status" -eq 1 ]
 	grep -qx 'COMPOSE_FILE=compose.yaml:compose.observability.yaml:compose.vm.yaml' "$BATS_TEST_TMPDIR/docker.env"
 	grep -qx 'YIELDLENS_TAG=local' "$BATS_TEST_TMPDIR/docker.env"
+}
+
+@test "login pipes the GHCR token to docker login, not to the log" {
+	run "$script" login
+	[ "$status" -eq 0 ]
+	[ "$(cat "$BATS_TEST_TMPDIR/login.stdin")" = "s3cret" ]
+	grep -qF "login ghcr.io --username robot --password-stdin" "$BATS_TEST_TMPDIR/docker.log"
+	run grep -q "s3cret" "$BATS_TEST_TMPDIR/docker.log"
+	[ "$status" -eq 1 ]
+}
+
+@test "login without GHCR_TOKEN exits 2" {
+	grep -v '^GHCR_TOKEN=' "$BATS_TEST_TMPDIR/vm.env" >"$BATS_TEST_TMPDIR/no-token.env"
+	YIELDLENS_ENV_FILE="$BATS_TEST_TMPDIR/no-token.env" run "$script" login
+	[ "$status" -eq 2 ]
+}
+
+@test "pull uses the observability and airflow profiles with the commit as tag and a clean environment" {
+	PERSISTENCE_DB_PASSWORD=LocalApp_1 run "$script" pull
+	[ "$status" -eq 0 ]
+	grep -qF -- "--profile airflow --profile observability pull --quiet" "$BATS_TEST_TMPDIR/docker.log"
+	grep -qx "YIELDLENS_TAG=$(git rev-parse HEAD)" "$BATS_TEST_TMPDIR/docker.env"
+	run grep -q '^PERSISTENCE_DB_PASSWORD=' "$BATS_TEST_TMPDIR/docker.env"
+	[ "$status" -eq 1 ]
+}
+
+@test "migrate runs core, ing and proc in order" {
+	run "$script" migrate
+	[ "$status" -eq 0 ]
+	[ "$(grep -o 'run --rm [a-z]*-migrate' "$BATS_TEST_TMPDIR/docker.log" | awk '{print $3}' | paste -sd ' ' -)" = "core-migrate ing-migrate proc-migrate" ]
+}
+
+@test "migrate stops at the first failing migration" {
+	echo "ing-migrate" >"$BATS_TEST_TMPDIR/fail.pattern"
+	run "$script" migrate
+	[ "$status" -eq 1 ]
+	[[ $output == *"migration ing-migrate failed"* ]]
+	run grep -q "proc-migrate" "$BATS_TEST_TMPDIR/docker.log"
+	[ "$status" -eq 1 ]
+}
+
+@test "up waits for the stack with caddy and airflow, and not for the job images" {
+	run "$script" up
+	[ "$status" -eq 0 ]
+	line="$(grep -F "up --detach --wait" "$BATS_TEST_TMPDIR/docker.log")"
+	[[ $line == *caddy* ]]
+	[[ $line == *airflow-scheduler* ]]
+	[[ $line != *processing-job* ]]
+}
+
+@test "ready checks the four apis on loopback" {
+	run "$script" ready
+	[ "$status" -eq 0 ]
+	[ "$(paste -sd ' ' "$BATS_TEST_TMPDIR/curl.log")" = "http://127.0.0.1:8000/ready http://127.0.0.1:8001/ready http://127.0.0.1:8002/ready http://127.0.0.1:8003/ready" ]
+}
+
+@test "ready fails when an api is not ready" {
+	echo "8002/ready" >"$BATS_TEST_TMPDIR/curl.fail"
+	run "$script" ready
+	[ "$status" -eq 1 ]
+	[[ $output == *"port 8002"* ]]
 }

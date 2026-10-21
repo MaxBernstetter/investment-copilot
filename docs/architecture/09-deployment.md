@@ -72,6 +72,35 @@ Open the admin UIs with an SSH tunnel, for example `ssh -L 8088:127.0.0.1:8088 -
 
 **Check.** `task deploy:config` validates the overlay with the placeholders of `vm.env.example` (ports, builds, CORS, `caddy validate` with the local Caddy image). CI runs it as the job `deploy: config`. The overlay uses `!reset`, which needs Docker Compose 2.24.4 or later.
 
+### One-off VM setup
+
+1. OCI Ampere A1 with Ubuntu arm64 and a reserved public IP; the security list allows only TCP 22, 80 and 443.
+2. Docker Engine and the Compose plugin 2.24.4 or later. Log rotation in `/etc/docker/daemon.json`: `{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}`.
+3. `git`, `curl` and the go-task binary (the version from `devbox.lock`). No devbox on the VM.
+4. Clone the repository into `/opt/yieldlens/repo`.
+5. Create `/opt/yieldlens/.env` from `src/deploy/vm.env.example` (chmod 600). The GHCR classic PAT has `read:packages` only.
+6. DuckDNS: point the subdomain's A record at the public IP.
+7. First deploy (below).
+8. First `backfill_ecb`: trigger it in the Airflow UI through the SSH tunnel (see [[04-daily-schedule]]).
+
+### Deploy procedure
+
+Run after `images.yml` has published the commit `<sha>` to GHCR:
+
+```
+cd /opt/yieldlens/repo && git fetch && git checkout --detach <sha> && YIELDLENS_ENV_FILE=/opt/yieldlens/.env task deploy:all
+```
+
+`deploy:all` runs five steps, each a tested script step (`src/scripts/deploy-vm.sh`):
+
+- `login`: GHCR login with the read-only token from the `.env`.
+- `pull`: pulls the images of the checked-out commit (`YIELDLENS_TAG` is its SHA).
+- `migrate`: the Liquibase migrations `CORE`, `ING` and `PROC` from the checkout, in that order.
+- `up`: starts the stack with the airflow and observability profiles and waits until the services are healthy.
+- `ready`: checks that the four apis answer `/ready` on loopback. The deploy fails when one does not.
+
+MR 2 automates this from GitHub Actions.
+
 ## Delivery
 
 GitHub Actions publishes multi-arch service images as `ghcr.io/maxbernstetter/yield-lens-<service>:<commit sha>` (`linux/amd64` and `linux/arm64`) via `images.yml` on every push to `main`, after a Trivy scan. It also deploys the frontend to Pages and updates the VM over SSH (`docker compose pull && up -d`, migrations, readiness check). See [[07-delivery-and-security]].

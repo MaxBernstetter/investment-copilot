@@ -4,6 +4,11 @@
 #
 # Usage: deploy-vm.sh config|login|pull|migrate|up|ready
 #   config   validate the overlay with the env file and the Caddyfile (needs the local caddy image)
+#   login    log in to GHCR with GHCR_USER and GHCR_TOKEN from the env file (read-only token)
+#   pull     pull the images at the checked-out commit (YIELDLENS_TAG)
+#   migrate  run the Liquibase migrations CORE, ING and PROC from the checkout, in that order
+#   up       start the stack and wait until its services are healthy
+#   ready    check the readiness of the four apis on 127.0.0.1; fails when one is not ready
 #
 # Environment:
 #   YIELDLENS_ENV_FILE  the VM .env (required; /opt/yieldlens/.env on the VM, vm.env.example for config)
@@ -62,7 +67,53 @@ check_config() {
 		caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || fail "the Caddyfile is invalid"
 }
 
+readonly migrations=(core-migrate ing-migrate proc-migrate)
+# ingestion and processing-job are deliberately not in services: they are pulled because the airflow profile
+# is active, and Airflow starts them on demand.
+readonly services=(oracle persistence processing access ingestion-api airflow-postgres airflow-init
+	airflow-scheduler airflow-dag-processor airflow-apiserver otel-collector prometheus tempo grafana caddy)
+readonly ready_ports=(8000 8001 8002 8003) # access, persistence, processing, ingestion
+
+login() {
+	local user token
+	user="$(env_value GHCR_USER)"
+	token="$(env_value GHCR_TOKEN)"
+	[[ -n $user && -n $token ]] || {
+		echo "GHCR_USER and GHCR_TOKEN must be set in $env_file" >&2
+		exit 2
+	}
+	printf '%s' "$token" | docker login ghcr.io --username "$user" --password-stdin >/dev/null || fail "GHCR login failed"
+}
+
+pull() {
+	compose --profile airflow --profile observability pull --quiet || fail "pull failed"
+}
+
+migrate() {
+	local m
+	for m in "${migrations[@]}"; do
+		compose --profile tools run --rm "$m" || fail "migration $m failed"
+	done
+}
+
+up() {
+	compose --profile airflow --profile observability up --detach --wait "${services[@]}" || fail "the stack did not become healthy"
+}
+
+ready() {
+	local port
+	for port in "${ready_ports[@]}"; do
+		curl --fail --silent --show-error --max-time 5 --retry 30 --retry-delay 2 --retry-all-errors \
+			"http://127.0.0.1:$port/ready" >/dev/null || fail "the api on port $port is not ready"
+	done
+}
+
 case "$step" in
 config) check_config ;;
+login) login ;;
+pull) pull ;;
+migrate) migrate ;;
+up) up ;;
+ready) ready ;;
 *) usage ;;
 esac

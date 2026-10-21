@@ -126,6 +126,12 @@ The live VM stack is described in [[09-deployment]] (Live VM). Its checks are `d
 |---|---|
 | `deploy:config` | Validate the VM overlay with `vm.env.example` (no builds, only Caddy publishes ports, CORS is the Pages origin) and the Caddyfile (`caddy validate` in the locally built Caddy image) |
 | `deploy:test:unit` | Run the bats tests of `src/scripts/deploy-vm.sh` (fake `docker` and `curl`) |
+| `deploy:login` | Log in to GHCR with the read-only token of `YIELDLENS_ENV_FILE` |
+| `deploy:pull` | Pull the images of the checked-out commit |
+| `deploy:migrate` | Run the Liquibase migrations `CORE`, `ING` and `PROC` from the checkout |
+| `deploy:up` | Start the stack (airflow and observability profiles) and wait until healthy |
+| `deploy:ready` | Check that the four apis answer `/ready`; fails when one does not |
+| `deploy:all` | Run login, pull, migrate, up and ready in order (the VM deploy; see [[09-deployment]]) |
 | `caddy:image`, `caddy:image:scan` | Build and scan the Caddy image (`yield-lens-caddy`), like the services |
 
 The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, persistence, processing, access and ingestion apis, the ingestion job) lives in `src/deploy/` (namespace `dev`, run from that directory):
