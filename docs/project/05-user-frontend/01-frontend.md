@@ -181,7 +181,7 @@ The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) an
 
 ## Offline state
 
-On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows "Loading…". Both states are inside the app shell, so the header and footer stay visible.
+On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows a 320 px skeleton with visually hidden "Loading…". Both states are inside the app shell, so the header and footer stay visible.
 
 ## Hosting
 
