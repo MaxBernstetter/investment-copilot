@@ -1,5 +1,15 @@
 """Interface models of the processing service, version 1."""
 
+from contracts.processing.v1.measures import (
+    MAX_MEASURES_RANGE,
+    MEASURES_PATH,
+    CurveMeasures,
+    MeasureInput,
+    MeasurePoint,
+    MeasureQuality,
+    MeasuresMeta,
+    MeasuresResponse,
+)
 from contracts.processing.v1.quality import (
     MAX_DAYS_RANGE,
     MAX_VALUES_RANGE,
@@ -21,10 +31,18 @@ from contracts.processing.v1.quality import (
 
 __all__ = [
     "MAX_DAYS_RANGE",
+    "MAX_MEASURES_RANGE",
     "MAX_VALUES_RANGE",
+    "MEASURES_PATH",
     "QUALITY_DAYS_PATH",
     "VALUE_QUALITY_PATH",
+    "CurveMeasures",
     "Finding",
+    "MeasureInput",
+    "MeasurePoint",
+    "MeasureQuality",
+    "MeasuresMeta",
+    "MeasuresResponse",
     "QualityDay",
     "QualityDays",
     "QualityDaysResponse",
