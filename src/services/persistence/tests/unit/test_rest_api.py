@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
@@ -11,7 +12,11 @@ from contracts.persistence.v1 import (
     SERIES_OBSERVATIONS_PATH,
     VALUE_VERSIONS_PATH,
 )
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from opentelemetry import trace
+from opentelemetry.trace import SpanContext
+from starlette.types import Receive, Scope, Send
 
 from persistence.application.get_curve_as_of import GetCurveAsOf
 from persistence.application.get_curve_changes import GetCurveChanges
@@ -558,3 +563,60 @@ def test_changes_route_since_after_as_of_is_422(client: TestClient) -> None:
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Invalid range"
+
+
+def app_that_fails_unexpectedly(backend: FakeBackend) -> FastAPI:
+    app = create_app(backend.services)
+
+    @app.get("/boom")
+    def boom() -> None:
+        raise RuntimeError("ORA-00942: table SECRET_TABLE does not exist")
+
+    return app
+
+
+def test_an_unexpected_error_is_a_generic_problem(
+    backend: FakeBackend, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = TestClient(app_that_fails_unexpectedly(backend), raise_server_exceptions=False)
+
+    response = client.get("/boom")
+
+    assert response.status_code == 500
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Internal server error",
+        "status": 500,
+        "detail": "An unexpected error occurred.",
+    }
+    assert "ORA-00942" not in response.text
+    assert "RuntimeError" not in response.text
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert record.exc_info is not None
+    assert record.exc_info[0] is RuntimeError
+    assert getattr(record, "event", None) == "unexpected_error"
+
+
+def test_an_unexpected_error_carries_the_trace_id(
+    backend: FakeBackend, caplog: pytest.LogCaptureFixture
+) -> None:
+    app = app_that_fails_unexpectedly(backend)
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    context = SpanContext(
+        trace_id=0x0AF7651916CD43DD8448EB211C80319C,
+        span_id=0xB7AD6B7169203331,
+        is_remote=False,
+    )
+
+    async def traced(scope: Scope, receive: Receive, send: Send) -> None:
+        with trace.use_span(trace.NonRecordingSpan(context)):
+            await app(scope, receive, send)
+
+    client = TestClient(traced, raise_server_exceptions=False)
+
+    response = client.get("/boom")
+
+    assert response.json()["trace_id"] == trace_id
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert getattr(record, "trace_id", None) == trace_id

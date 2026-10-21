@@ -19,7 +19,7 @@ The contract is `contracts.persistence.v1` (`src/contracts/src/contracts/persist
 - Request `RecordVersionsRequest`: `observations`, a list of 1 to 10 000 `ObservationVersion` (`curve_id`, `maturity`, `valid_date`, `value`, `origin`, `method_version`, `source_id`, `run_id`, `change_reason`, optional `normalization_version`, optional `delivery_id`). Larger loads are split into chunks by the caller.
 - Response `RecordVersionsResponse`: `recorded_count`, the number of new versions (new or changed observations); `unchanged_count`, the observations whose open version already had the same value and source (nothing stored); and `known_from`, the knowledge time (UTC) of the call, which all its new versions share. `recorded_count + unchanged_count` is the batch size.
 - Versioning: a changed `value` or `source_id` closes the open version and opens a new one; resending an unchanged observation (also from another run) is an idempotent no-op that returns `200`. See [[01-bitemporal-model#Versioning]].
-- Errors are RFC 9457 problem details (`application/problem+json`).
+- Errors are RFC 9457 problem details (`application/problem+json`). An unexpected error is a `500` problem (*Internal server error*) with a generic detail and `trace_id` when traced; the exception and traceback are logged at ERROR.
 - Knowledge time can't be set through the API; only the database clock sets it.
 
 ### Reading a curve as of a time
