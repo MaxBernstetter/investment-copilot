@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
 from opentelemetry.sdk.metrics.export import (
@@ -9,6 +11,7 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from processing.domain.assessment import CheckedDay, ValueStatus
+from processing.domain.check_run import CheckRunAttempt
 from processing.domain.quality import Finding, Rule, Severity, Status
 from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 
@@ -101,3 +104,42 @@ class FakeQualityStore:
     ) -> list[ValueStatus]:
         self.maturity_filter = maturity
         return [ValueStatus(1, "10Y", FROM, Status.WARN)]
+
+
+@dataclass
+class StubCheckRunHistory:
+    """Answers from ``attempts`` (given newest first) and records the keyword arguments."""
+
+    attempts: list[CheckRunAttempt] = field(default_factory=list)
+    list_calls: list[dict[str, object]] = field(default_factory=list)
+    get_calls: list[str] = field(default_factory=list)
+
+    async def list_check_runs(
+        self,
+        *,
+        recorded_from: datetime | None,
+        recorded_before: datetime | None,
+        before_check_run_id: int | None,
+        limit: int,
+    ) -> Sequence[CheckRunAttempt]:
+        self.list_calls.append(
+            {
+                "recorded_from": recorded_from,
+                "recorded_before": recorded_before,
+                "before_check_run_id": before_check_run_id,
+                "limit": limit,
+            }
+        )
+        rows = [
+            attempt
+            for attempt in self.attempts
+            if before_check_run_id is None or attempt.check_run_id < before_check_run_id
+        ]
+        return rows[:limit]
+
+    async def get_check_runs(self, run_id: str) -> Sequence[CheckRunAttempt]:
+        self.get_calls.append(run_id)
+        return sorted(
+            (attempt for attempt in self.attempts if attempt.run_id == run_id),
+            key=lambda attempt: attempt.attempt,
+        )

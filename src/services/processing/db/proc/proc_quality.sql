@@ -44,6 +44,18 @@ create or replace package proc_quality authid definer as
 
   function latest_check_runs return sys_refcursor;
 
+  -- Check runs newest first, optionally filtered by recorded_at and paged before check_run_id.
+  -- attempt is the run's 1-based position within its run_id, by (recorded_at, check_run_id).
+  function get_runs(
+    p_recorded_from       in timestamp default null,
+    p_recorded_before     in timestamp default null,
+    p_before_check_run_id in number    default null,
+    p_limit               in pls_integer default 51
+  ) return sys_refcursor;
+
+  -- Every check run of a run id, in attempt order.
+  function get_run(p_run_id in varchar2) return sys_refcursor;
+
   function current_time return timestamp;
 end proc_quality;
 /
@@ -65,6 +77,7 @@ create or replace package body proc_quality as
     p_check_run_id     out number
   ) is
     l_check_run_id number;
+    l_value_count  number := p_values.count;
   begin
     dbms_application_info.set_module('proc_quality', 'record_check');
 
@@ -81,7 +94,8 @@ create or replace package body proc_quality as
       update check_run
          set run_id = p_run_id,
              rule_set_version = p_rule_set_version,
-             recorded_at = sys_extract_utc(systimestamp)
+             recorded_at = sys_extract_utc(systimestamp),
+             value_count = l_value_count
        where check_run_id = l_check_run_id;
 
       delete from quality_finding where check_run_id = l_check_run_id;
@@ -90,9 +104,10 @@ create or replace package body proc_quality as
     exception
       when no_data_found then
         insert into check_run (
-          run_id, curve_id, valid_from, valid_to, checked_as_of, rule_set_version
+          run_id, curve_id, valid_from, valid_to, checked_as_of, rule_set_version, value_count
         ) values (
-          p_run_id, p_curve_id, p_valid_from, p_valid_to, p_checked_as_of, p_rule_set_version
+          p_run_id, p_curve_id, p_valid_from, p_valid_to, p_checked_as_of, p_rule_set_version,
+          l_value_count
         )
         returning check_run_id into l_check_run_id;
     end;
@@ -235,6 +250,62 @@ create or replace package body proc_quality as
        order by curve_id;
     return l_result;
   end latest_check_runs;
+
+  function get_runs(
+    p_recorded_from       in timestamp default null,
+    p_recorded_before     in timestamp default null,
+    p_before_check_run_id in number    default null,
+    p_limit               in pls_integer default 51
+  ) return sys_refcursor is
+    l_runs sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'get_runs');
+    open l_runs for
+      with page as (
+        select r.check_run_id, r.run_id, r.recorded_at, r.value_count
+          from check_run r
+         where (p_recorded_from is null or r.recorded_at >= p_recorded_from)
+           and (p_recorded_before is null or r.recorded_at < p_recorded_before)
+           and (p_before_check_run_id is null or r.check_run_id < p_before_check_run_id)
+         order by r.check_run_id desc
+         fetch first p_limit rows only
+      )
+      select p.check_run_id, p.run_id,
+             (select count(*)
+                from check_run s
+               where s.run_id = p.run_id
+                 and (s.recorded_at < p.recorded_at
+                      or (s.recorded_at = p.recorded_at and s.check_run_id <= p.check_run_id))
+             ) as attempt,
+             p.recorded_at, p.value_count
+        from page p
+       order by p.check_run_id desc;
+    dbms_application_info.set_module(null, null);
+    return l_runs;
+  exception
+    when others then
+      dbms_application_info.set_module(null, null);
+      raise;
+  end get_runs;
+
+  function get_run(p_run_id in varchar2) return sys_refcursor is
+    l_run sys_refcursor;
+  begin
+    dbms_application_info.set_module('proc_quality', 'get_run');
+    open l_run for
+      select r.check_run_id, r.run_id,
+             row_number() over (order by r.recorded_at, r.check_run_id) as attempt,
+             r.recorded_at, r.value_count
+        from check_run r
+       where r.run_id = p_run_id
+       order by r.recorded_at, r.check_run_id;
+    dbms_application_info.set_module(null, null);
+    return l_run;
+  exception
+    when others then
+      dbms_application_info.set_module(null, null);
+      raise;
+  end get_run;
 
   function current_time return timestamp is
   begin
