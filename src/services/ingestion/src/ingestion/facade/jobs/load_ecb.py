@@ -20,7 +20,7 @@ errors are not.
 
 import argparse
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -88,8 +88,21 @@ def parse_command(
     )
 
 
-def summary(result: LoadResult) -> str:
-    """One JSON line describing the finished run."""
+def root_span_attributes(
+    command: LoadCommand | ReplayCommand | FailUnfinishedCommand,
+) -> dict[str, str]:
+    """Attributes of the root span of a job run: the run, its source and its operation."""
+    if isinstance(command, LoadCommand):
+        operation = command.operation.value
+    elif isinstance(command, ReplayCommand):
+        operation = Operation.REPLAY.value
+    else:
+        operation = "fail-unfinished"
+    return {"run_id": command.run_id, "source": "ecb", "operation": operation}
+
+
+def summary(result: LoadResult, trace: Mapping[str, str]) -> str:
+    """One JSON line describing the finished run, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "load_finished",
@@ -114,12 +127,13 @@ def summary(result: LoadResult) -> str:
                 }
                 for window in result.windows
             ],
+            **trace,
         }
     )
 
 
-def replay_summary(result: ReplayResult) -> str:
-    """One JSON line describing the finished replay."""
+def replay_summary(result: ReplayResult, trace: Mapping[str, str]) -> str:
+    """One JSON line describing the finished replay, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "replay_finished",
@@ -138,24 +152,28 @@ def replay_summary(result: ReplayResult) -> str:
                 }
                 for delivery in result.deliveries
             ],
+            **trace,
         }
     )
 
 
-def unfinished_summary(run_id: str, failed_count: int) -> str:
-    """One JSON line describing the attempts that were marked failed."""
+def unfinished_summary(run_id: str, failed_count: int, trace: Mapping[str, str]) -> str:
+    """One JSON line describing the attempts that were marked failed, with the trace ids of
+    its root span."""
     return json.dumps(
         {
             "event": "unfinished_failed",
             "source": "ecb",
             "run_id": run_id,
             "failed_count": failed_count,
+            **trace,
         }
     )
 
 
-def failure(run_id: str | None, error: Exception) -> str:
-    """One JSON line describing a failed run."""
+def failure(run_id: str | None, error: Exception, trace: Mapping[str, str]) -> str:
+    """One JSON line describing a failed run, with the trace ids of its root span (none
+    before the span exists, e.g. on a configuration error)."""
     return json.dumps(
         {
             "event": "load_failed",
@@ -163,6 +181,7 @@ def failure(run_id: str | None, error: Exception) -> str:
             "run_id": run_id,
             "error": type(error).__name__,
             "message": str(error),
+            **trace,
         }
     )
 

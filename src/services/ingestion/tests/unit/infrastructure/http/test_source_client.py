@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 import pytest
+from opentelemetry.metrics import NoOpMeter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
@@ -200,6 +201,7 @@ async def test_limits_concurrent_requests(harness: Harness, limit: int) -> None:
         settings(max_concurrent_requests=limit),
         transport=httpx.MockTransport(slow_source),
         clock=harness.clock,
+        meter=NoOpMeter("test"),
     )
     async with client:
         await asyncio.gather(*(client.get(URL) for _ in range(4)))

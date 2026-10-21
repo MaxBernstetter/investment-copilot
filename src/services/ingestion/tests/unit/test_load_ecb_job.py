@@ -11,13 +11,16 @@ from typing import Any
 import httpx
 import pytest
 from contracts.persistence import v1
+from opentelemetry.trace import StatusCode, format_span_id, format_trace_id
 
 from ingestion.domain.delivery import RawDelivery
 from ingestion.domain.run import Operation, RunCounts, RunOutcome, RunStatus
 from ingestion.infrastructure.http import USER_AGENT
+from ingestion.infrastructure.telemetry import Telemetry
 from ingestion.job import main
 from tests.fake_deliveries import FakeDeliveryStore
 from tests.fake_run_log import FakeRunLog, RecordedAttempt
+from tests.fake_telemetry import job_telemetry
 from tests.recorded import (
     DAILY,
     EMPTY_WINDOW,
@@ -83,6 +86,7 @@ def run(
     persistence: StubPersistence,
     deliveries: FakeDeliveryStore | None = None,
     run_log: FakeRunLog | None = None,
+    telemetry: Telemetry | None = None,
 ) -> Run:
     exit_code = main(
         argv,
@@ -90,6 +94,7 @@ def run(
         persistence_transport=persistence.transport,
         delivery_store=deliveries or FakeDeliveryStore(),
         run_log=run_log or FakeRunLog(),
+        telemetry=telemetry,
     )
     captured = capsys.readouterr()
     return Run(exit_code, captured.out, captured.err)
@@ -656,7 +661,8 @@ def test_fail_unfinished_marks_the_open_attempt_failed(
     )
 
     assert result.exit_code == 0
-    assert result.summary == {
+    without_trace = {k: v for k, v in result.summary.items() if k not in ("trace_id", "span_id")}
+    assert without_trace == {
         "event": "unfinished_failed",
         "source": "ecb",
         "run_id": "dag-run-9",
@@ -687,3 +693,172 @@ def test_fail_unfinished_leaves_a_finished_attempt_alone(
     assert result.summary["failed_count"] == 0
     [recorded] = runs.attempts
     assert recorded.outcome == finished
+
+
+def test_a_successful_daily_run_flushes_one_root_span_before_exit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, metrics = job_telemetry()
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+
+    result = run(
+        capsys, ["daily", "--valid-date", "2026-10-15"], ecb, StubPersistence(), telemetry=telemetry
+    )
+
+    assert result.exit_code == 0
+    [span] = spans.get_finished_spans()
+    assert span.name == "ingestion-load-ecb"
+    assert span.parent is None
+    assert dict(span.attributes or {}) == {
+        "run_id": "ecb-daily-2026-10-15",
+        "source": "ecb",
+        "operation": "daily",
+        "attempt": 1,
+    }
+    assert metrics.is_shut_down
+    exported = {
+        metric.name
+        for batch in metrics.exported
+        for resource in batch.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+    }
+    assert "yl_ingestion_source_requests_total" in exported
+
+
+def test_a_failed_run_flushes_spans_and_metrics_before_exit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, metrics = job_telemetry()
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+
+    result = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        ecb,
+        StubPersistence(statuses=[422]),
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 1
+    [span] = spans.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert (span.attributes or {}).get("attempt") == 1
+    assert metrics.is_shut_down
+    assert metrics.exported
+
+
+def test_a_replay_root_span_has_operation_replay_and_its_attempt(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, _ = job_telemetry()
+
+    result = run(
+        capsys,
+        ["replay", "--fetched-from", "2026-10-16", "--fetched-to", "2026-10-16"],
+        NoSource({}),
+        StubPersistence(),
+        stored_deliveries(payload(HISTORY_2025), None, payload(HISTORY_2026)),
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 0
+    [span] = spans.get_finished_spans()
+    assert span.name == "ingestion-load-ecb"
+    assert dict(span.attributes or {}) == {
+        "run_id": "ecb-replay-2026-10-16-2026-10-16",
+        "source": "ecb",
+        "operation": "replay",
+        "attempt": 1,
+    }
+
+
+def test_fail_unfinished_has_a_root_span_and_flushes(capsys: pytest.CaptureFixture[str]) -> None:
+    telemetry, spans, metrics = job_telemetry()
+    runs = FakeRunLog()
+    runs.attempts.append(RecordedAttempt("dag-run-9", 1, Operation.DAILY))
+
+    result = run(
+        capsys,
+        ["fail-unfinished", "--run-id", "dag-run-9", "--error-type", "AirflowTaskTimeout"],
+        StubEcb({}),
+        StubPersistence(),
+        run_log=runs,
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 0
+    [span] = spans.get_finished_spans()
+    attributes = dict(span.attributes or {})
+    assert attributes == {
+        "run_id": "dag-run-9",
+        "source": "ecb",
+        "operation": "fail-unfinished",
+    }
+    assert "attempt" not in attributes
+    assert metrics.is_shut_down
+
+
+def test_a_usage_error_still_shuts_telemetry_down(capsys: pytest.CaptureFixture[str]) -> None:
+    telemetry, _, metrics = job_telemetry()
+
+    with pytest.raises(SystemExit) as raised:
+        run(
+            capsys,
+            ["weekly", "--valid-date", "2026-10-15"],
+            StubEcb({}),
+            StubPersistence(),
+            telemetry=telemetry,
+        )
+
+    assert raised.value.code == 2
+    assert metrics.is_shut_down
+
+
+def test_a_configuration_error_shuts_down_and_has_no_trace_ids(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    telemetry, _, metrics = job_telemetry()
+    monkeypatch.delenv("INGESTION_PERSISTENCE__URL")
+
+    result = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        StubEcb({}),
+        StubPersistence(),
+        telemetry=telemetry,
+    )
+
+    assert result.exit_code == 2
+    assert metrics.is_shut_down
+    assert "trace_id" not in json.loads(result.stderr)
+    assert "span_id" not in json.loads(result.stderr)
+
+
+def test_summary_and_failure_lines_carry_the_root_trace_id(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, _ = job_telemetry()
+    ok = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        StubEcb({("2026-10-01", "2026-10-15"): DAILY}),
+        StubPersistence(),
+        telemetry=telemetry,
+    )
+    [span] = spans.get_finished_spans()
+    assert ok.summary["trace_id"] == format_trace_id(span.context.trace_id)
+    assert ok.summary["span_id"] == format_span_id(span.context.span_id)
+
+    telemetry, spans, _ = job_telemetry()
+    failed = run(
+        capsys,
+        ["daily", "--valid-date", "2026-10-15"],
+        StubEcb({("2026-10-01", "2026-10-15"): DAILY}),
+        StubPersistence(statuses=[422]),
+        telemetry=telemetry,
+    )
+    [span] = spans.get_finished_spans()
+    failure = json.loads(failed.stderr)
+    assert failure["trace_id"] == format_trace_id(span.context.trace_id)
+    assert failure["span_id"] == format_span_id(span.context.span_id)
