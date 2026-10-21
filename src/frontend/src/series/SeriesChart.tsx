@@ -29,7 +29,6 @@ export default function SeriesChart({ points }: SeriesChartProps) {
         tooltipAnimationDuration={0}
         lineProps={{ isAnimationActive: false }}
         xAxisProps={{ minTickGap: 32 }}
-        unit="%"
       />
     </Suspense>
   )
