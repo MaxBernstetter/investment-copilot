@@ -236,6 +236,7 @@ test.describe('visual snapshots §7', () => {
     })
     await openQualityTab(page)
     await expect(page.getByText('No business days in this range')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S13', ['light'])
   })
 
@@ -245,6 +246,7 @@ test.describe('visual snapshots §7', () => {
     const panel = page.getByRole('tabpanel', { name: 'Quality' })
     await expect(panel.getByText('Loading…')).toBeAttached()
     await expect(panel.locator('.mantine-Skeleton-root')).toHaveCount(5)
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S14', ['light'])
   })
 
@@ -252,6 +254,7 @@ test.describe('visual snapshots §7', () => {
     await routeQuality(page, 503, { detail: 'The quality service is not reachable; try again later.' })
     await openQualityTab(page)
     await expect(page.getByRole('alert')).toContainText('Backend offline')
+    await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S15', ['light'])
   })
 })
