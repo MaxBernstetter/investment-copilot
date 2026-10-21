@@ -39,7 +39,7 @@ ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-messag
 | `replay` | 0 | The deliveries stored in `ING` that were fetched on these days (UTC), see [[04-raw-deliveries#Replay]] |
 
 - **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
-- **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message).
+- **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message). The summary and failure lines carry `trace_id` and `span_id` of the run's root span `ingestion-load-ecb` (`run_id`, `operation`, `source`, `attempt`). Log lines inside a span carry the same ids.
 - **Exit status:** `0` the load finished, also with zero rows; `1` the load failed (kill switch, request failed, delivery not stored, payload invalid, write rejected); `2` usage or configuration error.
 - **Locally:** `devbox run -- task ingestion:load:ecb:daily VALID_DATE=2026-10-15` or `task ingestion:load:ecb:history START=… END=…` against a running persistence api (`task persistence:run`). These call the live ECB API: manual use only, never in CI.
 
@@ -56,6 +56,16 @@ Besides the source settings of the [[02-source-client#Configuration|source clien
 | `INGESTION_DB__USER` | `ing_app` | Runtime user of `ING` |
 | `INGESTION_DB__PASSWORD` | – (required) | Its password (Taskfile local default; a secret elsewhere) |
 | `INGESTION_DB__CALL_TIMEOUT_MS` | `30000` | Timeout per database call |
+
+The telemetry follows the standard OpenTelemetry variables. Traces and metrics are exported over OTLP/HTTP only when an endpoint is set; without one the job runs and records nothing outside the process.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | Collector base URL, e.g. `http://localhost:4318`. None means no export |
+| `OTEL_SERVICE_NAME` | `unknown_service` | Service name on every span and metric |
+| `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` | `cumulative` | Temporality of the exported metrics; set `delta` for the job, which exports once at exit |
+| `OTEL_SEMCONV_STABILITY_OPT_IN` | `http` in the image | Current HTTP semantic conventions |
+| `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` | `health,ready` in the image | Probe routes that are not traced |
 
 ## Source schema (version 1)
 

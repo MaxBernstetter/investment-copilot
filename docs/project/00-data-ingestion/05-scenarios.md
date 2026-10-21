@@ -35,8 +35,8 @@ ingestion-scenario corrected-yield [--event NAME]...
 ```
 
 - `--event NAME` (repeatable) runs only the named events, in the order given. Without it, all events run in order.
-- **Output:** one JSON line on stdout (`scenario_finished`: the curve, and per event its name, kind, run id, recorded and unchanged counts, and `known_from`).
-- **Failure:** one JSON line on stderr (`scenario_failed`, error type and message).
+- **Output:** one JSON line on stdout (`scenario_finished`: the curve, and per event its name, kind, run id, recorded and unchanged counts, and `known_from`). The line carries `trace_id` and `span_id` of the root span `ingestion-scenario`.
+- **Failure:** one JSON line on stderr (`scenario_failed`, error type and message), with the same `trace_id` and `span_id` when the run had started.
 - **Exit status:** `0` the scenario finished; `1` a write was rejected or the persistence api failed; `2` usage or configuration error (unknown scenario or event, missing settings).
 - **Configuration:** the job reads the shared ingestion settings, so `INGESTION_DB__DSN` and `INGESTION_DB__PASSWORD` must be set even though the scenario does not use `ING` (the Taskfile sets local defaults).
 

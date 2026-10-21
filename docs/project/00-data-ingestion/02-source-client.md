@@ -78,7 +78,7 @@ A new source adds one field to `SourcesSettings` in `ingestion/config.py`, which
 |---|---|---|
 | `yl_ingestion_source_requests_total` | `source` (e.g. `ecb`), `status` (HTTP status code such as `200`, `304`, `429`, or `timeout`, `network_error`) | Requests sent to a source, one per attempt. A rising `429`/`503` share shows throttling before it becomes a ban |
 
-It is recorded through the OpenTelemetry metrics API. Without a configured SDK it is a no-op; the exporter setup comes with the observability platform.
+The job passes the meter of its OpenTelemetry setup ([[03-ecb-load#Configuration]]); it is exported only when an OTLP endpoint is set.
 
 ## Tests
 
