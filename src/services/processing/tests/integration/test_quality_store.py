@@ -467,3 +467,43 @@ def test_a_run_returns_its_check_runs_numbered_by_recorded_at(oracle: OracleData
 
 def test_an_unknown_run_has_no_check_runs(oracle: OracleDatabase) -> None:
     assert get_check_runs(oracle, f"unknown-{uuid.uuid4().hex}") == []
+
+
+def test_listed_check_runs_carry_their_attempt(oracle: OracleDatabase) -> None:
+    run_id = f"attempts-{uuid.uuid4().hex}"
+    curve_id = fresh_curve()
+    record(oracle, dataclasses.replace(sample_check(run_id=run_id), curve_id=curve_id))
+    record(
+        oracle,
+        dataclasses.replace(
+            sample_check(run_id=run_id, checked_as_of=CHECKED_AS_OF + timedelta(hours=1)),
+            curve_id=curve_id,
+        ),
+    )
+    first_id, second_id = check_run_ids(oracle, run_id)
+    window_start = datetime(2083, 1, 1, tzinfo=UTC)
+    window_end = window_start + timedelta(days=1)
+    # The first recorded chunk gets the later recorded_at, so the second one is attempt 1.
+    set_recorded_at(oracle, first_id, window_start + timedelta(hours=2))
+    set_recorded_at(oracle, second_id, window_start + timedelta(hours=1))
+
+    def pairs(rows: list[CheckRunAttempt]) -> list[tuple[int, int]]:
+        return [(row.check_run_id, row.attempt) for row in rows]
+
+    everything = list_check_runs(
+        oracle, recorded_from=window_start, recorded_before=window_end, limit=10
+    )
+    first_page = list_check_runs(
+        oracle, recorded_from=window_start, recorded_before=window_end, limit=1
+    )
+    next_page = list_check_runs(
+        oracle,
+        recorded_from=window_start,
+        recorded_before=window_end,
+        before_check_run_id=first_page[-1].check_run_id,
+        limit=1,
+    )
+
+    assert pairs(everything) == [(second_id, 1), (first_id, 2)]
+    assert pairs(first_page) == [(second_id, 1)]
+    assert pairs(next_page) == [(first_id, 2)]

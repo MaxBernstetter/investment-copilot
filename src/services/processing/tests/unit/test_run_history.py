@@ -55,3 +55,12 @@ async def test_list_runs_without_more_rows_has_no_cursor() -> None:
 
     assert [row.check_run_id for row in page.attempts] == [3, 2]
     assert page.next_cursor is None
+
+
+async def test_a_full_page_has_a_cursor_to_the_next() -> None:
+    history = StubCheckRunHistory(attempts=[attempt(3), attempt(2), attempt(1)])
+
+    page = await list_runs(history, from_date=None, to_date=None, before_check_run_id=None, limit=2)
+
+    assert [row.check_run_id for row in page.attempts] == [3, 2]
+    assert page.next_cursor == 2
