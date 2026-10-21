@@ -3,6 +3,7 @@ import {
   assertNoHorizontalScroll,
   runAxe,
   screenshotName,
+  expectChartsInsideCards,
   expectOpaque,
   settleAnimations,
   setColorScheme,
@@ -28,6 +29,7 @@ async function captureSnapshots(
       }
       await page.mouse.move(0, 0)
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+      await expectChartsInsideCards(page)
       await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme), { fullPage })
     }
   }

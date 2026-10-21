@@ -113,59 +113,55 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
               value={stats.changeBp === undefined ? EMPTY : formatBp(stats.changeBp)}
             />
           </SimpleGrid>
-          <Card padding={0}>
-            <Card.Section withBorder inheritPadding py="sm">
-              <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-                <Title order={2}>{maturity} yield (%)</Title>
-                <SegmentedControl
-                  size="xs"
-                  value={display}
-                  onChange={(value) => setDisplay(value as SeriesDisplay)}
-                  data={[
-                    { label: 'Chart', value: 'chart' },
-                    { label: 'Table', value: 'table' },
-                  ]}
-                />
-              </Group>
-            </Card.Section>
-            <Card.Section inheritPadding py="md">
-              {display === 'chart' ? (
-                <>
-                  <SeriesChart points={points} />
-                  {flagged > 0 && (
-                    <Stack gap={4} mt="sm">
-                      <Text size="sm" c="dimmed">{flaggedCaption(flagged)}</Text>
-                    </Stack>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Table.ScrollContainer minWidth={560}>
-                    <Table>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th scope="col">Valid date</Table.Th>
-                          <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
-                          <Table.Th scope="col">Quality</Table.Th>
+          <Card>
+            <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
+              <Title order={2}>{maturity} yield (%)</Title>
+              <SegmentedControl
+                size="xs"
+                value={display}
+                onChange={(value) => setDisplay(value as SeriesDisplay)}
+                data={[
+                  { label: 'Chart', value: 'chart' },
+                  { label: 'Table', value: 'table' },
+                ]}
+              />
+            </Group>
+            {display === 'chart' ? (
+              <>
+                <SeriesChart points={points} />
+                {flagged > 0 && (
+                  <Stack gap={4} mt="sm">
+                    <Text size="sm" c="dimmed">{flaggedCaption(flagged)}</Text>
+                  </Stack>
+                )}
+              </>
+            ) : (
+              <>
+                <Table.ScrollContainer minWidth={560}>
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th scope="col">Valid date</Table.Th>
+                        <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
+                        <Table.Th scope="col">Quality</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {points.map((point) => (
+                        <Table.Tr key={point.valid_date}>
+                          <Table.Td>{point.valid_date}</Table.Td>
+                          <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
+                          <Table.Td>
+                            <ValueQualityCell quality={point.quality} maturity={maturity} />
+                          </Table.Td>
                         </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {points.map((point) => (
-                          <Table.Tr key={point.valid_date}>
-                            <Table.Td>{point.valid_date}</Table.Td>
-                            <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
-                            <Table.Td>
-                              <ValueQualityCell quality={point.quality} maturity={maturity} />
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Table.ScrollContainer>
-                  {hasUnchecked && <UncheckedNote />}
-                </>
-              )}
-            </Card.Section>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+                {hasUnchecked && <UncheckedNote />}
+              </>
+            )}
           </Card>
         </>
       )}

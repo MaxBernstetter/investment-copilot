@@ -120,6 +120,13 @@ describe('CurveView', () => {
     expect(headings[0]).toHaveTextContent('Yield curve')
   })
 
+  it('puts the chart in the padded card body, not a card section', async () => {
+    await renderLoaded()
+
+    expect(document.querySelector('.mantine-Card-section')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Spot curve (%)' })).toBeInTheDocument()
+  })
+
   it('shows the real-curve subtitle', async () => {
     render(<CurveView curveId="ecb-aaa-spot" />)
 
