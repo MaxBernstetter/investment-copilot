@@ -1,6 +1,133 @@
 {
   "components": {
     "schemas": {
+      "Alert": {
+        "additionalProperties": false,
+        "description": "One business alert raised by a service.",
+        "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "alert_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Alert Id",
+            "type": "string"
+          },
+          "attempt": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error type and message of the attempt that raised the alert",
+            "title": "Cause"
+          },
+          "cleared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "name": {
+            "examples": [
+              "run_failed"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AlertSeverity"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alert_id",
+          "name",
+          "severity",
+          "since",
+          "cleared_at",
+          "acknowledged_at"
+        ],
+        "title": "Alert",
+        "type": "object"
+      },
+      "AlertSeverity": {
+        "description": "How serious an alert is.",
+        "enum": [
+          "critical",
+          "warning"
+        ],
+        "title": "AlertSeverity",
+        "type": "string"
+      },
+      "AlertsResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/alerts``.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AlertsResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -300,6 +427,25 @@
           }
         },
         "summary": "Ready"
+      }
+    },
+    "/v1/alerts": {
+      "get": {
+        "description": "Active run alerts and alerts cleared within the last 7 days.",
+        "operationId": "list_alerts_v1_alerts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Alerts"
       }
     },
     "/v1/runs": {

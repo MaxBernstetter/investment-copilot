@@ -4,14 +4,16 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from contracts.transparency.v1 import (
+    ALERTS_PATH,
     DEFAULT_RUNS_LIMIT,
     MAX_RUNS_LIMIT,
     RUN_PATH,
     RUNS_PATH,
+    AlertsResponse,
     RunAttemptsResponse,
     RunsMeta,
     RunsResponse,
@@ -21,7 +23,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 
+from ingestion.application.alerts import RunAlertReader, current_run_alerts
 from ingestion.application.run_history import RunHistory, list_runs
+from ingestion.facade.rest.alerts import to_alert
 from ingestion.facade.rest.runs import to_run
 
 logger = logging.getLogger(__name__)
@@ -30,12 +34,18 @@ PROBLEM_JSON = "application/problem+json"
 PROBLEM_RESPONSE: dict[str, Any] = {"content": {PROBLEM_JSON: {}}}
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 @dataclass(frozen=True, slots=True)
 class Services:
     """What the facade needs from the rest of the service."""
 
     is_ready: Callable[[], Awaitable[bool]]
     runs: RunHistory
+    alerts: RunAlertReader
+    clock: Callable[[], datetime] = _utc_now
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -124,6 +134,13 @@ def _add_routes(app: FastAPI) -> None:
                 f"No attempt of run {run_id} is recorded.",
             )
         return RunAttemptsResponse(data=[to_run(attempt) for attempt in attempts])
+
+    @app.get(ALERTS_PATH, response_model=AlertsResponse)
+    async def list_alerts(request: Request) -> AlertsResponse:
+        """Active run alerts and alerts cleared within the last 7 days."""
+        services: Services = request.app.state.services
+        alerts = await current_run_alerts(services.alerts, now=services.clock())
+        return AlertsResponse(data=[to_alert(alert) for alert in alerts])
 
 
 def _add_problem_handlers(app: FastAPI) -> None:

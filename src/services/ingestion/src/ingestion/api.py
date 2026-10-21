@@ -22,9 +22,11 @@ def create_app_from_environment() -> FastAPI:
 async def ing_services(settings: DatabaseSettings) -> AsyncIterator[Services]:
     pool = create_pool(settings)
     try:
+        history = OracleRunHistory(pool, call_timeout_ms=settings.call_timeout_ms)
         yield Services(
             OracleHealth(pool, call_timeout_ms=settings.call_timeout_ms).is_reachable,
-            OracleRunHistory(pool, call_timeout_ms=settings.call_timeout_ms),
+            history,
+            history,
         )
     finally:
         await pool.close()
