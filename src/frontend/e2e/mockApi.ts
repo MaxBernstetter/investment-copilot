@@ -28,10 +28,12 @@ const curveGrid = loadJson<CurveFixture>('curve-grid.json')
 const curveOverlay15 = loadJson<CurveFixture>('curve-overlay-2026-10-15.json')
 const curveOverlay14 = loadJson<CurveFixture>('curve-overlay-2026-10-14.json')
 const curveSimSpike = loadJson<CurveFixture>('curve-sim-spike.json')
-const series10y = loadJson<{
+type SeriesFixture = {
   meta: { as_of: string; source_attribution: string }
-  points: { valid_date: string; value: number }[]
-}>('series-10y.json')
+  points: { valid_date: string; value: number; quality?: { status: string; flags: unknown[] } }[]
+}
+const series10y = loadJson<SeriesFixture>('series-10y.json')
+const series10ySimSpike = loadJson<SeriesFixture>('series-10y-sim-spike.json')
 const changesThree = loadJson<{
   meta: { since: string; as_of: string; source_attribution: string }
   changes: unknown[]
@@ -134,20 +136,21 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         await fulfillJson(route, 404, { detail: 'No data known for this maturity.' })
         return
       }
+      const fixture = curveId === 'ecb-aaa-spot-sim' ? series10ySimSpike : series10y
       await fulfillJson(route, 200, {
         data: {
           curve_id: curveId,
           maturity,
           valid_from: url.searchParams.get('from') ?? '2025-10-19',
           valid_to: url.searchParams.get('to') ?? '2026-10-19',
-          points: series10y.points.map((p) => ({
+          points: fixture.points.map((p) => ({
             ...p,
             version_id: 1,
             origin: 'published',
-            quality: { status: 'passed', flags: [] },
+            quality: p.quality ?? { status: 'passed', flags: [] },
           })),
         },
-        meta: series10y.meta,
+        meta: fixture.meta,
       })
       return
     }

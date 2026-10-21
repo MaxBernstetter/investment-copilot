@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T18:49:25Z",
+    "source_attribution": "Simulated scenario data"
+  },
+  "points": [
+    {
+      "valid_date": "2026-09-01",
+      "value": 2.55
+    },
+    {
+      "valid_date": "2026-09-15",
+      "value": 2.6
+    },
+    {
+      "valid_date": "2026-10-01",
+      "value": 2.7
+    },
+    {
+      "valid_date": "2026-10-10",
+      "value": 2.82
+    },
+    {
+      "valid_date": "2026-10-16",
+      "value": 26.4,
+      "quality": {
+        "status": "warn",
+        "flags": [
+          {
+            "rule": "range",
+            "severity": "warn",
+            "explanation": "Outside the plausible range of \u22122.00\u202f% to 8.00\u202f%. ECB AAA spot yields stayed between \u22121.00\u202f% and 5.18\u202f% since 2004.",
+            "evidence": "26.400\u202f% on 2026-10-16"
+          },
+          {
+            "rule": "jump",
+            "severity": "warn",
+            "explanation": "Moved more than 50 bp since the previous business day. This happened on only 2 days since 2004 (autumn 2008); check the source data.",
+            "evidence": "26.400\u202f% on 2026-10-16 after 2.800\u202f% on 2026-10-15 (+2,360.0 bp)"
+          }
+        ]
+      }
+    }
+  ]
+}

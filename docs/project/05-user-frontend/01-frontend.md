@@ -61,7 +61,7 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 - **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
 - **Key figures:** last, min and max yield (`formatYield`, 3 dp) and change over the range in basis points (`seriesStats` and `formatBp`, signed, true minus).
-- **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, y-axis ticks at 3 dp without unit (the card title carries %), no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values.
+- **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, y-axis ticks at 3 dp without unit (the card title carries %), no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values. A dimmed caption under the chart counts the values with an info or warn flag ("Flagged: 1 value. Choose Table to see why.", plural "values", `flaggedCount`); there is none when no value is flagged. The table adds a Quality column (`ValueQualityCell`, as in the curve view) with a minimum width of 560 px, and `UncheckedNote` under it when a value is unchecked.
 - **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
 - **Errors:** as for the curve view; 404 shows "No data known for this maturity."
 - **Navigation:** the header tabs "Curve", "Time series", "Changes" and "Quality" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
@@ -72,7 +72,7 @@ The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) ove
 | `src/series/SeriesView.tsx` | Time series page: header actions, stat cards, chart/table card |
 | `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
-| `src/series/seriesData.ts` | Maturity grid, chart rows, default range and `seriesStats` |
+| `src/series/seriesData.ts` | Maturity grid, chart rows, default range, `seriesStats` and `flaggedCount` |
 
 ## Charts
 
@@ -236,7 +236,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S16, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

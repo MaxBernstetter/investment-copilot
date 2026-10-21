@@ -54,3 +54,8 @@ export function seriesStats(points: SeriesPoint[]): SeriesStats {
     changeBp: points.length >= 2 ? Math.round((last - first) * 1000) / 10 : undefined,
   }
 }
+
+/** Number of values with an info or warn flag. */
+export function flaggedCount(points: SeriesPoint[]): number {
+  return points.filter((point) => point.quality.status === 'info' || point.quality.status === 'warn').length
+}

@@ -13,5 +13,6 @@ describe('UncheckedNote', () => {
     const link = screen.getByRole('link', { name: 'How we check this' })
     expect(link).toHaveAttribute('href', METHODOLOGY_URL)
     expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('data-underline', 'always')
   })
 })
