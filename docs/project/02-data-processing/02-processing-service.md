@@ -88,7 +88,7 @@ The dashboard has three rows. **API** shows the request rate, the 5xx ratio and 
 The alert `quality-warn` is active for a curve (see [Alert: quality-warn](#alert-quality-warn)).
 
 1. Open the Processing dashboard and filter by the `curve` of the alert. Check the findings panel for the rule.
-2. Read the days and findings: `GET /v1/curves/{curve_id}/quality/days?from=…&to=…`, then the value quality endpoint for the flagged days.
+2. Read the days and findings on the processing api: `GET /v1/curves/{curve_id}/quality?from=…&to=…`, then `GET /v1/curves/{curve_id}/value-quality?from=…&to=…[&maturity=…]` for the flagged days.
 3. Decide: the source value is wrong (wait for or request a source correction, which ingestion loads), or the threshold is wrong (change the rule config through an issue).
 4. After the correction is loaded, rerun `processing-check-quality CURVE_ID --from D --to D`. The alert clears with the next run that has no `warn` day.
 5. Caveat: "latest" is the last chunk's `check_run`. A job over more than 366 days writes one row per chunk, so a `warn` in an earlier chunk is not reflected by the alert. Rerun over the affected range alone to see it.
