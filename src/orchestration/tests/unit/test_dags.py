@@ -1,6 +1,7 @@
 """DAG integrity and the daily ECB schedule, from the DAG files as Airflow parses them."""
 
 import json
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -8,11 +9,17 @@ import pendulum
 import pytest
 from airflow.dag_processing.dagbag import DagBag
 from airflow.sdk import DAG
+from airflow.sdk.bases.decorator import DecoratedMappedOperator
+from airflow.sdk.definitions._internal.expandinput import DictOfListsExpandInput
 from airflow.serialization.decoders import decode_timetable
 from airflow.serialization.encoders import encode_timetable
 from airflow.timetables.base import DataInterval, TimeRestriction
 
-from orchestration.ecb_daily_load import mark_unfinished_attempt_failed, report_final_failure
+from orchestration.ecb_daily_load import (
+    CURVE_IDS,
+    mark_unfinished_attempt_failed,
+    report_final_failure,
+)
 
 COMPONENT = Path(__file__).parents[2]
 BERLIN = pendulum.timezone("Europe/Berlin")
@@ -47,6 +54,15 @@ def backfill_ecb(dag_bag: DagBag) -> DAG:
 def as_list(callbacks: object) -> list[object]:
     """Airflow keeps one callback as itself and several as a list; compare both alike."""
     return list(callbacks) if isinstance(callbacks, list) else [callbacks]
+
+
+def mapped_arguments(dag: DAG, task_id: str) -> Mapping[str, object]:
+    """The arguments a ``@task`` task is expanded over (its ``op_kwargs_expand_input``)."""
+    task = dag.get_task(task_id)
+    assert isinstance(task, DecoratedMappedOperator)
+    expand = task.op_kwargs_expand_input
+    assert isinstance(expand, DictOfListsExpandInput)
+    return expand.value
 
 
 def test_every_dag_imports_uses_known_pools_and_has_an_owner_and_tags(dag_bag: DagBag) -> None:
@@ -131,7 +147,16 @@ def test_the_daily_load_checks_quality_after_the_load(daily_load_ecb: DAG) -> No
     assert check.pool != "ecb"
     assert check.retries == 2
     assert check.retry_delay == timedelta(minutes=10)
-    assert check.on_failure_callback == [report_final_failure]
+    assert as_list(check.on_failure_callback) == [report_final_failure]
+
+
+def test_the_daily_load_checks_each_curve_the_load_writes(daily_load_ecb: DAG) -> None:
+    assert mapped_arguments(daily_load_ecb, "check_quality") == {"curve_id": list(CURVE_IDS)}
+
+
+def test_one_ecb_request_task_per_daily_run_whatever_the_curve_count(daily_load_ecb: DAG) -> None:
+    assert [task.task_id for task in daily_load_ecb.tasks if task.pool == "ecb"] == ["load_ecb"]
+    assert daily_load_ecb.get_task("load_ecb").retries == 2
 
 
 def test_quality_checks_do_not_mark_ingestion_attempts(
@@ -149,4 +174,8 @@ def test_the_backfill_checks_each_year_after_the_loads(backfill_ecb: DAG) -> Non
     assert check in load.downstream_list
     assert check.pool != "ecb"
     assert check.retries == 2
-    assert check.on_failure_callback == report_final_failure
+    assert as_list(check.on_failure_callback) == [report_final_failure]
+
+
+def test_the_backfill_checks_each_curve_per_year(backfill_ecb: DAG) -> None:
+    assert mapped_arguments(backfill_ecb, "check_year")["curve_id"] == list(CURVE_IDS)

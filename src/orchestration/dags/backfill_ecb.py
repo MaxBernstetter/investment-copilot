@@ -1,4 +1,4 @@
-"""Manual backfill of the ECB euro area AAA spot curve over a date range.
+"""Manual backfill of the ECB euro area AAA and all-issuer spot curves over a date range.
 
 Triggered by hand with the ``start`` and ``end`` parameters (inclusive dates). The range is
 loaded one calendar year at a time, in the ``ecb`` pool, so it never runs next to the daily
@@ -12,7 +12,7 @@ from airflow.sdk import Param, dag, get_current_context, task
 
 from orchestration.ecb_backfill import backfill_years, history_command
 from orchestration.ecb_daily_load import (
-    CURVE_ID,
+    CURVE_IDS,
     mark_unfinished_attempt_failed,
     remember_run_id,
     report_final_failure,
@@ -69,17 +69,14 @@ def backfill_ecb() -> None:
         execution_timeout=timedelta(minutes=30),
         on_failure_callback=report_final_failure,
     )
-    def check_year(chunk: dict[str, str]) -> None:
+    def check_year(chunk: dict[str, str], curve_id: str) -> None:
         start = date.fromisoformat(chunk["start"])
         end = date.fromisoformat(chunk["end"])
-        run_job(
-            range_check_command(
-                CURVE_ID, start, end, f"{DAG_ID}-check-{start.isoformat()}-{end.isoformat()}"
-            )
-        )
+        run_id = f"{DAG_ID}-check-{curve_id}-{start.isoformat()}-{end.isoformat()}"
+        run_job(range_check_command(curve_id, start, end, run_id))
 
     chunks = plan()
-    load_year.expand(chunk=chunks) >> check_year.expand(chunk=chunks)
+    load_year.expand(chunk=chunks) >> check_year.expand(chunk=chunks, curve_id=list(CURVE_IDS))
 
 
 backfill_ecb()
