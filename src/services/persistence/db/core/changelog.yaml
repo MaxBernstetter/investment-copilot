@@ -30,6 +30,10 @@ databaseChangeLog:
   - include:
       file: 23_curve_catalogue.sql
       relativeToChangelogFile: true
+  # Reference data: the ECB all-issuer curve (#264), defined before ingestion writes it.
+  - include:
+      file: 24_curve_ecb_all_spot.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

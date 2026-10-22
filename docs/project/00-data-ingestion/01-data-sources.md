@@ -9,11 +9,11 @@ Tracked in [#10](https://github.com/MaxBernstetter/yield-lens/issues/10).
 | | Phase 1 |
 |---|---|
 | Source | ECB Data Portal, dataset `YC` (euro area yield curves) |
-| Curve | Euro area AAA government bond curve, Svensson model, spot (zero-coupon) rates |
+| Curve | Euro area AAA (`G_N_A`) and all-issuer (`G_N_C`) government bond curves, Svensson model, spot (zero-coupon) rates |
 | Grid | 11 tenors: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y |
-| History | 2004-09-06 to 2026-10-16 (as of 2026-10-18), about 5,700 business days, about 63,000 observations |
-| Raw volume | About 260 KB per year of CSV, about 6 MB for the full history |
-| Daily cost | One HTTP request |
+| History | 2004-09-06 to 2026-10-16 (as of 2026-10-18), about 5,700 business days, about 126,000 observations (both curves) |
+| Raw volume | About 520 KB per year of CSV, about 12 MB for the full history |
+| Daily cost | One HTTP request (both curves) |
 | Licence | Free reuse including commercial, with attribution "Source: ECB statistics" |
 
 ## WHAT is consumed
@@ -22,11 +22,13 @@ Tracked in [#10](https://github.com/MaxBernstetter/yield-lens/issues/10).
 
 The ECB estimates a zero-coupon yield curve every TARGET business day from euro-denominated, fixed- and zero-coupon bonds issued by euro area central governments rated AAA. It fits a **Svensson** model (continuous compounding, yield error minimisation) and publishes spot, par and instantaneous forward rates for every month from 3 months to 30 years, plus the six model parameters.
 
+The all-issuer curve (`G_N_C`) is the same Svensson estimation over bonds of all euro area central governments, regardless of rating.
+
 YieldLens consumes a narrow slice of that dataset:
 
 | Consumed | Series key (`YC.` + …) | Phase |
 |---|---|---|
-| Spot rates on the grid | `B.U2.EUR.4F.G_N_A.SV_C_YM.SR_{3M,6M,1Y,2Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y}` | 1 |
+| Spot rates on the grid | `B.U2.EUR.4F.{G_N_A,G_N_C}.SV_C_YM.SR_{3M,6M,1Y,2Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y}` | 1 (`G_N_A`), 3 (`G_N_C`, [#264](https://github.com/MaxBernstetter/yield-lens/issues/264)) |
 | Svensson parameters | `B.U2.EUR.4F.G_N_A.SV_C_YM.{BETA0,BETA1,BETA2,BETA3,TAU1,TAU2}` | 3, with derived curves ([#34](https://github.com/MaxBernstetter/yield-lens/issues/34)) |
 
 Not consumed, on purpose:
@@ -35,7 +37,6 @@ Not consumed, on purpose:
 |---|---|
 | The other 347 monthly spot tenors | The grid is enough for every planned feature; the full set is 30× the volume |
 | Par yields (`PY_*`), instantaneous forwards (`IF_*`), spreads (`SRS_*`) | Derivable from spot rates. Processing calculates them ([#40](https://github.com/MaxBernstetter/yield-lens/issues/40)), so they stay ours to compute and version |
-| All-issuer curve (`G_N_C`) | One curve is the phase 1 slice; it is a cheap phase 3 addition |
 
 ### Fields per observation
 
@@ -55,17 +56,19 @@ Not consumed, on purpose:
 
 ### Mapping rules
 
-Normalization maps each delivered row to an observation on the **common maturity grid** ([#19](https://github.com/MaxBernstetter/yield-lens/issues/19)). The rules are versioned: **normalization version `1`** (`NORMALIZATION_VERSION` in `src/services/ingestion/src/ingestion/infrastructure/ecb/payload.py`). Every stored version carries the normalization version that produced it.
+Normalization maps each delivered row to an observation on the **common maturity grid** ([#19](https://github.com/MaxBernstetter/yield-lens/issues/19)). The rules are versioned: **normalization version `2`** (`NORMALIZATION_VERSION` in `src/services/ingestion/src/ingestion/infrastructure/ecb/payload.py`). Every stored version carries the normalization version that produced it.
 
 | Observation | From | Rule |
 |---|---|---|
-| `curve_id` | – | `ecb-aaa-spot` |
+| `curve_id` | `INSTRUMENT_FM` | `G_N_A` → `ecb-aaa-spot`, `G_N_C` → `ecb-all-spot` |
 | `maturity` | `DATA_TYPE_FM` | `SR_<tenor>` → grid tenor `<tenor>` (`SR_10Y` → `10Y`); only the 11 grid tenors are accepted |
 | `valid_date` | `TIME_PERIOD` | The ISO date as is |
 | `value` | `OBS_VALUE` | **Unchanged**: the published digits, in percent per annum. The ESCB reuse terms forbid modifying published statistics |
-| `normalization_version` | – | `1` |
+| `normalization_version` | – | `2` |
 
-Conventions are **recorded per curve, not converted**. The curve definition `ecb-aaa-spot` in persistence ([[01-bitemporal-model#Reference data: maturity grid and curves]]) records:
+Version 1 mapped only `G_N_A`. AAA values map identically under version 2, and unchanged stored values keep version 1.
+
+Conventions are **recorded per curve, not converted**. The curve definitions `ecb-aaa-spot` and `ecb-all-spot` in persistence ([[01-bitemporal-model#Reference data: maturity grid and curves]]) records:
 
 | Convention | Value |
 |---|---|
@@ -86,11 +89,11 @@ SDMX 2.1 REST API, no key, no registration:
 
 ```
 GET https://data-api.ecb.europa.eu/service/data/YC/
-    B.U2.EUR.4F.G_N_A.SV_C_YM.SR_3M+SR_6M+SR_1Y+SR_2Y+SR_3Y+SR_5Y+SR_7Y+SR_10Y+SR_15Y+SR_20Y+SR_30Y
+    B.U2.EUR.4F.G_N_A+G_N_C.SV_C_YM.SR_3M+SR_6M+SR_1Y+SR_2Y+SR_3Y+SR_5Y+SR_7Y+SR_10Y+SR_15Y+SR_20Y+SR_30Y
     ?startPeriod=<date>&endPeriod=<date>&format=csvdata&detail=dataonly
 ```
 
-- `+` joins several series into one request, so the whole grid costs one call.
+- `+` joins several codes into one request, in every key dimension: both curves on the whole grid cost one call.
 - `detail=dataonly` drops about 30 attribute columns per row and keeps the raw payload small.
 - `format=csvdata` is the simplest format to validate (Pandera on a Polars frame).
 
@@ -105,7 +108,7 @@ GET https://data-api.ecb.europa.eu/service/data/YC/
 | Use | Request | Requests |
 |---|---|---|
 | Daily load | Grid series, `startPeriod` = *D* − lookback, `endPeriod` = *D* | 1 per day |
-| Backfill | Grid series, one calendar year per request, run sequentially | About 23 for the full history |
+| Backfill | Grid series of both curves, one calendar year per request, run sequentially | About 23 for the full history |
 | Revision check (phase 2) | Grid series, `updatedAfter=<last successful load>` | 1 per day |
 | Replay | None. Replay reads stored raw payloads and never calls the source | 0 |
 
@@ -132,7 +135,7 @@ The generic rules are in [[12-data-pipeline#Source access policy]]. The ECB publ
 | Attempts per request | 3, exponential backoff with jitter, `Retry-After` honoured |
 | Identification | `User-Agent: YieldLens/<version> (+https://github.com/MaxBernstetter/yield-lens)` |
 | Conditional requests | `If-Modified-Since` (the API answers `304`) |
-| Daily budget | Counted in HTTP attempts, retries included. ≤ 10 in normal operation (one daily request, at most 9 for a failing load); a backfill of the full history adds about 23 when no request is retried, at most 9 per year on retries |
+| Daily budget | Counted in HTTP attempts, retries included; unchanged by the second curve (same request). ≤ 10 in normal operation (one daily request, at most 9 for a failing load); a backfill of the full history adds about 23 when no request is retried, at most 9 per year on retries |
 
 ### Revisions and knowledge time
 

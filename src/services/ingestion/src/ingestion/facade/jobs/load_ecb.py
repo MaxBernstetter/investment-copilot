@@ -118,6 +118,7 @@ def summary(result: LoadResult, trace: Mapping[str, str]) -> str:
                     "end": window.window.end.isoformat(),
                     "delivery_id": window.delivery_id,
                     "delivered_count": window.delivered_count,
+                    "delivered_by_curve": dict(window.delivered_by_curve),
                     "recorded_count": sum(batch.recorded_count for batch in window.batches),
                     "unchanged_count": sum(batch.unchanged_count for batch in window.batches),
                     "known_from": [batch.known_from.isoformat() for batch in window.batches],
@@ -189,7 +190,9 @@ def failure(run_id: str | None, error: Exception, trace: Mapping[str, str]) -> s
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ingestion-load-ecb",
-        description="Load the ECB euro area AAA spot curve into the bitemporal core.",
+        description=(
+            "Load the ECB euro area spot curves (AAA and all issuers) into the bitemporal core."
+        ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
     daily = commands.add_parser("daily", help="one valid date plus its lookback window")

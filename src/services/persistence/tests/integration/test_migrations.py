@@ -78,6 +78,23 @@ def test_records_the_catalogue_entries_of_the_ecb_curves(oracle: OracleDatabase)
         ]
 
 
+def test_defines_the_ecb_all_issuer_curve_with_the_aaa_conventions(
+    oracle: OracleDatabase,
+) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select grid_version, rate_type, compounding, unit, source_model, simulated"
+            " from curve where curve_id = 'ecb-all-spot'"
+        )
+        assert cursor.fetchall() == [(1, "spot", "continuous", "percent", "Svensson (ECB)", "N")]
+
+
+def test_records_the_catalogue_entry_of_the_ecb_all_issuer_curve(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute("select source_id, attribution from curve where curve_id = 'ecb-all-spot'")
+        assert cursor.fetchall() == [("ecb", "Source: ECB statistics")]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 
