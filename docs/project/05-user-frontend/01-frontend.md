@@ -170,20 +170,21 @@ The "Known as of" time shows every view as it was known at a chosen time (the AP
 
 ## Curve choice
 
-The header offers two curves, both served by the API: "Real" (`ecb-aaa-spot`) and "Simulated" (`ecb-aaa-spot-sim`, scenario data). The choice applies to the curve and time series views.
+The curves come from `GET /v1/curves` (the curve catalogue), fetched once after the health check. The choice applies to the curve and time series views.
 
-- **Control:** a segmented control labelled "Curve" in the header from `sm` up, and in the navbar below `sm`. It is shown once the backend is online and defaults to "Real".
-- **Simulated:** choosing "Simulated" shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
-- **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. A missing or unknown value falls back to the real curve.
+- **Control:** a `Select` labelled "Curve" in the header from `sm` up (w 240), and full width in the navbar below `sm`. Options are grouped "Published" then "Simulated", in catalogue order, showing the catalogue label. The default is `ecb-aaa-spot`.
+- **Simulated:** choosing a simulated curve shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
+- **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. An unknown id falls back to `ecb-aaa-spot`, else the first published curve, else the first curve, and the URL is rewritten to the curve used. A simulated curve is never chosen as a fallback while a published one exists.
 - **Views:** switching the curve resets the view state (pinned overlays, open history). The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
 
 | Path | Content |
 |---|---|
-| `src/curve/curves.ts` | Curve options, default, URL read and write of `curve` |
+| `src/curve/curves.ts` | Default curve id, `resolveCurve`, select groups, URL read and write of `curve` |
+| `src/curve/fetchCurves.ts` | `GET /v1/curves` and mapping to `CurveInfo` |
 
 ## Offline state
 
-On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows a 320 px skeleton with visually hidden "Loading…". Both states are inside the app shell, so the header and footer stay visible.
+On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows a 320 px skeleton with visually hidden "Loading…". Then the app loads the curve list once; the Connecting page stays until it arrives. Both states are inside the app shell, so the header and footer stay visible.
 
 ## Hosting
 
@@ -236,7 +237,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t, S25), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

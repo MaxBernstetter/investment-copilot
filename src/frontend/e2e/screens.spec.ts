@@ -10,7 +10,7 @@ import {
   VIEWPORTS,
   waitForCurveLoaded,
 } from './helpers'
-import { freezeClock, installApiMocks } from './mockApi'
+import { catalogue, freezeClock, installApiMocks } from './mockApi'
 
 const AXE_VIEWPORT = { width: 1440, height: 900 }
 
@@ -292,5 +292,84 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('alert')).toContainText('Backend offline')
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S15', ['light'])
+  })
+
+  test('S25 curve select open', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    const select = page.getByRole('combobox', { name: 'Curve' })
+    const listbox = page.getByRole('listbox')
+    for (const { width, height } of VIEWPORTS) {
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height })
+        await setColorScheme(page, scheme)
+        await select.click()
+        await expect(listbox).toBeVisible()
+        await settleAnimations(page)
+        await expectOpaque(listbox)
+        await page.mouse.move(0, 0)
+        if (width === AXE_VIEWPORT.width) {
+          await runAxe(page)
+        }
+        await expect(listbox.getByRole('option')).toHaveText([
+          'ECB euro area AAA spot',
+          'ECB euro area all-issuer spot',
+          'ECB euro area AAA spot (scenario data)',
+        ])
+        await expect(listbox.getByText('Published')).toBeVisible()
+        await expect(listbox.getByText('Simulated')).toBeVisible()
+        await expect(page).toHaveScreenshot(screenshotName('S25', width, height, scheme))
+        await page.keyboard.press('Escape')
+        await expect(listbox).toBeHidden()
+      }
+    }
+  })
+})
+
+test.describe('curve catalogue', () => {
+  test('unknown curve falls back to the default and rewrites the URL', async ({ page }) => {
+    await page.goto('/?curve=nope')
+    await waitForCurveLoaded(page)
+    await expect(page).toHaveURL(/[?&]curve=ecb-aaa-spot(&|$)/)
+    await expect(page.getByRole('combobox', { name: 'Curve' })).toHaveValue('ECB euro area AAA spot')
+    await expect(page.getByRole('note')).toHaveCount(0)
+  })
+
+  test('without the default curve, falls back to the first published curve', async ({ page }) => {
+    const curves = catalogue.data.filter((curve) => curve.curve_id !== 'ecb-aaa-spot')
+    await page.route('**/v1/curves', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: curves }) }),
+    )
+    await page.goto('/?curve=nope')
+    await waitForCurveLoaded(page)
+    await expect(page).toHaveURL(/[?&]curve=ecb-all-spot(&|$)/)
+    await expect(page.getByRole('note')).toHaveCount(0)
+    await expect(page.locator('.mantine-Badge-label', { hasText: 'Simulated' })).toHaveCount(0)
+  })
+
+  test('shows the connecting page while the curve list loads', async ({ page }) => {
+    await page.route('**/v1/curves', () => {})
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1, name: 'Connecting' })).toBeVisible()
+    await expect(page.getByText('Loading…')).toBeAttached()
+    await expect(page.locator('.mantine-Skeleton-root')).toHaveCount(1)
+  })
+
+  test('header fits at 1280 with the longest label', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/?curve=ecb-aaa-spot-sim')
+    await waitForCurveLoaded(page)
+    await assertNoHorizontalScroll(page)
+    const controls = [
+      page.getByRole('tablist'),
+      page.getByRole('combobox', { name: 'Curve' }),
+      page.getByRole('button', { name: 'Toggle colour scheme' }),
+    ]
+    for (const control of controls) {
+      const box = await control.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.y).toBeGreaterThanOrEqual(0)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(56)
+    }
   })
 })

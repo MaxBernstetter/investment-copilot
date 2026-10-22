@@ -28,6 +28,7 @@ const curveGrid = loadJson<CurveFixture>('curve-grid.json')
 const curveOverlay15 = loadJson<CurveFixture>('curve-overlay-2026-10-15.json')
 const curveOverlay14 = loadJson<CurveFixture>('curve-overlay-2026-10-14.json')
 const curveSimSpike = loadJson<CurveFixture>('curve-sim-spike.json')
+export const catalogue = loadJson<{ data: { curve_id: string; simulated: boolean }[] }>('catalogue.json')
 type SeriesFixture = {
   meta: { as_of: string; source_attribution: string }
   points: { valid_date: string; value: number; quality?: { status: string; flags: unknown[] } }[]
@@ -90,6 +91,12 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
 
     if (mode === 'offline') {
       await route.abort('failed')
+      return
+    }
+
+    if (path === '/v1/curves') {
+      if (mode === 'loading') return
+      await fulfillJson(route, 200, catalogue)
       return
     }
 

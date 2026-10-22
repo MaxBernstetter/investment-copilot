@@ -4,7 +4,7 @@ import {
   ActionIcon,
   Burger,
   Group,
-  SegmentedControl,
+  Select,
   Tabs,
   Text,
   Tooltip,
@@ -12,7 +12,8 @@ import {
   useMantineColorScheme,
 } from '@mantine/core'
 import { IconMoon, IconSun } from '@tabler/icons-react'
-import { CURVES } from '../curve/curves'
+import type { CurveInfo } from '../curve/fetchCurves'
+import { curveSelectData } from '../curve/curves'
 import AsOfStatus from './AsOfStatus'
 
 /** The views, in tab order. The navbar on small screens lists the same views. */
@@ -23,27 +24,28 @@ export const VIEWS = [
   { value: 'quality', label: 'Quality' },
 ] as const
 
-const CURVE_OPTIONS = CURVES.map((curve) => ({
-  label: curve.isSimulated ? 'Simulated' : 'Real',
-  value: curve.id,
-}))
-
-type CurveSwitchProps = {
+type CurveSelectProps = {
   value: string
   onChange: (id: string) => void
+  catalogue: readonly CurveInfo[]
   fullWidth?: boolean
 }
 
-/** The Real / Simulated choice; the same control appears in the header and in the navbar. */
-export function CurveSwitch({ value, onChange, fullWidth }: CurveSwitchProps) {
+/** The curve choice; the same control appears in the header and in the navbar. */
+export function CurveSelect({ value, onChange, catalogue, fullWidth }: CurveSelectProps) {
   return (
-    <SegmentedControl
+    <Select
       aria-label="Curve"
       size="xs"
-      fullWidth={fullWidth}
+      w={fullWidth ? '100%' : 240}
+      allowDeselect={false}
+      checkIconPosition="right"
+      comboboxProps={{ width: 'max-content', position: 'bottom-end' }}
+      data={curveSelectData(catalogue)}
       value={value}
-      onChange={onChange}
-      data={CURVE_OPTIONS}
+      onChange={(id) => {
+        if (id !== null) onChange(id)
+      }}
     />
   )
 }
@@ -62,9 +64,10 @@ function ColorSchemeToggle() {
 }
 
 type AppHeaderProps = {
-  /** Navigation and the curve choice exist only once the backend is reachable. */
-  online: boolean
+  /** Navigation and the curve choice exist only once the backend is reachable and the curve is known. */
+  ready: boolean
   curveId: string
+  catalogue: readonly CurveInfo[]
   onCurveChange: (id: string) => void
   simulated: boolean
   asOf: string | undefined
@@ -74,8 +77,9 @@ type AppHeaderProps = {
 }
 
 export default function AppHeader({
-  online,
+  ready,
   curveId,
+  catalogue,
   onCurveChange,
   simulated,
   asOf,
@@ -86,7 +90,7 @@ export default function AppHeader({
   return (
     <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="sm">
       <Group gap="sm" wrap="nowrap">
-        {online && <Burger
+        {ready && <Burger
             opened={navOpened}
             onClick={onToggleNav}
             hiddenFrom="sm"
@@ -98,7 +102,7 @@ export default function AppHeader({
           YieldLens
         </Text>
       </Group>
-      {online && (
+      {ready && (
         <Box component="nav" visibleFrom="sm" aria-label="Views">
           <Tabs.List>
             {VIEWS.map((item) => (
@@ -110,17 +114,17 @@ export default function AppHeader({
         </Box>
       )}
       <Group gap="sm" wrap="nowrap">
-        {online && (
+        {ready && (
           <Box visibleFrom="sm">
-            <CurveSwitch value={curveId} onChange={onCurveChange} />
+            <CurveSelect value={curveId} onChange={onCurveChange} catalogue={catalogue} />
           </Box>
         )}
-        {online && simulated && (
+        {ready && simulated && (
           <Badge color="orange.6" variant="filled">
             Simulated
           </Badge>
         )}
-        {online && <AsOfStatus asOf={asOf} onChange={onAsOfChange} />}
+        {ready && <AsOfStatus asOf={asOf} onChange={onAsOfChange} />}
         <ColorSchemeToggle />
       </Group>
     </Group>

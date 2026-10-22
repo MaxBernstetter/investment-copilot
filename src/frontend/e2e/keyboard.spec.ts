@@ -14,8 +14,26 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
 
   await page.keyboard.press('Tab')
   await expect(page.getByRole('tab', { name: 'Curve' })).toBeFocused()
+  // The select shows focus with its border colour (Mantine Input), not an outline.
+  const select = page.getByRole('combobox', { name: 'Curve' })
+  const idleBorder = await select.evaluate((el) => getComputedStyle(el).borderTopColor)
   await page.keyboard.press('Tab')
-  await expect(page.getByRole('radio', { name: 'Real' })).toBeFocused()
+  await expect(select).toBeFocused()
+  expect(await select.evaluate((el) => getComputedStyle(el).borderTopColor)).not.toBe(idleBorder)
+
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('listbox')).toBeVisible()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('listbox')).not.toBeVisible()
+  await expect(page).toHaveURL(/curve=ecb-all-spot/)
+  await expect(select).toHaveValue('ECB euro area all-issuer spot')
+
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('listbox')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('listbox')).not.toBeVisible()
+  await expect(select).toBeFocused()
   await page.keyboard.press('Tab')
   const live = page.getByRole('button', { name: 'Live' })
   await expect(live).toBeFocused()

@@ -19,7 +19,7 @@ import {
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import StatCard from '../components/StatCard'
-import { curveById } from '../curve/curves'
+import type { CurveInfo } from '../curve/fetchCurves'
 import { formatUtc } from '../format'
 import PageHeader from '../layout/PageHeader'
 import { qualityBadgeProps } from '../theme'
@@ -42,12 +42,12 @@ import {
 const EMPTY = '–'
 
 type QualityViewProps = {
-  curveId: string
+  curve: CurveInfo
   /** The knowledge time shared by all views, set in the header. */
   asOf?: string
 }
 
-export default function QualityView({ curveId, asOf }: QualityViewProps) {
+export default function QualityView({ curve, asOf }: QualityViewProps) {
   const [range, setRange] = useState(() => defaultQualityRange(new Date()))
   const [filter, setFilter] = useState<DayFilter>('all')
   const [result, setResult] = useState<QualityResult | undefined>(undefined)
@@ -58,13 +58,13 @@ export default function QualityView({ curveId, asOf }: QualityViewProps) {
   useEffect(() => {
     if (error) return
     let active = true
-    fetchQuality({ curveId, from: range.from, to: range.to, asOf }).then((next) => {
+    fetchQuality({ curveId: curve.id, from: range.from, to: range.to, asOf }).then((next) => {
       if (active) setResult(next)
     })
     return () => {
       active = false
     }
-  }, [curveId, range.from, range.to, asOf, attempt, error])
+  }, [curve.id, range.from, range.to, asOf, attempt, error])
 
   const retry = () => {
     setResult(undefined)
@@ -108,7 +108,7 @@ export default function QualityView({ curveId, asOf }: QualityViewProps) {
     <Stack component="section" gap="lg">
       <PageHeader
         title="Data quality"
-        subtitle={`Plausibility and completeness checks per business day, ${curveById(curveId).label}`}
+        subtitle={`Plausibility and completeness checks per business day, ${curve.label}`}
         actions={headerActions}
       />
       {error === undefined && result === undefined && (
