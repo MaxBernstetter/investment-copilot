@@ -135,9 +135,12 @@ def test_measures_meta_requires_a_timezone() -> None:
         MeasuresResponse.model_validate(body)
 
 
-def test_measure_fields_are_required_but_nullable() -> None:
+@pytest.mark.parametrize(
+    "field", ["spread_2y_10y", "spread_3m_10y", "curvature_2y_5y_10y", "inverted"]
+)
+def test_measure_fields_are_required_but_nullable(field: str) -> None:
     body = measures_response()
-    del body["data"]["points"][0]["spread_2y_10y"]
+    del body["data"]["points"][0][field]
 
     with pytest.raises(ValidationError):
         MeasuresResponse.model_validate(body)

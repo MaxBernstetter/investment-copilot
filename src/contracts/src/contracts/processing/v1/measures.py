@@ -67,7 +67,7 @@ class MeasurePoint(BaseModel):
         examples=[-20.0],
     )
     inverted: bool | None = Field(
-        default=None, description="The slope is below zero; null when the slope is null"
+        description="The slope is below zero; null when the slope is null"
     )
     inputs: list[MeasureInput] = Field(description="The inputs present, in 3M, 2Y, 5Y, 10Y order")
     missing: list[str] = Field(description="The inputs absent, in 3M, 2Y, 5Y, 10Y order")
