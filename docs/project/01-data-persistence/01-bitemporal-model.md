@@ -52,6 +52,7 @@ The common maturity grid and the curve definitions are versioned reference data 
 
 - **Grid version 1** holds the 11 tenors of phase 1: `3M`, `6M`, `1Y`, `2Y`, `3Y`, `5Y`, `7Y`, `10Y`, `15Y`, `20Y`, `30Y` ([[01-data-sources]]).
 - **`ecb-all-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)` (#264).
+- Catalogue entry: label `ECB euro area all-issuer spot`, source `ecb`, area `Euro area`, attribution `Source: ECB statistics`.
 - **`ecb-aaa-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)`. Catalogue entry: label `ECB euro area AAA spot`, source `ecb`, area `Euro area`, attribution `Source: ECB statistics`.
 - **`ecb-aaa-spot-sim`** is the simulated twin of `ecb-aaa-spot` on grid 1 (`simulated` = `Y`, no source model). Catalogue entry: label `ECB euro area AAA spot (scenario data)`, source `scenario`, area `Euro area`, attribution `Simulated scenario based on ECB statistics`. Simulated and real data never share a curve: a simulated curve takes only source `scenario`, and source `scenario` only simulated curves (`-20005`).
 - Conventions are **recorded, not converted**: values are stored as the source publishes them. Converting between conventions (for example semi-annual par yields to continuous spot rates) is a calculation and produces *derived* values in processing.

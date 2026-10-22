@@ -91,8 +91,12 @@ def test_defines_the_ecb_all_issuer_curve_with_the_aaa_conventions(
 
 def test_records_the_catalogue_entry_of_the_ecb_all_issuer_curve(oracle: OracleDatabase) -> None:
     with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
-        cursor.execute("select source_id, attribution from curve where curve_id = 'ecb-all-spot'")
-        assert cursor.fetchall() == [("ecb", "Source: ECB statistics")]
+        cursor.execute(
+            "select label, source_id, area, attribution from curve where curve_id = 'ecb-all-spot'"
+        )
+        assert cursor.fetchall() == [
+            ("ECB euro area all-issuer spot", "ecb", "Euro area", "Source: ECB statistics")
+        ]
 
 
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
