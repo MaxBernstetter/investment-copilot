@@ -20,10 +20,13 @@ from orchestration.target_calendar import is_target_business_day, previous_targe
 
 JOB_COMMAND = "ingestion-load-ecb"
 RUN_ID_XCOM_KEY = "ingestion_run_id"
+# The curve the ECB load writes; its quality is checked after each load.
+CURVE_ID = "ecb-aaa-spot"
 
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "CURVE_ID",
     "JOB_COMMAND",
     "RUN_ID_XCOM_KEY",
     "JobFailedError",

@@ -12,6 +12,7 @@ from airflow.sdk import Param, dag, get_current_context, task
 
 from orchestration.ecb_backfill import backfill_years, history_command
 from orchestration.ecb_daily_load import (
+    CURVE_ID,
     mark_unfinished_attempt_failed,
     remember_run_id,
     report_final_failure,
@@ -72,7 +73,9 @@ def backfill_ecb() -> None:
         start = date.fromisoformat(chunk["start"])
         end = date.fromisoformat(chunk["end"])
         run_job(
-            range_check_command(start, end, f"{DAG_ID}-check-{start.isoformat()}-{end.isoformat()}")
+            range_check_command(
+                CURVE_ID, start, end, f"{DAG_ID}-check-{start.isoformat()}-{end.isoformat()}"
+            )
         )
 
     chunks = plan()
