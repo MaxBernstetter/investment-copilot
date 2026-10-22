@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from processing.domain.calendar import TARGET
+from processing.domain.explanations import ECB_AAA_SPOT_EXPLANATIONS
 from processing.domain.quality import Severity
 from processing.domain.rule_config import (
     ECB_AAA_SPOT,
@@ -26,6 +27,10 @@ def test_the_ecb_thresholds_match_the_methodology_note() -> None:
     assert ECB_AAA_SPOT_RULES.thresholds is ECB_AAA_SPOT
 
 
+def test_the_ecb_curves_use_the_ecb_explanations() -> None:
+    assert ECB_AAA_SPOT_RULES.explanations is ECB_AAA_SPOT_EXPLANATIONS
+
+
 def test_the_ecb_curves_use_the_target_calendar() -> None:
     assert ECB_AAA_SPOT_RULES.calendar is TARGET
 
@@ -44,6 +49,7 @@ def test_expected_maturities_follow_the_period_of_the_day() -> None:
             MaturityPeriod(date(1990, 1, 2), ("10Y",)),
             MaturityPeriod(date(1993, 10, 1), ("10Y", "20Y")),
         ),
+        ECB_AAA_SPOT_EXPLANATIONS,
     )
 
     assert rules.maturities_on(date(1990, 1, 1)) == ()
@@ -62,7 +68,7 @@ def test_expected_maturities_follow_the_period_of_the_day() -> None:
 )
 def test_periods_must_start_in_ascending_order(periods: tuple[MaturityPeriod, ...]) -> None:
     with pytest.raises(ValueError, match="strictly ascending"):
-        CurveRules(ECB_AAA_SPOT, TARGET, periods)
+        CurveRules(ECB_AAA_SPOT, TARGET, periods, ECB_AAA_SPOT_EXPLANATIONS)
 
 
 def test_severity_is_warn_or_info_only() -> None:

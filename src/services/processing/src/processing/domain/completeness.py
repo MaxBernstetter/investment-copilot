@@ -4,7 +4,6 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import date
 
-from processing.domain.explanations import MISSING_DATE, MISSING_MATURITY
 from processing.domain.quality import Finding, Rule, Severity, Value
 from processing.domain.rule_config import CurveRules
 
@@ -31,7 +30,7 @@ def check_completeness(
                     maturity=None,
                     version_id=None,
                     value=None,
-                    explanation=MISSING_DATE,
+                    explanation=rules.explanations.missing_date,
                     evidence=f"No value for any maturity on {day}",
                 )
             )
@@ -46,7 +45,7 @@ def check_completeness(
                         maturity=maturity,
                         version_id=None,
                         value=None,
-                        explanation=MISSING_MATURITY,
+                        explanation=rules.explanations.missing_maturity,
                         evidence=f"No {maturity} value on {day}",
                     )
                 )
