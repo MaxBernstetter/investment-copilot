@@ -7,7 +7,7 @@ from processing.application.check_quality import UnknownCurveError
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
 from processing.application.knowledge_time import resolve_as_of
-from processing.domain.calendar import target_business_days
+from processing.domain.calendar import TARGET
 from processing.domain.quality import Rule, Severity, Status
 from processing.domain.read import FutureAsOfError, InvalidRangeError, rule_outcomes
 from tests.unit.fakes import AS_OF, FROM, TO, FakeQualityStore
@@ -28,7 +28,7 @@ async def test_every_business_day_is_listed_and_unchecked_without_a_run() -> Non
     valid_to = date(2026, 10, 8)
     result = await GetQualityDays(store)("ecb-aaa-spot", valid_from, valid_to, AS_OF)
 
-    expected_days = target_business_days(valid_from, valid_to)
+    expected_days = TARGET.business_days(valid_from, valid_to)
     assert [day.valid_date for day in result.days] == expected_days
     for day in result.days:
         assert day.status is Status.UNCHECKED

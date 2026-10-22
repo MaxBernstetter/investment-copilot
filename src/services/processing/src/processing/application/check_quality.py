@@ -7,14 +7,14 @@ from datetime import date, datetime, timedelta
 from processing.application.ports import ObservationReader, QualityStore
 from processing.domain.assessment import QualityCheck, assess
 from processing.domain.quality import Rule, Severity, Status, Value
-from processing.domain.rule_config import THRESHOLDS_BY_CURVE
+from processing.domain.rule_config import RULES_BY_CURVE
 
 CHUNK_DAYS = 366
 LEAD_IN_DAYS = 31
 
 
 class UnknownCurveError(LookupError):
-    """The curve has no configured quality thresholds."""
+    """The curve has no configured quality rules."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,10 +68,10 @@ class CheckQuality:
     async def __call__(
         self, curve_id: str, valid_from: date, valid_to: date, run_id: str
     ) -> CheckSummary:
-        if curve_id not in THRESHOLDS_BY_CURVE:
+        if curve_id not in RULES_BY_CURVE:
             raise UnknownCurveError(curve_id)
 
-        thresholds = THRESHOLDS_BY_CURVE[curve_id]
+        rules = RULES_BY_CURVE[curve_id]
         grid_read = await self._reader.grid(curve_id)
         checked_as_of = grid_read.as_of if grid_read is not None else None
         checks: list[QualityCheck] = []
@@ -97,7 +97,7 @@ class CheckQuality:
                     checked_as_of=as_of,
                     grid=maturities,
                     series=series,
-                    thresholds=thresholds,
+                    rules=rules,
                 )
                 await self._store.record(check)
                 checks.append(check)

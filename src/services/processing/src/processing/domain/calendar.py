@@ -1,5 +1,10 @@
-"""TARGET business days for completeness checks (same rules as orchestration)."""
+"""Business-day calendars for completeness checks.
 
+TARGET follows the same rules as orchestration.
+"""
+
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, timedelta
 
 from dateutil.easter import easter
@@ -16,14 +21,24 @@ def is_target_business_day(day: date) -> bool:
     return day not in (easter_sunday - timedelta(days=2), easter_sunday + timedelta(days=1))
 
 
-def target_business_days(start: date, end: date) -> list[date]:
-    """Every TARGET business day from ``start`` through ``end``, inclusive."""
-    if start > end:
-        return []
-    days: list[date] = []
-    current = start
-    while current <= end:
-        if is_target_business_day(current):
-            days.append(current)
-        current += timedelta(days=1)
-    return days
+@dataclass(frozen=True, slots=True)
+class BusinessCalendar:
+    """A named business-day calendar; its days are the ones completeness expects values on."""
+
+    name: str
+    is_business_day: Callable[[date], bool]
+
+    def business_days(self, start: date, end: date) -> list[date]:
+        """Every business day from ``start`` through ``end``, inclusive (empty if start > end)."""
+        if start > end:
+            return []
+        days: list[date] = []
+        current = start
+        while current <= end:
+            if self.is_business_day(current):
+                days.append(current)
+            current += timedelta(days=1)
+        return days
+
+
+TARGET = BusinessCalendar(name="TARGET", is_business_day=is_target_business_day)

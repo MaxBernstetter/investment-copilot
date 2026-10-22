@@ -10,7 +10,7 @@ How the plausibility rules of [#31](https://github.com/MaxBernstetter/yield-lens
 | Jump | `info` | it moved more than 25 bp against the previous valid date with a value of the same maturity | 41 values on 20 days |
 | Jump | `warn` | it moved more than 50 bp | 2 values: 3M on 2008-10-07 (+94 bp), 30Y on 2008-12-04 (+56 bp) |
 
-The thresholds are configuration per curve. The simulated curve `ecb-aaa-spot-sim` uses the real curve's thresholds, so a scenario's bad value is flagged like real data would be. Values exactly at a threshold (25 bp, 50 bp, −2.00 %, 8.00 %) are not flagged.
+The thresholds are configuration per curve, next to the curve's calendar and expected maturities (see [[03-quality-checks]]). The simulated curve `ecb-aaa-spot-sim` uses the real curve's thresholds, so a scenario's bad value is flagged like real data would be. Values exactly at a threshold (25 bp, 50 bp, −2.00 %, 8.00 %) are not flagged.
 
 ## Data and method
 
