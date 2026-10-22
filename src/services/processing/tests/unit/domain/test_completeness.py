@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from processing.domain.calendar import TARGET
 from processing.domain.completeness import check_completeness
-from processing.domain.explanations import MISSING_DATE, MISSING_MATURITY
+from processing.domain.explanations import ECB_AAA_SPOT_EXPLANATIONS
 from processing.domain.quality import Rule, Severity, Value
 from processing.domain.rule_config import ECB_AAA_SPOT_RULES, CurveRules, MaturityPeriod
 
@@ -95,8 +95,8 @@ def test_completeness_findings_explain_their_rule() -> None:
     missing_date = check_completeness([], [OCT_07], ECB_AAA_SPOT_RULES)[0]
     missing_maturity = check_completeness([value(OCT_07, "3M")], [OCT_07], ECB_AAA_SPOT_RULES)[0]
 
-    assert missing_date.explanation == MISSING_DATE
-    assert missing_maturity.explanation == MISSING_MATURITY
+    assert missing_date.explanation == ECB_AAA_SPOT_EXPLANATIONS.missing_date
+    assert missing_maturity.explanation == ECB_AAA_SPOT_EXPLANATIONS.missing_maturity
 
 
 def test_missing_maturities_follow_the_expected_maturities_of_the_day() -> None:
@@ -104,6 +104,7 @@ def test_missing_maturities_follow_the_expected_maturities_of_the_day() -> None:
         ECB_AAA_SPOT_RULES.thresholds,
         TARGET,
         (MaturityPeriod(OCT_06, ("10Y",)), MaturityPeriod(OCT_08, ("10Y", "30Y"))),
+        ECB_AAA_SPOT_EXPLANATIONS,
     )
     values = [value(OCT_07, "10Y"), value(OCT_08, "10Y")]
 

@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from processing.domain.calendar import TARGET, BusinessCalendar
+from processing.domain.explanations import ECB_AAA_SPOT_EXPLANATIONS, Explanations
 
 RULE_SET_VERSION = "1"
 
@@ -29,11 +30,12 @@ class MaturityPeriod:
 
 @dataclass(frozen=True, slots=True)
 class CurveRules:
-    """The quality rules of one curve: thresholds, calendar, expected maturities."""
+    """The quality rules of one curve: thresholds, calendar, expected maturities, texts."""
 
     thresholds: PlausibilityThresholds
     calendar: BusinessCalendar
     expected_maturities: tuple[MaturityPeriod, ...]
+    explanations: Explanations
 
     def __post_init__(self) -> None:
         starts = [period.start for period in self.expected_maturities]
@@ -66,6 +68,7 @@ ECB_AAA_SPOT_RULES = CurveRules(
     calendar=TARGET,
     # date.min: the full grid v1 is expected on every day, as before #262.
     expected_maturities=(MaturityPeriod(start=date.min, maturities=ECB_GRID_V1_MATURITIES),),
+    explanations=ECB_AAA_SPOT_EXPLANATIONS,
 )
 
 RULES_BY_CURVE: dict[str, CurveRules] = {
