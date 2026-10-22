@@ -14,9 +14,9 @@ NO_SERIES_404 = "no_series_updated_after_2026-10-18.json"
 HISTORY_2025 = "history_2025-12-22_2025-12-31.csv"
 HISTORY_2026 = "history_2026-01-01_2026-01-09.csv"
 MALFORMED = "malformed_2026-10-01_2026-10-15.csv"
+"""Crafted from ``DAILY``: one non-ISO date and one non-numeric value."""
 MIXED = "mixed_2026-10-14_2026-10-15.csv"
 """Both curves (G_N_A+G_N_C) for two days: 2 x 11 x 2 rows."""
-"""Crafted from ``DAILY``: one non-ISO date and one non-numeric value."""
 
 
 def payload(name: str) -> bytes:

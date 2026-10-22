@@ -68,7 +68,7 @@ Normalization maps each delivered row to an observation on the **common maturity
 
 Version 1 mapped only `G_N_A`. AAA values map identically under version 2, and unchanged stored values keep version 1.
 
-Conventions are **recorded per curve, not converted**. The curve definitions `ecb-aaa-spot` and `ecb-all-spot` in persistence ([[01-bitemporal-model#Reference data: maturity grid and curves]]) records:
+Conventions are **recorded per curve, not converted**. The curve definitions `ecb-aaa-spot` and `ecb-all-spot` in persistence ([[01-bitemporal-model#Reference data: maturity grid and curves]]) record:
 
 | Convention | Value |
 |---|---|
