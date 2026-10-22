@@ -16,14 +16,14 @@ The rules that check the published values of a curve, the severities and statuse
 - **Jumps** compare a value with the previous valid date that has a value for the same maturity, so a gap such as a weekend or a TARGET holiday is spanned. A previous value more than 31 days back is not compared.
 - Days outside the curve's calendar (for the ECB curves: weekends and TARGET holidays) have no values and are not flagged.
 - **Rule configuration** is per curve in `processing.domain.rule_config` (`RULES_BY_CURVE`): thresholds, business-day calendar and expected maturities per period. The simulated curve `ecb-aaa-spot-sim` uses the rules of the real curve.
-- **Explanations** are fixed texts per flag. They match "How users see it" in [[01-plausibility-thresholds]]. Findings recorded before the number formats of the evidence texts changed (issue #225) keep their old evidence text until they are checked again.
+- **Explanations** are fixed texts per flag and curve, part of the curve's rule configuration. The ECB curves' texts match "How users see it" in [[01-plausibility-thresholds]]. Findings recorded before the number formats of the evidence texts changed (issue #225) keep their old evidence text until they are checked again.
 
 ## Completeness
 
 Completeness checks run over the business days of the curve's calendar in the checked range and the maturities the curve expects on each day. The expected maturities are configured per period; a period applies from its start date until the next one starts. The ECB curves use the TARGET calendar and expect all 11 grid maturities (3M to 30Y) on every day.
 
 - A day with **no value at any maturity** produces one `missing-date` finding for that day (no `missing-maturity` findings on the same day).
-- A day with **values for some maturities** produces one `missing-maturity` finding per grid maturity without a value.
+- A day with **values for some maturities** produces one `missing-maturity` finding per expected maturity without a value.
 - **Weekends and TARGET holidays** are not in the business-day set and are never flagged.
 - A grid maturity the period does not expect is still checked for range and jumps but never reported missing.
 
@@ -49,6 +49,8 @@ A quality check loads the curve grid once from persistence (`GET /v1/curves/{id}
 The requested valid-date range is processed in chunks of at most 366 days. For each chunk and each grid maturity, persistence returns the series from **31 days before the chunk start** through the chunk end (`from` = chunk start − 31d). That lead-in is used only for jump comparisons; value and day statuses are produced only for dates inside the chunk.
 
 If the grid call returns 404, nothing is known about the curve and no results are recorded.
+
+The job takes the curve id as its first argument. The ECB DAGs pass `ecb-aaa-spot` (`orchestration.ecb_daily_load.CURVE_ID`).
 
 ## Storage
 
