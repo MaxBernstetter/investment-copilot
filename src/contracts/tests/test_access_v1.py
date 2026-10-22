@@ -255,3 +255,50 @@ def test_curve_definition_rejects_an_unknown_rate_type() -> None:
 
     with pytest.raises(ValidationError):
         v1.CurvesResponse.model_validate(body)
+
+
+def measures_response(**meta_overrides: Any) -> dict[str, Any]:
+    meta: dict[str, Any] = {
+        "as_of": "2026-03-13T09:00:00Z",
+        "method_version": "1",
+        "source_attribution": "Source: ECB statistics",
+    }
+    return {
+        "data": {
+            "curve_id": "ecb-aaa-spot",
+            "valid_from": "2026-03-12",
+            "valid_to": "2026-03-12",
+            "points": [
+                {
+                    "valid_date": "2026-03-12",
+                    "spread_2y_10y": 66.0,
+                    "spread_3m_10y": None,
+                    "curvature_2y_5y_10y": None,
+                    "inverted": False,
+                    "inputs": [
+                        {"maturity": "2Y", "value": 1.98, "version_id": 3, "status": "passed"},
+                        {"maturity": "10Y", "value": 2.64, "version_id": 7, "status": "warn"},
+                    ],
+                    "missing": ["3M", "5Y"],
+                    "quality": {"status": "warn", "flagged": ["10Y"]},
+                }
+            ],
+        },
+        "meta": meta_overrides or meta,
+    }
+
+
+def test_an_access_measures_response_round_trips_json() -> None:
+    response = v1.MeasuresResponse.model_validate(measures_response())
+
+    assert response.data.points[0].spread_2y_10y == 66.0
+    assert response.data.points[0].inputs[1].status == v1.QualityStatus.WARN
+    assert v1.MeasuresResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_access_measures_meta_requires_source_attribution() -> None:
+    body = measures_response()
+    del body["meta"]["source_attribution"]
+
+    with pytest.raises(ValidationError):
+        v1.MeasuresResponse.model_validate(body)
