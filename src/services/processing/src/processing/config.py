@@ -32,6 +32,7 @@ class ApiSettings(BaseSettings):
     )
 
     db: DatabaseSettings
+    persistence: PersistenceSettings
 
 
 class JobSettings(BaseSettings):
