@@ -112,8 +112,10 @@ def curve_id(request: pytest.FixtureRequest, oracle: OracleDatabase) -> str:
     curve_id = f"it-{request.node.name}"[:64]
     with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
         cursor.execute(
-            "insert into curve (curve_id, grid_version, rate_type, compounding, unit)"
-            " values (:curve_id, 1, 'spot', 'continuous', 'percent')",
+            "insert into curve (curve_id, grid_version, rate_type, compounding, unit,"
+            " label, source_id, area, attribution)"
+            " values (:curve_id, 1, 'spot', 'continuous', 'percent',"
+            " :curve_id, 'ecb', 'Test area', 'Test attribution')",
             curve_id=curve_id,
         )
         connection.commit()

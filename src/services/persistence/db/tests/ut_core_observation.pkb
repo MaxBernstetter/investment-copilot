@@ -42,18 +42,51 @@ create or replace package body ut_core_observation as
   c_all_null constant varchar2(4000) := '3M=null,6M=null,1Y=null,2Y=null,3Y=null,5Y=null,'
     || '7Y=null,10Y=null,15Y=null,20Y=null,30Y=null';
 
+  -- A row of core_observation.get_curves.
+  type catalogue_row_t is record (
+    curve_id     varchar2(64 char),
+    label        varchar2(128 char),
+    source_id    varchar2(64 char),
+    area         varchar2(64 char),
+    attribution  varchar2(256 char),
+    rate_type    varchar2(16 char),
+    compounding  varchar2(16 char),
+    unit         varchar2(16 char),
+    source_model varchar2(64 char),
+    simulated    varchar2(1 char),
+    maturity     varchar2(16 char),
+    months       number
+  );
+  type catalogue_rows is table of catalogue_row_t;
+
+  -- All rows of the curve catalogue, as returned by get_curves.
+  function catalogue return catalogue_rows is
+    l_cursor sys_refcursor := core_observation.get_curves;
+    l_rows   catalogue_rows;
+  begin
+    fetch l_cursor bulk collect into l_rows;
+    close l_cursor;
+    return l_rows;
+  end catalogue;
+
   -- The test curves live on grid version 1, and the knowledge clock starts at
   -- 1970 so that tests can pass the fixed knowledge times above. utPLSQL rolls
   -- both back after the suite, and each test's own writes are rolled back.
   procedure define_test_curves is
   begin
     update knowledge_clock set known_until = timestamp '1970-01-01 00:00:00' where clock_id = 1;
-    insert into curve (curve_id, grid_version, rate_type, compounding, unit)
-    values (c_curve, 1, 'spot', 'continuous', 'percent');
-    insert into curve (curve_id, grid_version, rate_type, compounding, unit)
-    values (c_other, 1, 'spot', 'continuous', 'percent');
-    insert into curve (curve_id, grid_version, rate_type, compounding, unit, simulated)
-    values (c_simulated, 1, 'spot', 'continuous', 'percent', 'Y');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit,
+                       label, source_id, area, attribution)
+    values (c_curve, 1, 'spot', 'continuous', 'percent',
+            'UT curve', 'ecb', 'Test area', 'Test attribution');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit,
+                       label, source_id, area, attribution)
+    values (c_other, 1, 'spot', 'continuous', 'percent',
+            'UT other curve', 'ecb', 'Test area', 'Test attribution');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit, simulated,
+                       label, source_id, area, attribution)
+    values (c_simulated, 1, 'spot', 'continuous', 'percent', 'Y',
+            'UT simulated curve', 'scenario', 'Test area', 'Test simulated attribution');
   end define_test_curves;
 
   function version(
@@ -997,6 +1030,64 @@ create or replace package body ut_core_observation as
     ut.expect(core_observation.has_curve(c_curve)).to_equal(1);
     ut.expect(core_observation.has_curve('ut-undefined')).to_equal(0);
   end has_curve_checks_the_definition;
+
+  procedure curves_list_each_curve_with_its_grid_in_order is
+    l_rows catalogue_rows := catalogue;
+    l_mine catalogue_rows := catalogue_rows();
+  begin
+    for i in 1 .. l_rows.count loop
+      if l_rows(i).curve_id = c_curve then
+        l_mine.extend;
+        l_mine(l_mine.count) := l_rows(i);
+      end if;
+    end loop;
+
+    ut.expect(l_mine.count).to_equal(11);
+    ut.expect(l_mine(1).maturity).to_equal('3M');
+    ut.expect(l_mine(l_mine.count).maturity).to_equal('30Y');
+    ut.expect(l_mine(1).label).to_equal('UT curve');
+    ut.expect(l_mine(1).source_id).to_equal('ecb');
+    ut.expect(l_mine(1).area).to_equal('Test area');
+    ut.expect(l_mine(1).attribution).to_equal('Test attribution');
+    ut.expect(l_mine(1).rate_type).to_equal('spot');
+    ut.expect(l_mine(1).compounding).to_equal('continuous');
+    ut.expect(l_mine(1).unit).to_equal('percent');
+    ut.expect(l_mine(1).source_model).to_be_null();
+    ut.expect(l_mine(1).simulated).to_equal('N');
+  end curves_list_each_curve_with_its_grid_in_order;
+
+  procedure curves_flag_a_simulated_curve is
+    l_rows catalogue_rows := catalogue;
+    l_count pls_integer := 0;
+    l_all_scenario boolean := true;
+    l_all_simulated boolean := true;
+  begin
+    for i in 1 .. l_rows.count loop
+      if l_rows(i).curve_id = c_simulated then
+        l_count := l_count + 1;
+        l_all_simulated := l_all_simulated and l_rows(i).simulated = 'Y';
+        l_all_scenario := l_all_scenario and l_rows(i).source_id = 'scenario';
+      end if;
+    end loop;
+
+    ut.expect(l_count).to_equal(11);
+    ut.expect(l_all_simulated).to_be_true();
+    ut.expect(l_all_scenario).to_be_true();
+  end curves_flag_a_simulated_curve;
+
+  procedure curves_are_ordered_by_curve_and_months is
+    l_rows catalogue_rows := catalogue;
+    l_ordered boolean := true;
+  begin
+    for i in 2 .. l_rows.count loop
+      l_ordered := l_ordered and (
+        l_rows(i - 1).curve_id < l_rows(i).curve_id
+        or (l_rows(i - 1).curve_id = l_rows(i).curve_id
+            and l_rows(i - 1).months < l_rows(i).months)
+      );
+    end loop;
+    ut.expect(l_ordered).to_be_true();
+  end curves_are_ordered_by_curve_and_months;
 
 end ut_core_observation;
 /

@@ -132,6 +132,12 @@ create or replace package core_observation authid definer as
     p_curve_id in varchar2
   ) return number;
 
+  -- The curve catalogue: every defined curve with its catalogue entry, conventions
+  -- and grid. One row per curve and grid maturity, columns curve_id, label,
+  -- source_id, area, attribution, rate_type, compounding, unit, source_model,
+  -- simulated, maturity, months; ordered by curve_id and months.
+  function get_curves return sys_refcursor;
+
   -- The latest valid date with a published value visible at p_as_of; null if none.
   function latest_valid_date(
     p_curve_id in varchar2,
@@ -492,6 +498,18 @@ create or replace package body core_observation as
      where curve_id = p_curve_id;
     return case when l_count > 0 then 1 else 0 end;
   end has_curve;
+
+  function get_curves return sys_refcursor is
+    l_curves sys_refcursor;
+  begin
+    open l_curves for
+      select c.curve_id, c.label, c.source_id, c.area, c.attribution, c.rate_type,
+             c.compounding, c.unit, c.source_model, c.simulated, g.maturity, g.months
+        from curve c
+        join grid_maturity g on g.grid_version = c.grid_version
+       order by c.curve_id, g.months;
+    return l_curves;
+  end get_curves;
 
   function latest_valid_date(
     p_curve_id in varchar2,
