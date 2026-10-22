@@ -15,7 +15,8 @@ class CachedCatalogue:
     """The curve catalogue, reread from persistence at most once per TTL.
 
     When a reread fails after a catalogue was loaded, the last good catalogue is served and the
-    next request tries again. Only when no catalogue was ever loaded does the failure propagate.
+    next reread is tried one TTL later. Only when no catalogue was ever loaded does the failure
+    propagate.
     """
 
     def __init__(
@@ -41,6 +42,7 @@ class CachedCatalogue:
             if self._curves is None:
                 raise
             logger.warning("curve catalogue refresh failed; serving the last loaded catalogue")
+            self._loaded_at = self._clock()
             return self._curves
         self._curves = curves
         self._loaded_at = self._clock()
