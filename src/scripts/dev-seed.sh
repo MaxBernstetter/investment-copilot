@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Seed the local development stack with ECB history recorded at two knowledge times, so the
-# explorer can time travel: the first load covers START up to a cutoff (with a quality check),
-# the second covers the days after it (with another check at the end), and the printed
-# knowledge time lies between the two loads.
+# explorer can time travel: the first load covers START up to a cutoff (with a quality check
+# of both ECB curves), the second covers the days after it (with another check at the end),
+# and the printed knowledge time lies between the two loads.
 #
 # Usage: dev-seed.sh START
 #   START  first valid date to load, YYYY-MM-DD (required)
@@ -43,7 +43,9 @@ ingest() {
 }
 
 check() {
-	docker compose --profile tools run --rm processing-job ecb-aaa-spot --from "$1" --to "$2"
+	for curve in ecb-aaa-spot ecb-all-spot; do
+		docker compose --profile tools run --rm processing-job "$curve" --from "$1" --to "$2"
+	done
 }
 
 ingest history --start "$start" --end "$cutoff"
