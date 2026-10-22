@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CURVES, curveById, readCurveId } from './curves'
+import { CURVES, curveById, curveSelectData, readCurveId, resolveCurve } from './curves'
+import { AAA, ALL, CATALOGUE, SIM } from '../test/catalogue'
 
 describe('curves', () => {
   it('reads the curve from the URL', () => {
@@ -18,5 +19,27 @@ describe('curves', () => {
       'ecb-aaa-spot-sim',
     ])
     expect(CURVES.every((curve) => curve.isSimulated === curve.id.endsWith('-sim'))).toBe(true)
+  })
+
+  it('resolves an exact id, then the default, then the first published curve', () => {
+    expect(resolveCurve(CATALOGUE, 'ecb-all-spot')).toBe(ALL)
+    expect(resolveCurve(CATALOGUE, 'nope')).toBe(AAA)
+    expect(resolveCurve([SIM, ALL], 'nope')).toBe(ALL)
+    expect(resolveCurve([SIM], 'nope')).toBe(SIM)
+    expect(resolveCurve([], 'ecb-aaa-spot')).toBeUndefined()
+  })
+
+  it('groups the select options, published first, dropping an empty group', () => {
+    expect(curveSelectData(CATALOGUE)).toEqual([
+      {
+        group: 'Published',
+        items: [
+          { value: 'ecb-aaa-spot', label: 'ECB euro area AAA spot' },
+          { value: 'ecb-all-spot', label: 'ECB euro area all-issuer spot' },
+        ],
+      },
+      { group: 'Simulated', items: [{ value: 'ecb-aaa-spot-sim', label: 'ECB euro area AAA spot (scenario data)' }] },
+    ])
+    expect(curveSelectData([AAA])).toHaveLength(1)
   })
 })
