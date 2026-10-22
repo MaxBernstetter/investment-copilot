@@ -1408,6 +1408,18 @@ def test_measures_invalid_range_is_422(client: TestClient, services: FakeService
     assert response.json()["detail"] == "to is before from"
 
 
+def test_measures_of_an_unknown_curve_are_404_without_calling_processing(
+    client: TestClient, services: FakeServices
+) -> None:
+    response = client.get(
+        "/v1/curves/unknown/measures", params={"from": "2026-03-12", "to": "2026-03-12"}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "no curve named unknown"
+    assert services.measures.calls == []
+
+
 def test_measures_unavailable_is_503_with_the_measures_detail(
     client: TestClient, services: FakeServices
 ) -> None:

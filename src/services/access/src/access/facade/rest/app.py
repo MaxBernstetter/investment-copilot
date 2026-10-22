@@ -303,8 +303,8 @@ def _add_routes(app: FastAPI) -> None:
         Without ``as_of`` processing picks its default; the answer reports the knowledge time
         it used in ``meta.as_of``.
         """
-        result = await services.measures.measures(curve_id, valid_from, valid_to, as_of)
         attribution = await services.catalogue.attribution(curve_id)
+        result = await services.measures.measures(curve_id, valid_from, valid_to, as_of)
         return json_with_etag(
             request,
             to_measures_response(result, attribution=attribution),
