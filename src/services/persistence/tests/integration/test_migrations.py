@@ -54,6 +54,30 @@ def test_defines_the_simulated_curve_apart_from_the_real_one(oracle: OracleDatab
         assert cursor.fetchall() == [("ecb-aaa-spot", "N"), ("ecb-aaa-spot-sim", "Y")]
 
 
+def test_records_the_catalogue_entries_of_the_ecb_curves(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select curve_id, label, source_id, area, attribution from curve"
+            " where curve_id in ('ecb-aaa-spot', 'ecb-aaa-spot-sim') order by curve_id"
+        )
+        assert cursor.fetchall() == [
+            (
+                "ecb-aaa-spot",
+                "ECB euro area AAA spot",
+                "ecb",
+                "Euro area",
+                "Source: ECB statistics",
+            ),
+            (
+                "ecb-aaa-spot-sim",
+                "ECB euro area AAA spot (scenario data)",
+                "scenario",
+                "Euro area",
+                "Simulated scenario based on ECB statistics",
+            ),
+        ]
+
+
 def test_reapplying_the_migrations_changes_nothing(oracle: OracleDatabase) -> None:
     output = oracle.migrate()
 

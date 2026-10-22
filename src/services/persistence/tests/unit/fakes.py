@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+from persistence.domain.catalogue import CurveDefinition, GridMaturity
 from persistence.domain.changes import ValueChange
 from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
@@ -32,6 +33,21 @@ GRID: tuple[tuple[str, int], ...] = (
     ("15Y", 180),
     ("20Y", 240),
     ("30Y", 360),
+)
+
+
+ECB_AAA_SPOT = CurveDefinition(
+    curve_id="ecb-aaa-spot",
+    label="ECB euro area AAA spot",
+    source_id="ecb",
+    area="Euro area",
+    attribution="Source: ECB statistics",
+    rate_type="spot",
+    compounding="continuous",
+    unit="percent",
+    source_model="Svensson (ECB)",
+    simulated=False,
+    maturities=tuple(GridMaturity(maturity, months) for maturity, months in GRID),
 )
 
 

@@ -1,7 +1,10 @@
 """Translation between the published contract (contracts.persistence.v1) and the domain."""
 
+from collections.abc import Sequence
+
 from contracts.persistence import v1
 
+from persistence.domain.catalogue import CurveDefinition
 from persistence.domain.changes import CurveChanges
 from persistence.domain.curve import CurveAsOf
 from persistence.domain.observation import ChangeReason, Observation, Origin, RecordedVersions
@@ -113,4 +116,28 @@ def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
             ],
         ),
         meta=v1.ChangesMeta(since=changes.since, as_of=changes.as_of),
+    )
+
+
+def to_curves_response(curves: Sequence[CurveDefinition]) -> v1.CurvesResponse:
+    return v1.CurvesResponse(
+        data=[
+            v1.CurveDefinition(
+                curve_id=curve.curve_id,
+                label=curve.label,
+                source_id=curve.source_id,
+                area=curve.area,
+                attribution=curve.attribution,
+                rate_type=v1.RateType(curve.rate_type),
+                compounding=v1.Compounding(curve.compounding),
+                unit=v1.Unit(curve.unit),
+                source_model=curve.source_model,
+                simulated=curve.simulated,
+                maturities=[
+                    v1.GridMaturity(maturity=grid.maturity, months=grid.months)
+                    for grid in curve.maturities
+                ],
+            )
+            for curve in curves
+        ]
     )
