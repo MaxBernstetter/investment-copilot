@@ -7,6 +7,7 @@ from decimal import Decimal
 import oracledb
 import pytest
 
+from persistence.domain.catalogue import CurveDefinition, GridMaturity
 from persistence.domain.observation import (
     ChangeReason,
     InvalidObservationsError,
@@ -250,3 +251,36 @@ async def test_a_correction_shows_a_new_version_id_and_the_old_one_as_of_before(
     assert new_version["version_id"] != old_version["version_id"]
     assert [(p.value, p.version_id) for p in series] == [(2.7, new_version["version_id"])]
     assert all(p.version_id is None for p in after if p.value is None)
+
+
+async def test_curves_list_the_ecb_curve_with_its_grid(
+    repository: OracleObservationRepository,
+) -> None:
+    curves = await repository.curves()
+
+    ecb = next(curve for curve in curves if curve.curve_id == "ecb-aaa-spot")
+    assert ecb == CurveDefinition(
+        curve_id="ecb-aaa-spot",
+        label="ECB euro area AAA spot",
+        source_id="ecb",
+        area="Euro area",
+        attribution="Source: ECB statistics",
+        rate_type="spot",
+        compounding="continuous",
+        unit="percent",
+        source_model="Svensson (ECB)",
+        simulated=False,
+        maturities=(
+            GridMaturity("3M", 3),
+            GridMaturity("6M", 6),
+            GridMaturity("1Y", 12),
+            GridMaturity("2Y", 24),
+            GridMaturity("3Y", 36),
+            GridMaturity("5Y", 60),
+            GridMaturity("7Y", 84),
+            GridMaturity("10Y", 120),
+            GridMaturity("15Y", 180),
+            GridMaturity("20Y", 240),
+            GridMaturity("30Y", 360),
+        ),
+    )

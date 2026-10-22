@@ -4,11 +4,14 @@ The service never writes tables directly; it only calls the core_observation
 package, as the least-privilege user that has EXECUTE on it and nothing else.
 """
 
+import itertools
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
+from typing import Any
 
 import oracledb
 
+from persistence.domain.catalogue import CurveDefinition, GridMaturity
 from persistence.domain.changes import ValueChange
 from persistence.domain.curve import CurvePoint
 from persistence.domain.observation import (
@@ -215,6 +218,19 @@ class OracleObservationRepository:
             )
         return bool(found)
 
+    async def curves(self) -> list[CurveDefinition]:
+        async with self._pool.acquire() as connection:
+            connection.call_timeout = self._call_timeout_ms
+            rows = await connection.cursor().callfunc(
+                "core.core_observation.get_curves", oracledb.DB_TYPE_CURSOR, []
+            )
+            fetched = await rows.fetchall()
+        # One row per curve and grid maturity, ordered by curve_id and months.
+        return [
+            _curve_definition(list(group))
+            for _, group in itertools.groupby(fetched, key=lambda row: row[:10])
+        ]
+
     async def changes(
         self,
         curve_id: str,
@@ -281,6 +297,38 @@ async def _version_list(
         version.DELIVERY_ID = observation.delivery_id
         versions.append(version)
     return versions
+
+
+def _curve_definition(rows: list[Any]) -> CurveDefinition:
+    """Builds one curve from its rows: the catalogue columns, then one grid maturity per row."""
+    (
+        curve_id,
+        label,
+        source_id,
+        area,
+        attribution,
+        rate_type,
+        compounding,
+        unit,
+        source_model,
+        simulated,
+        *_,
+    ) = rows[0]
+    return CurveDefinition(
+        curve_id=curve_id,
+        label=label,
+        source_id=source_id,
+        area=area,
+        attribution=attribution,
+        rate_type=rate_type,
+        compounding=compounding,
+        unit=unit,
+        source_model=source_model,
+        simulated=simulated == "Y",
+        maturities=tuple(
+            GridMaturity(maturity=maturity, months=int(months)) for *_, maturity, months in rows
+        ),
+    )
 
 
 def _error_code(error: oracledb.DatabaseError) -> int | None:

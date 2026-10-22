@@ -1,7 +1,8 @@
-"""REST facade (``api`` process type): the write interface plus liveness and readiness."""
+"""REST facade (``api`` process type): the write interface, the read interface and the
+curve catalogue, plus liveness and readiness."""
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -19,12 +20,14 @@ from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
+from persistence.domain.catalogue import CurveDefinition
 from persistence.domain.curve import FutureAsOfError, NothingKnownError
 from persistence.domain.observation import InvalidObservationsError, OpenVersionExistsError
 from persistence.domain.series import InvalidRangeError
 from persistence.facade.mapping import (
     to_changes_response,
     to_curve_response,
+    to_curves_response,
     to_observation,
     to_response,
     to_series_response,
@@ -45,6 +48,7 @@ class Services:
     get_series_as_of: GetSeriesAsOf
     get_value_versions: GetValueVersions
     get_curve_changes: GetCurveChanges
+    list_curves: Callable[[], Awaitable[Sequence[CurveDefinition]]]
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -93,6 +97,11 @@ def _add_routes(app: FastAPI) -> None:
             [to_observation(version) for version in request.observations]
         )
         return to_response(recorded)
+
+    @app.get(v1.CURVES_PATH, response_model=v1.CurvesResponse)
+    async def curves(services: ServicesDependency) -> v1.CurvesResponse:
+        """The curve catalogue: every defined curve with its metadata and grid, by curve id."""
+        return to_curves_response(await services.list_curves())
 
     @app.get(
         v1.CURVE_OBSERVATIONS_PATH,

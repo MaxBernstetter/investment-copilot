@@ -42,6 +42,7 @@ async def oracle_services(settings: Settings) -> AsyncIterator[Services]:
             GetSeriesAsOf(repository),
             GetValueVersions(repository),
             GetCurveChanges(repository),
+            repository.curves,
         )
     finally:
         await pool.close()

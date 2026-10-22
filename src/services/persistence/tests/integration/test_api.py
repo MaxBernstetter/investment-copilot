@@ -9,6 +9,7 @@ import pytest
 from contracts.persistence.v1 import (
     CURVE_CHANGES_PATH,
     CURVE_OBSERVATIONS_PATH,
+    CURVES_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
     VALUE_VERSIONS_PATH,
@@ -316,3 +317,21 @@ def test_lists_the_change_of_a_corrected_value(client: TestClient, curve_id: str
         (c["maturity"], c["old_value"], c["new_value"], c["change_reason"])
         for c in body["data"]["changes"]
     ] == [("10Y", 2.61, 2.7, "correction")]
+
+
+def test_lists_the_curve_catalogue(client: TestClient, curve_id: str) -> None:
+    response = client.get(CURVES_PATH)
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    ids = [curve["curve_id"] for curve in data]
+    assert ids == sorted(ids)
+    assert curve_id in ids
+    simulated = next(curve for curve in data if curve["curve_id"] == "ecb-aaa-spot-sim")
+    assert simulated["simulated"] is True
+    assert simulated["source_id"] == "scenario"
+    assert simulated["attribution"] == "Simulated scenario based on ECB statistics"
+    assert simulated["source_model"] is None
+    assert [m["months"] for m in simulated["maturities"]] == [
+        3, 6, 12, 24, 36, 60, 84, 120, 180, 240, 360
+    ]  # fmt: skip

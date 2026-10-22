@@ -8,6 +8,7 @@ import pytest
 from contracts.persistence.v1 import (
     CURVE_CHANGES_PATH,
     CURVE_OBSERVATIONS_PATH,
+    CURVES_PATH,
     RECORD_VERSIONS_PATH,
     SERIES_OBSERVATIONS_PATH,
     VALUE_VERSIONS_PATH,
@@ -23,6 +24,7 @@ from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
+from persistence.domain.catalogue import CurveDefinition
 from persistence.domain.changes import ValueChange
 from persistence.domain.observation import (
     ChangeReason,
@@ -32,7 +34,12 @@ from persistence.domain.observation import (
 )
 from persistence.domain.versions import ValueVersion
 from persistence.facade.rest.app import Services, create_app
-from tests.unit.fakes import GRID, FakeCurveReader, InMemoryObservationRepository
+from tests.unit.fakes import (
+    ECB_AAA_SPOT,
+    GRID,
+    FakeCurveReader,
+    InMemoryObservationRepository,
+)
 
 
 def observation(**overrides: Any) -> dict[str, Any]:
@@ -54,9 +61,13 @@ class FakeBackend:
         self.repository = InMemoryObservationRepository()
         self.curves = FakeCurveReader()
         self.is_database_reachable = True
+        self.catalogue: list[CurveDefinition] = [ECB_AAA_SPOT]
 
     async def is_ready(self) -> bool:
         return self.is_database_reachable
+
+    async def list_curves(self) -> list[CurveDefinition]:
+        return self.catalogue
 
     @asynccontextmanager
     async def services(self) -> AsyncIterator[Services]:
@@ -67,6 +78,7 @@ class FakeBackend:
             GetSeriesAsOf(self.curves),
             GetValueVersions(self.curves),
             GetCurveChanges(self.curves),
+            self.list_curves,
         )
 
 
@@ -151,6 +163,9 @@ def test_a_concurrent_write_is_a_conflict() -> None:
         async def is_ready() -> bool:
             return True
 
+        async def list_curves() -> list[CurveDefinition]:
+            return [ECB_AAA_SPOT]
+
         curves = FakeCurveReader()
         yield Services(
             RecordVersions(LosesTheRace()),
@@ -159,6 +174,7 @@ def test_a_concurrent_write_is_a_conflict() -> None:
             GetSeriesAsOf(curves),
             GetValueVersions(curves),
             GetCurveChanges(curves),
+            list_curves,
         )
 
     with TestClient(create_app(services)) as client:
@@ -620,3 +636,35 @@ def test_an_unexpected_error_carries_the_trace_id(
     assert response.json()["trace_id"] == trace_id
     record = next(r for r in caplog.records if r.levelno == logging.ERROR)
     assert getattr(record, "trace_id", None) == trace_id
+
+
+def test_lists_the_curve_catalogue_in_the_envelope(client: TestClient) -> None:
+    response = client.get(CURVES_PATH)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "curve_id": "ecb-aaa-spot",
+                "label": "ECB euro area AAA spot",
+                "source_id": "ecb",
+                "area": "Euro area",
+                "attribution": "Source: ECB statistics",
+                "rate_type": "spot",
+                "compounding": "continuous",
+                "unit": "percent",
+                "source_model": "Svensson (ECB)",
+                "simulated": False,
+                "maturities": [{"maturity": m, "months": n} for m, n in GRID],
+            }
+        ]
+    }
+
+
+def test_an_empty_catalogue_is_an_empty_list(client: TestClient, backend: FakeBackend) -> None:
+    backend.catalogue = []
+
+    response = client.get(CURVES_PATH)
+
+    assert response.status_code == 200
+    assert response.json() == {"data": []}
