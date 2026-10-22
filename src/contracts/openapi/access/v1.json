@@ -220,6 +220,48 @@
         "title": "CurveDefinition",
         "type": "object"
       },
+      "CurveMeasures": {
+        "additionalProperties": false,
+        "description": "Derived measures of a curve over a range of valid dates, in valid-date order.",
+        "properties": {
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/MeasurePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "valid_from": {
+            "description": "Valid time: first valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Valid time: last valid date of the range (inclusive)",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "curve_id",
+          "valid_from",
+          "valid_to",
+          "points"
+        ],
+        "title": "CurveMeasures",
+        "type": "object"
+      },
       "CurveMeta": {
         "additionalProperties": false,
         "description": "How the answer was determined.",
@@ -417,6 +459,222 @@
           "months"
         ],
         "title": "GridMaturity",
+        "type": "object"
+      },
+      "MeasureInput": {
+        "additionalProperties": false,
+        "description": "One input yield of a point, with the lineage and quality of the value used.",
+        "properties": {
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          },
+          "value": {
+            "description": "Yield in percent",
+            "examples": [
+              2.61
+            ],
+            "title": "Value",
+            "type": "number"
+          },
+          "version_id": {
+            "description": "Lineage reference of the value",
+            "title": "Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "maturity",
+          "value",
+          "version_id",
+          "status"
+        ],
+        "title": "MeasureInput",
+        "type": "object"
+      },
+      "MeasurePoint": {
+        "additionalProperties": false,
+        "description": "The derived measures of one valid date.",
+        "properties": {
+          "curvature_2y_5y_10y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "2 times 5Y minus 2Y and 10Y, in basis points; null when an input is missing",
+            "examples": [
+              -20.0
+            ],
+            "title": "Curvature 2Y 5Y 10Y"
+          },
+          "inputs": {
+            "description": "The inputs present, in 3M, 2Y, 5Y, 10Y order",
+            "items": {
+              "$ref": "#/components/schemas/MeasureInput"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "inverted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The slope is below zero; null when the slope is null",
+            "title": "Inverted"
+          },
+          "missing": {
+            "description": "The inputs absent, in 3M, 2Y, 5Y, 10Y order",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/MeasureQuality"
+          },
+          "spread_2y_10y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The slope: 10Y minus 2Y, in basis points; null when an input is missing",
+            "examples": [
+              66.0
+            ],
+            "title": "Spread 2Y 10Y"
+          },
+          "spread_3m_10y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "10Y minus 3M, in basis points; null when an input is missing",
+            "examples": [
+              71.0
+            ],
+            "title": "Spread 3M 10Y"
+          },
+          "valid_date": {
+            "description": "Valid time: the business date of the point",
+            "format": "date",
+            "title": "Valid Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_date",
+          "spread_2y_10y",
+          "spread_3m_10y",
+          "curvature_2y_5y_10y",
+          "inverted",
+          "inputs",
+          "missing",
+          "quality"
+        ],
+        "title": "MeasurePoint",
+        "type": "object"
+      },
+      "MeasureQuality": {
+        "additionalProperties": false,
+        "description": "Quality of a point: the worst status of its inputs.",
+        "properties": {
+          "flagged": {
+            "description": "Input maturities with a warn or info status",
+            "items": {
+              "type": "string"
+            },
+            "title": "Flagged",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QualityStatus"
+          }
+        },
+        "required": [
+          "status",
+          "flagged"
+        ],
+        "title": "MeasureQuality",
+        "type": "object"
+      },
+      "MeasuresMeta": {
+        "additionalProperties": false,
+        "description": "How the measures were determined.",
+        "properties": {
+          "as_of": {
+            "description": "The effective knowledge time (UTC) of the inputs and their quality",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "method_version": {
+            "description": "Version of the measure definitions",
+            "examples": [
+              "1"
+            ],
+            "minLength": 1,
+            "title": "Method Version",
+            "type": "string"
+          },
+          "source_attribution": {
+            "description": "Required attribution of the source values (ESCB reuse terms); for simulated data a note that it is simulated",
+            "examples": [
+              "Source: ECB statistics"
+            ],
+            "title": "Source Attribution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of",
+          "method_version",
+          "source_attribution"
+        ],
+        "title": "MeasuresMeta",
+        "type": "object"
+      },
+      "MeasuresResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves/{curve_id}/measures``.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CurveMeasures"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MeasuresMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "MeasuresResponse",
         "type": "object"
       },
       "Origin": {
@@ -1592,6 +1850,108 @@
           }
         },
         "summary": "Value Versions"
+      }
+    },
+    "/v1/curves/{curve_id}/measures": {
+      "get": {
+        "description": "Spreads, curvature and inversion per valid date, as known at ``meta.as_of``.\n\nRelayed from processing. ``from`` and ``to`` bound the valid-date range (inclusive).\nWithout ``as_of`` processing picks its default; the answer reports the knowledge time\nit used in ``meta.as_of``.",
+        "operationId": "measures_v1_curves__curve_id__measures_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasuresResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Measures"
       }
     },
     "/v1/curves/{curve_id}/observations": {

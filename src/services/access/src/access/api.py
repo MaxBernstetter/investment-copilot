@@ -38,4 +38,5 @@ async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
             persistence,
             quality,
             CachedCatalogue(persistence, settings.catalogue_ttl_seconds),
+            measures=quality,
         )

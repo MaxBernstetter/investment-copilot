@@ -7,6 +7,7 @@ from typing import Protocol
 from access.domain.catalogue import CurveDefinition
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
+from access.domain.measures import CurveMeasures
 from access.domain.quality import ValueQuality
 from access.domain.quality_days import QualityDays
 from access.domain.series import Series
@@ -80,4 +81,18 @@ class QualityReader(Protocol):
         as_of: datetime | None,
     ) -> QualityDays:
         """Quality per valid date; raises when processing rejects the query."""
+        ...
+
+
+class MeasuresReader(Protocol):
+    """Reads derived measures of a curve from the processing service."""
+
+    async def measures(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> CurveMeasures:
+        """Measures per valid date; raises when processing rejects the query or cannot answer."""
         ...

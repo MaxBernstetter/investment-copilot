@@ -25,6 +25,13 @@ from access.domain.curve import (
     PersistenceUnavailableError,
     ProcessingUnavailableError,
 )
+from access.domain.measures import (
+    CurveMeasures,
+    MeasureInput,
+    MeasurePoint,
+    MeasureQuality,
+    MeasuresUnavailableError,
+)
 from access.domain.quality import (
     QualityFlag,
     QualityStatus,
@@ -44,6 +51,8 @@ SERIES_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations"
 VERSIONS_PATH = "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions"
 CHANGES_PATH = "/v1/curves/ecb-aaa-spot/changes"
 QUALITY_PATH = "/v1/curves/ecb-aaa-spot/quality"
+MEASURES_PATH = "/v1/curves/ecb-aaa-spot/measures"
+MEASURES_UNAVAILABLE = "The measures service is not reachable; try again later."
 SINCE = datetime(2026, 3, 12, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 AS_OF = datetime(2026, 3, 13, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -256,12 +265,55 @@ class FakeCatalogueReader:
         return self.curves_result
 
 
+def measure_point(input_status: QualityStatus = QualityStatus.PASSED) -> MeasurePoint:
+    return MeasurePoint(
+        valid_date=date(2026, 3, 12),
+        spread_2y_10y=66.0,
+        spread_3m_10y=None,
+        curvature_2y_5y_10y=None,
+        inverted=False,
+        inputs=(
+            MeasureInput("2Y", 1.98, 3, input_status),
+            MeasureInput("10Y", 2.64, 7, input_status),
+        ),
+        missing=("3M", "5Y"),
+        quality=MeasureQuality(status=input_status, flagged=()),
+    )
+
+
+class FakeMeasuresReader:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, date, date, datetime | None]] = []
+        self.error: Exception | None = None
+        self.result = CurveMeasures(
+            curve_id="ecb-aaa-spot",
+            valid_from=date(2026, 3, 12),
+            valid_to=date(2026, 3, 12),
+            as_of=AS_OF.astimezone(UTC),
+            method_version="1",
+            points=(measure_point(),),
+        )
+
+    async def measures(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> CurveMeasures:
+        self.calls.append((curve_id, valid_from, valid_to, as_of))
+        if self.error is not None:
+            raise self.error
+        return replace(self.result, curve_id=curve_id, valid_from=valid_from, valid_to=valid_to)
+
+
 class FakeServices:
     def __init__(self) -> None:
         self.ready = True
         self.curves = FakeCurveReader()
         self.quality = FakeQualityReader()
         self.catalogue_reader = FakeCatalogueReader()
+        self.measures = FakeMeasuresReader()
 
     async def is_ready(self) -> bool:
         return self.ready
@@ -273,6 +325,7 @@ class FakeServices:
             self.curves,
             self.quality,
             CachedCatalogue(self.catalogue_reader, ttl_seconds=60),
+            self.measures,
         )
 
 
@@ -1231,3 +1284,137 @@ def test_an_unexpected_error_carries_the_trace_id(
     assert response.json()["trace_id"] == expected
     [record] = [r for r in caplog.records if r.levelno == logging.ERROR]
     assert getattr(record, "trace_id") == expected  # noqa: B009
+
+
+def test_measures_in_the_public_envelope(client: TestClient) -> None:
+    response = client.get(MEASURES_PATH, params={"from": "2026-03-12", "to": "2026-03-12"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["meta"] == {
+        "as_of": "2026-03-13T08:00:00Z",
+        "method_version": "1",
+        "source_attribution": "Source: ECB statistics",
+    }
+    assert payload["data"]["curve_id"] == "ecb-aaa-spot"
+    point = payload["data"]["points"][0]
+    assert point["valid_date"] == "2026-03-12"
+    assert point["spread_2y_10y"] == 66.0
+    assert point["spread_3m_10y"] is None
+    assert point["inverted"] is False
+    assert point["missing"] == ["3M", "5Y"]
+    assert point["inputs"][0] == {
+        "maturity": "2Y",
+        "value": 1.98,
+        "version_id": 3,
+        "status": "passed",
+    }
+    assert point["quality"] == {"status": "passed", "flagged": []}
+
+
+def test_measures_pass_range_and_as_of_to_processing(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(
+        MEASURES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-14", "as_of": AS_OF.isoformat()},
+    )
+
+    assert services.measures.calls == [
+        ("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), AS_OF)
+    ]
+
+
+def test_measures_without_as_of_pass_none_to_processing(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(MEASURES_PATH, params={"from": "2026-03-12", "to": "2026-03-12"})
+
+    assert services.measures.calls == [("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), None)]
+
+
+def test_measures_with_a_settled_as_of_and_checked_inputs_are_immutable(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        MEASURES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-12", "as_of": AS_OF.isoformat()},
+    )
+
+    assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_measures_with_an_unchecked_input_are_no_cache(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.measures.result = replace(
+        services.measures.result, points=(measure_point(QualityStatus.UNCHECKED),)
+    )
+
+    response = client.get(
+        MEASURES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-12", "as_of": AS_OF.isoformat()},
+    )
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_measures_without_as_of_are_no_cache(client: TestClient) -> None:
+    response = client.get(MEASURES_PATH, params={"from": "2026-03-12", "to": "2026-03-12"})
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_measures_at_the_horizon_are_no_cache(client: TestClient, services: FakeServices) -> None:
+    services.measures.result = replace(
+        services.measures.result, as_of=datetime(2026, 3, 13, 7, 0, tzinfo=UTC)
+    )
+
+    response = client.get(
+        MEASURES_PATH,
+        params={"from": "2026-03-12", "to": "2026-03-12", "as_of": AS_OF.isoformat()},
+    )
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_measures_answer_304_for_a_matching_etag(client: TestClient) -> None:
+    params = {"from": "2026-03-12", "to": "2026-03-12", "as_of": AS_OF.isoformat()}
+    first = client.get(MEASURES_PATH, params=params)
+
+    response = client.get(
+        MEASURES_PATH, params=params, headers={"If-None-Match": first.headers["etag"]}
+    )
+
+    assert first.headers["etag"]
+    assert response.status_code == 304
+
+
+def test_measures_not_found_is_404(client: TestClient, services: FakeServices) -> None:
+    services.measures.error = CurveNotFoundError("no curve named ecb-aaa-spot")
+
+    response = client.get(MEASURES_PATH, params={"from": "2026-03-12", "to": "2026-03-12"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "no curve named ecb-aaa-spot"
+
+
+def test_measures_invalid_range_is_422(client: TestClient, services: FakeServices) -> None:
+    services.measures.error = InvalidCurveQueryError("to is before from")
+
+    response = client.get(MEASURES_PATH, params={"from": "2026-03-14", "to": "2026-03-12"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "to is before from"
+
+
+def test_measures_unavailable_is_503_with_the_measures_detail(
+    client: TestClient, services: FakeServices
+) -> None:
+    services.measures.error = MeasuresUnavailableError()
+
+    response = client.get(MEASURES_PATH, params={"from": "2026-03-12", "to": "2026-03-12"})
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"] == MEASURES_UNAVAILABLE

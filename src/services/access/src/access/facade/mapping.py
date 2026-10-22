@@ -8,6 +8,7 @@ from contracts.access import v1
 from access.domain.catalogue import CurveDefinition
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
+from access.domain.measures import CurveMeasures, MeasurePoint
 from access.domain.quality import ValueQuality, quality_for
 from access.domain.quality_days import QualityDays
 from access.domain.series import Series
@@ -184,6 +185,46 @@ def to_curves_response(curves: Sequence[CurveDefinition]) -> v1.CurvesResponse:
             )
             for curve in curves
         ]
+    )
+
+
+def to_measures_response(measures: CurveMeasures, *, attribution: str) -> v1.MeasuresResponse:
+    return v1.MeasuresResponse(
+        data=v1.CurveMeasures(
+            curve_id=measures.curve_id,
+            valid_from=measures.valid_from,
+            valid_to=measures.valid_to,
+            points=[_to_measure_point(point) for point in measures.points],
+        ),
+        meta=v1.MeasuresMeta(
+            as_of=measures.as_of.astimezone(UTC),
+            method_version=measures.method_version,
+            source_attribution=attribution,
+        ),
+    )
+
+
+def _to_measure_point(point: MeasurePoint) -> v1.MeasurePoint:
+    return v1.MeasurePoint(
+        valid_date=point.valid_date,
+        spread_2y_10y=point.spread_2y_10y,
+        spread_3m_10y=point.spread_3m_10y,
+        curvature_2y_5y_10y=point.curvature_2y_5y_10y,
+        inverted=point.inverted,
+        inputs=[
+            v1.MeasureInput(
+                maturity=input_.maturity,
+                value=input_.value,
+                version_id=input_.version_id,
+                status=v1.QualityStatus(input_.status),
+            )
+            for input_ in point.inputs
+        ],
+        missing=list(point.missing),
+        quality=v1.MeasureQuality(
+            status=v1.QualityStatus(point.quality.status),
+            flagged=list(point.quality.flagged),
+        ),
     )
 
 
