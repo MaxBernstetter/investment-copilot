@@ -12,6 +12,7 @@ import pendulum
 from airflow.sdk import CronTriggerTimetable, dag, get_current_context, task
 
 from orchestration.ecb_daily_load import (
+    CURVE_ID,
     daily_load_command,
     mark_unfinished_attempt_failed,
     remember_run_id,
@@ -63,7 +64,9 @@ def daily_load_ecb() -> None:
         context = get_current_context()
         run_at = context["logical_date"] or context["dag_run"].run_after
         valid_date = valid_date_for(run_at.astimezone(TIMEZONE).date())
-        run_job(daily_check_command(valid_date, f"{DAG_ID}-check-{valid_date.isoformat()}"))
+        run_job(
+            daily_check_command(CURVE_ID, valid_date, f"{DAG_ID}-check-{valid_date.isoformat()}")
+        )
 
     load_ecb() >> check_quality()
 

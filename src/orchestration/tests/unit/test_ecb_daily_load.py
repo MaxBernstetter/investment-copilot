@@ -10,6 +10,7 @@ import pytest
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 
 from orchestration.ecb_daily_load import (
+    CURVE_ID,
     JobFailedError,
     daily_load_command,
     fail_unfinished_command,
@@ -233,3 +234,7 @@ def test_the_callback_does_not_raise_when_the_job_fails(caplog: pytest.LogCaptur
         )
 
     assert "fail_unfinished_failed" in caplog.text
+
+
+def test_the_ecb_load_checks_the_aaa_spot_curve() -> None:
+    assert CURVE_ID == "ecb-aaa-spot"
