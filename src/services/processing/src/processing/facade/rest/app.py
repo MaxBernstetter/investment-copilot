@@ -1,4 +1,4 @@
-"""REST facade (``api`` process type): quality reads, liveness and readiness."""
+"""REST facade (``api`` process type): quality reads, derived measures, liveness and readiness."""
 
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -15,10 +15,15 @@ from opentelemetry import trace
 from pydantic import AwareDatetime
 
 from processing.application.check_quality import UnknownCurveError
+from processing.application.get_measures import GetMeasures
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
 from processing.domain.read import FutureAsOfError, InvalidRangeError
-from processing.facade.mapping import to_quality_days_response, to_value_quality_response
+from processing.facade.mapping import (
+    to_measures_response,
+    to_quality_days_response,
+    to_value_quality_response,
+)
 from processing.facade.rest.caching import cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
@@ -32,6 +37,7 @@ class Services:
     is_ready: Callable[[], Awaitable[bool]]
     get_quality_days: GetQualityDays
     get_value_quality: GetValueQuality
+    get_measures: GetMeasures
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -108,6 +114,31 @@ def _add_routes(app: FastAPI) -> None:
             curve_id, valid_from, valid_to, as_of, maturity=maturity
         )
         response = to_value_quality_response(values)
+        return json_with_etag(
+            request,
+            response,
+            cache_control=cache_control(as_of, response.meta.as_of),
+        )
+
+    @app.get(
+        v1.MEASURES_PATH,
+        response_model=v1.MeasuresResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"description": "The curve is unknown"},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
+        },
+    )
+    async def measures(
+        request: Request,
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        valid_from: Annotated[date, Query(alias="from")],
+        valid_to: Annotated[date, Query(alias="to")],
+        services: ServicesDependency,
+        as_of: AwareDatetime | None = None,
+    ) -> Response:
+        """Spreads, curvature and inversion per valid date, as known at ``meta.as_of``."""
+        result = await services.get_measures(curve_id, valid_from, valid_to, as_of)
+        response = to_measures_response(result)
         return json_with_etag(
             request,
             response,

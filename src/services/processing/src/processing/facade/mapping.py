@@ -1,7 +1,10 @@
 """Translation between contracts.processing.v1 and the domain."""
 
+from decimal import Decimal
+
 from contracts.processing import v1
 
+from processing.domain.measures import CurveMeasures, MeasureInput, MeasurePoint
 from processing.domain.quality import Finding
 from processing.domain.read import (
     CurveValueQualities,
@@ -10,6 +13,18 @@ from processing.domain.read import (
     RuleOutcome,
     ValueQualityResult,
 )
+
+
+def to_measures_response(measures: CurveMeasures) -> v1.MeasuresResponse:
+    return v1.MeasuresResponse(
+        data=v1.CurveMeasures(
+            curve_id=measures.curve_id,
+            valid_from=measures.valid_from,
+            valid_to=measures.valid_to,
+            points=[_measure_point(point) for point in measures.points],
+        ),
+        meta=v1.MeasuresMeta(as_of=measures.as_of, method_version=measures.method_version),
+    )
 
 
 def to_quality_days_response(days: QualityDays) -> v1.QualityDaysResponse:
@@ -75,3 +90,32 @@ def _finding(finding: Finding) -> v1.Finding:
         explanation=finding.explanation,
         evidence=finding.evidence,
     )
+
+
+def _measure_point(point: MeasurePoint) -> v1.MeasurePoint:
+    return v1.MeasurePoint(
+        valid_date=point.valid_date,
+        spread_2y_10y=_optional_float(point.spread_2y_10y),
+        spread_3m_10y=_optional_float(point.spread_3m_10y),
+        curvature_2y_5y_10y=_optional_float(point.curvature_2y_5y_10y),
+        inverted=point.inverted,
+        inputs=[_measure_input(item) for item in point.inputs],
+        missing=list(point.missing),
+        quality=v1.MeasureQuality(
+            status=v1.QualityStatus(point.quality.status.value),
+            flagged=list(point.quality.flagged),
+        ),
+    )
+
+
+def _measure_input(item: MeasureInput) -> v1.MeasureInput:
+    return v1.MeasureInput(
+        maturity=item.maturity,
+        value=float(item.value),
+        version_id=item.version_id,
+        status=v1.QualityStatus(item.status.value),
+    )
+
+
+def _optional_float(value: Decimal | None) -> float | None:
+    return float(value) if value is not None else None
