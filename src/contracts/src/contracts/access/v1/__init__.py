@@ -1,5 +1,14 @@
 """Interface models of the access service, version 1."""
 
+from contracts.access.v1.catalogue import (
+    CURVES_PATH,
+    Compounding,
+    CurveDefinition,
+    CurvesResponse,
+    GridMaturity,
+    RateType,
+    Unit,
+)
 from contracts.access.v1.changes import (
     CURVE_CHANGES_PATH,
     ChangesMeta,
@@ -45,6 +54,7 @@ from contracts.access.v1.versions import (
 )
 
 __all__ = [
+    "CURVES_PATH",
     "CURVE_CHANGES_PATH",
     "CURVE_OBSERVATIONS_PATH",
     "QUALITY_PATH",
@@ -52,12 +62,16 @@ __all__ = [
     "VALUE_VERSIONS_PATH",
     "ChangeReason",
     "ChangesMeta",
+    "Compounding",
     "CurveChanges",
     "CurveChangesResponse",
+    "CurveDefinition",
     "CurveMeta",
     "CurveObservations",
     "CurveObservationsResponse",
     "CurvePoint",
+    "CurvesResponse",
+    "GridMaturity",
     "Origin",
     "Problem",
     "QualityDay",
@@ -67,12 +81,14 @@ __all__ = [
     "QualityFlag",
     "QualityMeta",
     "QualityStatus",
+    "RateType",
     "Rule",
     "RuleOutcome",
     "SeriesObservations",
     "SeriesObservationsResponse",
     "SeriesPoint",
     "Severity",
+    "Unit",
     "ValueChange",
     "ValueQuality",
     "ValueVersion",
