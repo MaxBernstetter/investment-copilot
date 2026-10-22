@@ -1,16 +1,16 @@
 # Plausibility thresholds
 
-How the plausibility rules of [#31](https://github.com/MaxBernstetter/yield-lens/issues/31) are set, and how to re-derive them. The rules flag a value; in phase 2 they never block it (`warn` or `info` only).
+How the plausibility rules of [#31](https://github.com/MaxBernstetter/yield-lens/issues/31) are set for the ECB curves, and how to re-derive them. The rules flag a value; in phase 2 they never block it (`warn` or `info` only).
 
 ## Rules
 
-| Rule | Severity | Flags a value when | Hits in the history (2004-09-06 to 2026-10-18) |
-|---|---|---|---|
-| Range | `warn` | it lies outside −2.00 % … 8.00 % | none |
-| Jump | `info` | it moved more than 25 bp against the previous valid date with a value of the same maturity | 41 values on 20 days |
-| Jump | `warn` | it moved more than 50 bp | 2 values: 3M on 2008-10-07 (+94 bp), 30Y on 2008-12-04 (+56 bp) |
+| Rule | Severity | Flags a value when | AAA hits (2004-09-06 to 2026-10-18) | All-issuer hits (2004-09-06 to 2026-10-20) |
+|---|---|---|---|---|
+| Range | `warn` | it lies outside −2.00 % … 8.00 % | none | none |
+| Jump | `info` | it moved more than 25 bp against the previous valid date with a value of the same maturity | 41 values on 20 days | 93 values on 51 days |
+| Jump | `warn` | it moved more than 50 bp | 2 values: 3M on 2008-10-07 (+94 bp), 30Y on 2008-12-04 (+56 bp) | 3 values: 3M on 2008-10-08 (−66 bp), 30Y on 2009-01-23 (+52 bp), 30Y on 2010-10-15 (−88 bp) |
 
-The thresholds are configuration per curve, next to the curve's calendar and expected maturities (see [[03-quality-checks]]). The simulated curve `ecb-aaa-spot-sim` uses the real curve's thresholds, so a scenario's bad value is flagged like real data would be. Values exactly at a threshold (25 bp, 50 bp, −2.00 %, 8.00 %) are not flagged.
+The thresholds are configuration per curve, next to the curve's calendar and expected maturities (see [[03-quality-checks]]). The simulated curve `ecb-aaa-spot-sim` uses the real curve's thresholds, so a scenario's bad value is flagged like real data would be. Values exactly at a threshold (25 bp, 50 bp, −2.00 %, 8.00 %) are not flagged. The all-issuer curve `ecb-all-spot` has its own thresholds with the same values; see [[#All-issuer curve]].
 
 ## Data and method
 
@@ -51,6 +51,40 @@ The thresholds are configuration per curve, next to the curve's calendar and exp
 - **Jump > 50 bp as `warn`:** exceeded twice in 22 years, both at the height of the 2008 crisis. A move this large is almost always a data problem.
 - **One threshold for all maturities:** the short end has rarer but larger spikes (3M max 94 bp) and the long end more frequent medium moves. A single pair of thresholds keeps the rule simple to explain; per-maturity thresholds are a phase-3 refinement if the dashboard shows too many `info` flags at one end.
 
+## All-issuer curve
+
+Derived for `ecb-all-spot` (the ECB all-issuer spot curve, G_N_C) with `--source ecb`: 11 maturities (3M to 30Y), 5,656 business days each from 2004-09-06 to 2026-10-20, 62,205 daily changes. Values in percent, as published.
+
+| Maturity | Min % | Max % | P50 bp | P99 bp | P99.9 bp | Max bp |
+|---|---|---|---|---|---|---|
+| 3M | −0.833 | 4.291 | 0.9 | 12.6 | 33.1 | 66.1 |
+| 6M | −0.791 | 4.350 | 0.9 | 11.1 | 27.2 | 32.4 |
+| 1Y | −0.741 | 4.560 | 1.1 | 14.7 | 30.8 | 43.0 |
+| 2Y | −0.665 | 4.769 | 1.6 | 15.8 | 33.6 | 43.0 |
+| 3Y | −0.641 | 4.814 | 1.9 | 15.6 | 28.7 | 39.4 |
+| 5Y | −0.562 | 4.810 | 2.2 | 14.5 | 25.2 | 34.8 |
+| 7Y | −0.457 | 4.826 | 2.3 | 14.1 | 23.4 | 33.5 |
+| 10Y | −0.264 | 5.069 | 2.4 | 14.0 | 21.5 | 36.6 |
+| 15Y | 0.037 | 5.451 | 2.4 | 14.1 | 23.0 | 34.2 |
+| 20Y | 0.260 | 5.644 | 2.4 | 14.5 | 22.0 | 32.7 |
+| 30Y | 0.521 | 5.838 | 2.4 | 16.4 | 34.5 | 88.1 |
+| **All** | **−0.833** | **5.838** | | **14.6** | **28.0** | **88.1** |
+
+| Candidate jump threshold | Values above | Days | Share of changes | Years |
+|---|---|---|---|---|
+| > 20 bp | 200 | 93 | 0.322 % | 2008–2013, 2015, 2018–2020, 2022–2026 |
+| **> 25 bp (info)** | 93 | 51 | 0.150 % | 2008–2012, 2015, 2018, 2020, 2022, 2023, 2025 |
+| > 30 bp | 50 | 33 | 0.080 % | 2008–2012, 2015, 2018, 2020, 2022, 2023 |
+| > 40 bp | 7 | 7 | 0.011 % | 2008–2012 |
+| **> 50 bp (warn)** | 3 | 3 | 0.005 % | 2008–2010 |
+
+Why the same values as the AAA curve:
+
+- **Range:** the history spans −0.83 % to 5.84 %, inside −2.00 % … 8.00 %, more than one percentage point above the low bound and more than two below the high one. No value is flagged.
+- **Jump > 25 bp as `info`:** 51 days in 22 years, about 2.3 a year, under the "about three a year" revisit rule. The days are stress periods as on the AAA curve.
+- **Jump > 50 bp as `warn`:** 3 days, 2008 to 2010. One is a long-end fitting artefact (30Y on 2010-10-15, −88 bp), which is exactly what `warn` is for; the other two are the 3M move on 2008-10-08 and the 30Y move on 2009-01-23.
+- **Same values on both ECB curves:** flags stay comparable when the two curves are overlaid in the explorer. The texts are curve-specific, because they cite this curve's own range and counts.
+
 ## How users see it
 
 Every flag in the explorer carries a short explanation that states the rule and the evidence. The texts are configured per curve; for the ECB AAA spot curve (and `ecb-aaa-spot-sim`) they are:
@@ -73,8 +107,8 @@ The quality dashboard links to this note for the full method. The rule configura
 
 ## Re-deriving
 
-1. Load the full history into a local stack: `task dev:up`, then `task dev:seed START=2004-09-06` (about 23 polite requests to the ECB).
-2. Run `python3 src/scripts/plausibility_thresholds.py` (standard library only; `--access-url` and `--curve` are optional).
+1. Load the full history into a local stack: `task dev:up`, then `task dev:seed START=2004-09-06` (about 23 polite requests to the ECB). Or skip the stack and add `--source ecb` in step 2 (one request to the ECB, for `ecb-aaa-spot` or `ecb-all-spot`).
+2. Run `python3 src/scripts/plausibility_thresholds.py` (standard library only; `--access-url` and `--curve` are optional; `--source ecb` reads the history from the ECB data API instead of the access API).
 3. Compare with the tables above. Revisit the thresholds when a new curve is added, when the range comes within half a percentage point of a bound, or when `info` flags appear on more than about three days a year. A new curve gets its own thresholds, calendar, expected maturities and explanation texts in `RULES_BY_CURVE`.
 
 Related: [[README|Data processing]], [#31](https://github.com/MaxBernstetter/yield-lens/issues/31), [#38](https://github.com/MaxBernstetter/yield-lens/issues/38), [#65](https://github.com/MaxBernstetter/yield-lens/issues/65)

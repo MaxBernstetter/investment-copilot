@@ -6,7 +6,7 @@ The rules that check the published values of a curve, the severities and statuse
 
 | Rule | Severity | Flags when | Scope |
 |---|---|---|---|
-| `range` | `warn` | the value is strictly below the range minimum or strictly above the maximum (−2.00 % to 8.00 % for the ECB AAA spot curve) | one value |
+| `range` | `warn` | the value is strictly below the range minimum or strictly above the maximum (−2.00 % to 8.00 % for both ECB spot curves) | one value |
 | `jump` | `info` | the move against the previous value of the same maturity is strictly more than 25 bp | one value |
 | `jump` | `warn` | the move is strictly more than 50 bp | one value |
 | `missing-date` | `warn` | a business day of the curve's calendar has no value at any maturity | one day |
@@ -15,7 +15,7 @@ The rules that check the published values of a curve, the severities and statuse
 - **Comparisons are strict.** A value exactly on a threshold is not flagged.
 - **Jumps** compare a value with the previous valid date that has a value for the same maturity, so a gap such as a weekend or a TARGET holiday is spanned. A previous value more than 31 days back is not compared.
 - Days outside the curve's calendar (for the ECB curves: weekends and TARGET holidays) have no values and are not flagged.
-- **Rule configuration** is per curve in `processing.domain.rule_config` (`RULES_BY_CURVE`): thresholds, business-day calendar and expected maturities per period. The simulated curve `ecb-aaa-spot-sim` uses the rules of the real curve.
+- **Rule configuration** is per curve in `processing.domain.rule_config` (`RULES_BY_CURVE`): thresholds, business-day calendar and expected maturities per period. The simulated curve `ecb-aaa-spot-sim` uses the rules of the real curve. `ecb-all-spot` has its own entry with the same threshold values.
 - **Explanations** are fixed texts per flag and curve, part of the curve's rule configuration. The ECB curves' texts match "How users see it" in [[01-plausibility-thresholds]]. Findings recorded before the number formats of the evidence texts changed (issue #225) keep their old evidence text until they are checked again.
 
 ## Completeness
@@ -50,7 +50,7 @@ The requested valid-date range is processed in chunks of at most 366 days. For e
 
 If the grid call returns 404, nothing is known about the curve and no results are recorded.
 
-The job takes the curve id as its first argument. The ECB DAGs pass `ecb-aaa-spot` (`orchestration.ecb_daily_load.CURVE_ID`).
+The job takes the curve id as its first argument. The ECB DAGs check `ecb-aaa-spot` and `ecb-all-spot`, one mapped task each (`orchestration.ecb_daily_load.CURVE_IDS`).
 
 ## Storage
 
