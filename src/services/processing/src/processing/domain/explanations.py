@@ -1,6 +1,6 @@
 """Explanations shown per flag. The ECB texts match "How users see it" in the methodology note."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 # docs/project/02-data-processing/01-plausibility-thresholds.md
 # The minus is the Unicode MINUS SIGN and the space before % is a NARROW NO-BREAK SPACE (U+202F),
@@ -36,5 +36,21 @@ ECB_AAA_SPOT_EXPLANATIONS = Explanations(
     missing_date="No value was published for this TARGET business day.",
     missing_maturity=(
         "No value for this maturity on a TARGET business day on which other maturities have one."
+    ),
+)
+
+ECB_ALL_SPOT_EXPLANATIONS = replace(
+    ECB_AAA_SPOT_EXPLANATIONS,
+    range_warn=(
+        f"Outside the plausible range of {_MINUS}2.00{_PCT} to 8.00{_PCT}. "
+        f"ECB all-issuer spot yields stayed between {_MINUS}0.83{_PCT} and 5.84{_PCT} since 2004."
+    ),
+    jump_info=(
+        "Moved more than 25 bp since the previous business day. "
+        "This happened on 51 days since 2004, mostly in market stress."
+    ),
+    jump_warn=(
+        "Moved more than 50 bp since the previous business day. "
+        "This happened on only 3 days since 2004 (2008 to 2010); check the source data."
     ),
 )

@@ -5,7 +5,11 @@ from datetime import date
 from decimal import Decimal
 
 from processing.domain.calendar import TARGET, BusinessCalendar
-from processing.domain.explanations import ECB_AAA_SPOT_EXPLANATIONS, Explanations
+from processing.domain.explanations import (
+    ECB_AAA_SPOT_EXPLANATIONS,
+    ECB_ALL_SPOT_EXPLANATIONS,
+    Explanations,
+)
 
 RULE_SET_VERSION = "1"
 
@@ -60,6 +64,12 @@ ECB_AAA_SPOT = PlausibilityThresholds(
     jump_info_bp=Decimal("25"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
     jump_warn_bp=Decimal("50"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
 )
+ECB_ALL_SPOT = PlausibilityThresholds(
+    range_min=Decimal("-2.00"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
+    range_max=Decimal("8.00"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
+    jump_info_bp=Decimal("25"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
+    jump_warn_bp=Decimal("50"),  # docs/project/02-data-processing/01-plausibility-thresholds.md
+)
 
 ECB_GRID_V1_MATURITIES = ("3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y")
 
@@ -71,7 +81,16 @@ ECB_AAA_SPOT_RULES = CurveRules(
     explanations=ECB_AAA_SPOT_EXPLANATIONS,
 )
 
+ECB_ALL_SPOT_RULES = CurveRules(
+    thresholds=ECB_ALL_SPOT,
+    calendar=TARGET,
+    # Published on grid v1 since 2004-09-06, like the AAA curve.
+    expected_maturities=(MaturityPeriod(start=date.min, maturities=ECB_GRID_V1_MATURITIES),),
+    explanations=ECB_ALL_SPOT_EXPLANATIONS,
+)
+
 RULES_BY_CURVE: dict[str, CurveRules] = {
     "ecb-aaa-spot": ECB_AAA_SPOT_RULES,
+    "ecb-all-spot": ECB_ALL_SPOT_RULES,
     "ecb-aaa-spot-sim": ECB_AAA_SPOT_RULES,
 }
