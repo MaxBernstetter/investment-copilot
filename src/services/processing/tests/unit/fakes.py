@@ -10,9 +10,11 @@ from opentelemetry.sdk.metrics.export import (
 )
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from processing.application.ports import Grid
 from processing.domain.assessment import CheckedDay, ValueStatus
 from processing.domain.check_run import CheckRunAttempt
-from processing.domain.quality import Finding, Rule, Severity, Status
+from processing.domain.measures import INPUT_MATURITIES
+from processing.domain.quality import Finding, Rule, Severity, Status, Value
 from processing.infrastructure.telemetry import Telemetry, setup_telemetry
 
 AS_OF = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
@@ -143,3 +145,67 @@ class StubCheckRunHistory:
             (attempt for attempt in self.attempts if attempt.run_id == run_id),
             key=lambda attempt: attempt.attempt,
         )
+
+
+@dataclass
+class FakeObservationReader:
+    """Persistence stand-in: a value is known from ``known_from``; a series answers as of a time."""
+
+    horizon: datetime
+    versions: list[tuple[datetime, Value]] = field(default_factory=list)
+    unknown: bool = False
+    series_calls: list[tuple[str, datetime]] = field(default_factory=list)
+
+    async def grid(self, curve_id: str) -> Grid | None:
+        if self.unknown:
+            return None
+        return Grid(INPUT_MATURITIES, self.horizon)
+
+    async def series(
+        self,
+        curve_id: str,
+        maturity: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime,
+    ) -> list[Value]:
+        self.series_calls.append((maturity, as_of))
+        latest: dict[date, tuple[datetime, Value]] = {}
+        for known_from, value in self.versions:
+            if value.maturity != maturity or known_from > as_of:
+                continue
+            if not valid_from <= value.valid_date <= valid_to:
+                continue
+            current = latest.get(value.valid_date)
+            if current is None or known_from > current[0]:
+                latest[value.valid_date] = (known_from, value)
+        return [latest[day][1] for day in sorted(latest)]
+
+
+@dataclass
+class FakeMeasureQuality:
+    """Quality stand-in: the same statuses answer at any knowledge time; calls are recorded."""
+
+    now: datetime = AS_OF
+    statuses: list[ValueStatus] = field(default_factory=list)
+    calls: list[tuple[str | None, datetime]] = field(default_factory=list)
+
+    async def current_time(self) -> datetime:
+        return self.now
+
+    async def value_statuses(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime,
+        *,
+        maturity: str | None = None,
+    ) -> list[ValueStatus]:
+        self.calls.append((maturity, as_of))
+        return [
+            status
+            for status in self.statuses
+            if (maturity is None or status.maturity == maturity)
+            and valid_from <= status.valid_date <= valid_to
+        ]
