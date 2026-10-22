@@ -9,6 +9,7 @@ from functools import partial
 
 from fastapi import FastAPI
 
+from access.application.catalogue import CachedCatalogue
 from access.config import Settings
 from access.facade.rest.app import Services, create_app
 from access.infrastructure.persistence import PersistenceClient
@@ -32,4 +33,9 @@ async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
             str(settings.processing_url), settings.processing_timeout_seconds
         ) as quality,
     ):
-        yield Services(persistence.is_ready, persistence, quality)
+        yield Services(
+            persistence.is_ready,
+            persistence,
+            quality,
+            CachedCatalogue(persistence, settings.catalogue_ttl_seconds),
+        )

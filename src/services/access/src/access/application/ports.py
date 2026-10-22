@@ -4,12 +4,19 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Protocol
 
+from access.domain.catalogue import CurveDefinition
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.quality import ValueQuality
 from access.domain.quality_days import QualityDays
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
+
+
+class CatalogueReader(Protocol):
+    """Reads the curve catalogue."""
+
+    async def curves(self) -> tuple[CurveDefinition, ...]: ...
 
 
 class CurveReader(Protocol):

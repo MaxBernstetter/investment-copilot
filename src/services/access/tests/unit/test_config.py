@@ -34,3 +34,20 @@ def test_cors_origins_are_comma_separated(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("ACCESS_CORS_ORIGINS", " https://a.example , https://b.example,,")
 
     assert Settings().cors_origin_list() == ["https://a.example", "https://b.example"]
+
+
+def test_catalogue_ttl_defaults_to_five_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ACCESS_PERSISTENCE_URL", "http://persistence:8001")
+    monkeypatch.setenv("ACCESS_PROCESSING_URL", "http://processing:8002")
+    monkeypatch.delenv("ACCESS_CATALOGUE_TTL_SECONDS", raising=False)
+
+    assert Settings().catalogue_ttl_seconds == 300.0
+
+
+def test_catalogue_ttl_must_be_positive(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ACCESS_PERSISTENCE_URL", "http://persistence:8001")
+    monkeypatch.setenv("ACCESS_PROCESSING_URL", "http://processing:8002")
+    monkeypatch.setenv("ACCESS_CATALOGUE_TTL_SECONDS", "0")
+
+    with pytest.raises(ValidationError, match="catalogue_ttl_seconds"):
+        Settings()

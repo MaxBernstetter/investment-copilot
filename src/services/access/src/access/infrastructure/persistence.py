@@ -1,4 +1,4 @@
-"""Client of the persistence service: readiness and the curve read interface."""
+"""Client of the persistence service: readiness, the curve catalogue and curve reads."""
 
 from datetime import date, datetime
 from types import TracebackType
@@ -9,6 +9,7 @@ import httpx
 from contracts.persistence import v1
 from pydantic import ValidationError
 
+from access.domain.catalogue import CurveDefinition, GridMaturity
 from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
@@ -24,7 +25,7 @@ HTTP_UNPROCESSABLE_CONTENT = 422
 
 
 class PersistenceClient:
-    """Calls the persistence service: readiness, and curves as of a knowledge time."""
+    """Calls the persistence service: readiness, the catalogue, and curves as of a time."""
 
     def __init__(
         self,
@@ -55,6 +56,16 @@ class PersistenceClient:
         except httpx.HTTPError:
             return False
         return response.status_code == httpx.codes.OK
+
+    async def curves(self) -> tuple[CurveDefinition, ...]:
+        """Read the curve catalogue; any failure to read it is persistence being unavailable."""
+        try:
+            response = await self._http.get(v1.CURVES_PATH)
+        except httpx.HTTPError as error:
+            raise PersistenceUnavailableError from error
+        if response.status_code != httpx.codes.OK:
+            raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+        return _catalogue_to_domain(_parse_catalogue(response))
 
     async def curve_as_of(
         self, curve_id: str, valid_date: date | None, as_of: datetime | None
@@ -165,6 +176,37 @@ class PersistenceClient:
         if response.status_code == HTTP_UNPROCESSABLE_CONTENT:
             raise InvalidCurveQueryError(_problem_detail(response))
         raise PersistenceUnavailableError(f"persistence answered {response.status_code}")
+
+
+def _parse_catalogue(response: httpx.Response) -> v1.CurvesResponse:
+    try:
+        return v1.CurvesResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise PersistenceUnavailableError(
+            "persistence sent an unexpected catalogue body"
+        ) from error
+
+
+def _catalogue_to_domain(body: v1.CurvesResponse) -> tuple[CurveDefinition, ...]:
+    return tuple(
+        CurveDefinition(
+            curve_id=curve.curve_id,
+            label=curve.label,
+            source_id=curve.source_id,
+            area=curve.area,
+            attribution=curve.attribution,
+            rate_type=curve.rate_type.value,
+            compounding=curve.compounding.value,
+            unit=curve.unit.value,
+            source_model=curve.source_model,
+            simulated=curve.simulated,
+            maturities=tuple(
+                GridMaturity(maturity=maturity.maturity, months=maturity.months)
+                for maturity in curve.maturities
+            ),
+        )
+        for curve in body.data
+    )
 
 
 def _parse_changes(response: httpx.Response) -> v1.CurveChangesResponse:
