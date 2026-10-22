@@ -11,10 +11,11 @@ Tracked in [#10](https://github.com/MaxBernstetter/yield-lens/issues/10).
 | Source | ECB Data Portal, dataset `YC` (euro area yield curves) |
 | Curve | Euro area AAA (`G_N_A`) and all-issuer (`G_N_C`) government bond curves, Svensson model, spot (zero-coupon) rates |
 | Grid | 11 tenors: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y |
-| History | 2004-09-06 to 2026-10-16 (as of 2026-10-18), about 5,700 business days, about 126,000 observations (both curves) |
+| History | 2004-09-06 to 2026-10-16 (as of 2026-10-18), about 5,700 business days, about 126,000 observations (both curves); the all-issuer history is loaded with the backfill runbook in [[04-daily-schedule#Loading the all-issuer history (#264)]] |
 | Raw volume | About 520 KB per year of CSV, about 12 MB for the full history |
 | Daily cost | One HTTP request (both curves) |
 | Licence | Free reuse including commercial, with attribution "Source: ECB statistics" |
+| Quality rules | Per curve; see [[01-plausibility-thresholds]] (all-issuer from [#264](https://github.com/MaxBernstetter/yield-lens/issues/264)) |
 
 ## WHAT is consumed
 

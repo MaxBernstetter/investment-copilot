@@ -39,9 +39,9 @@ The ingestion and processing job images are built and tagged locally when you st
 | Task | Command (entrypoint + argv in the container) | Run id |
 |---|---|---|
 | `load_ecb` | `ingestion-load-ecb daily --valid-date … --run-id …` | `daily_load_ecb-<valid date>` |
-| `check_quality` | `processing-check-quality ecb-aaa-spot --from <valid date − 21d> --to <valid date> --run-id …` | `daily_load_ecb-check-<valid date>` |
+| `check_quality` | `processing-check-quality <curve> --from <valid date − 21d> --to <valid date> --run-id …`, mapped once per curve in `CURVE_IDS` (`ecb-aaa-spot`, `ecb-all-spot`) | `daily_load_ecb-check-<curve>-<valid date>` |
 
-`check_quality` runs after `load_ecb` in the default pool (not `ecb`), with the same retry and failure rules. The Airflow worker passes through `INGESTION_*` and `PROCESSING_*` from the stack environment. Image tags come from `YIELDLENS_INGESTION_JOB_IMAGE` and `YIELDLENS_PROCESSING_JOB_IMAGE` (set in the `airflow` Compose profile).
+`check_quality` runs after `load_ecb` in the default pool (not `ecb`), with the same retry and failure rules. A failing check of one curve does not stop the other. The Airflow worker passes through `INGESTION_*` and `PROCESSING_*` from the stack environment. Image tags come from `YIELDLENS_INGESTION_JOB_IMAGE` and `YIELDLENS_PROCESSING_JOB_IMAGE` (set in the `airflow` Compose profile).
 
 ## Backfill
 
@@ -53,10 +53,19 @@ Trigger it from the Airflow UI with the parameters `start` and `end` (inclusive 
 airflow dags trigger backfill_ecb --conf '{"start":"2004-09-06","end":"2024-12-31"}'
 ```
 
-- The range is split into one chunk per calendar year. The first and last chunk are clipped to `start` and `end`. Each chunk is one `ingestion-load-ecb history --start … --end … --run-id backfill_ecb-<start>-<end>` run, then `processing-check-quality ecb-aaa-spot --from <start> --to <end> --run-id backfill_ecb-check-<start>-<end>`.
+- The range is split into one chunk per calendar year. The first and last chunk are clipped to `start` and `end`. Each chunk is one `ingestion-load-ecb history --start … --end … --run-id backfill_ecb-<start>-<end>` run, then `processing-check-quality <curve> --from <start> --to <end> --run-id backfill_ecb-check-<curve>-<start>-<end>` for each curve in `CURVE_IDS`.
 - Loads run one after another in the `ecb` pool; quality checks for each chunk run after its load in the default pool. A backfill never runs next to the daily load. The retry and failure rules of the daily load apply to each task.
 - Rerunning a range is safe: a value that is already stored and unchanged is a no-op, thanks to versioning ([[03-ecb-load#Not yet in place]], [#15](https://github.com/MaxBernstetter/yield-lens/issues/15)).
 - `start` after `end` is rejected by the planning task before any chunk runs.
+
+### Loading the all-issuer history (#264)
+
+The all-issuer curve `ecb-all-spot` starts with the same history as the AAA curve, but its values are not stored yet. Load them with the backfill runbook:
+
+- **On a stack with the Airflow profile:** trigger `backfill_ecb` with `{"start":"2004-09-06","end":"<yesterday>"}` (about 23 requests). The AAA values come again in the same requests and are no-ops.
+- **Without Airflow:** `task dev:seed START=2004-09-06` on a stack that may be written (see [[01-data-sources]]).
+- **Expected `warn` days for `ecb-all-spot`:** 2008-10-08, 2009-01-23 and 2010-10-15 (the quality-warn alert may fire for these year chunks). The method is in [[01-plausibility-thresholds#All-issuer curve]].
+- **Record the result:** as a comment on [#264](https://github.com/MaxBernstetter/yield-lens/issues/264), the `load_finished` line of each year (`rows`, `attempt`) and the check status per curve.
 
 ## Pools
 
@@ -68,7 +77,7 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`; the backfill is manual with load then quality check per year chunk |
+| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`, once per curve; one ECB task per daily run; the backfill is manual with load then quality check per year chunk and curve |
 | `tests/unit/test_ecb_backfill.py` | The year split (clipped first and last chunk, one chunk within a year, `start` after `end` rejected) and the `history` command |
 | `tests/unit/test_ecb_daily_load.py` | Valid date per run day, skip on TARGET holidays, the job command, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
 | `tests/unit/test_job_runner.py` | Image env mapping, argv split, forwarded env keys, missing image → fail-fast |
