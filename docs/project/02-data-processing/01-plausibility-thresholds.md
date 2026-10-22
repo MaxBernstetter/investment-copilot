@@ -53,7 +53,7 @@ The thresholds are configuration per curve, next to the curve's calendar and exp
 
 ## How users see it
 
-Every flag in the explorer carries a short explanation that states the rule and the evidence, for example:
+Every flag in the explorer carries a short explanation that states the rule and the evidence. The texts are configured per curve; for the ECB AAA spot curve (and `ecb-aaa-spot-sim`) they are:
 
 - **Range (warn):** "Outside the plausible range of −2.00 % to 8.00 %. ECB AAA spot yields stayed between −1.00 % and 5.18 % since 2004."
 - **Jump (info):** "Moved more than 25 bp since the previous business day. This happened on 20 days since 2004, all in market stress."
@@ -67,6 +67,6 @@ The quality dashboard links to this note for the full method. The rule configura
 
 1. Load the full history into a local stack: `task dev:up`, then `task dev:seed START=2004-09-06` (about 23 polite requests to the ECB).
 2. Run `python3 src/scripts/plausibility_thresholds.py` (standard library only; `--access-url` and `--curve` are optional).
-3. Compare with the tables above. Revisit the thresholds when a new curve is added, when the range comes within half a percentage point of a bound, or when `info` flags appear on more than about three days a year.
+3. Compare with the tables above. Revisit the thresholds when a new curve is added, when the range comes within half a percentage point of a bound, or when `info` flags appear on more than about three days a year. A new curve gets its own thresholds, calendar, expected maturities and explanation texts in `RULES_BY_CURVE`.
 
 Related: [[README|Data processing]], [#31](https://github.com/MaxBernstetter/yield-lens/issues/31), [#38](https://github.com/MaxBernstetter/yield-lens/issues/38), [#65](https://github.com/MaxBernstetter/yield-lens/issues/65)
