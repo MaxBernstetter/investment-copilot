@@ -6,6 +6,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 
 | Method and path | Purpose | Responses |
 |---|---|---|
+| `GET /v1/curves` | The curve catalogue: every curve with `curve_id`, `label`, `source_id`, `area`, `attribution`, `rate_type`, `compounding`, `unit`, `source_model`, `simulated` and its grid `maturities` (`maturity`, `months`, shortest first), ordered by `curve_id` | `200` `{data}` with `ETag` and `Cache-Control: public, max-age=300`; `304` when `If-None-Match` matches; `503` |
 | `GET /v1/curves/{curve_id}/observations?valid_date=&as_of=` | One curve on one valid date, as it was known at `meta.as_of` (both query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations?from=&to=&as_of=` | One maturity of a curve over valid dates, as it was known at `meta.as_of`: points in valid-date order, dates without a published value known then left out (all query parameters optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
 | `GET /v1/curves/{curve_id}/maturities/{maturity}/observations/{valid_date}/versions?as_of=` | The version history of one value, as it was known at `meta.as_of`: versions oldest first, with `known_to` null while current; versions first known after `as_of` left out (`as_of` optional) | `200` envelope `{data, meta}` with `ETag`; `304` when `If-None-Match` matches; errors below |
@@ -20,7 +21,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 - Curve and series answers call the processing service (`GET /v1/curves/{curve_id}/value-quality`) for the visible values and attach the result. When processing is unavailable, values are `unchecked` and the answer is not cached as immutable.
 - The quality endpoint relays processing (`GET /v1/curves/{curve_id}/quality`) per TARGET business day: each day lists overall status, per-rule outcomes and findings (rule, severity, maturity, explanation, evidence). Answers always send `Cache-Control: no-cache` even when `as_of` is settled.
 - `meta.as_of` is the knowledge time used, in UTC. Without `as_of` persistence picks the database clock and the answer echoes it.
-- `meta.source_attribution` is required on the curve, series, versions, changes and quality answers. For `ecb-aaa-spot` it is `Source: ECB statistics` (ESCB reuse terms); for `ecb-aaa-spot-sim` it is `Simulated scenario based on ECB statistics`. A curve without an attribution entry is answered `404` (not found), never without attribution.
+- `meta.source_attribution` is required on the curve, series, versions, changes and quality answers. It comes from the curve catalogue owned by persistence (`GET /v1/curves` there), so `ecb-aaa-spot` carries `Source: ECB statistics` (ESCB reuse terms) and `ecb-aaa-spot-sim` carries `Simulated scenario based on ECB statistics`, as the catalogue states them. Access reuses the catalogue for `ACCESS_CATALOGUE_TTL_SECONDS` per process, so a new curve appears within one TTL. A curve that is not in the catalogue is answered `404` before persistence or processing is called, never without attribution. If a refresh of the catalogue fails after one was loaded, the last loaded catalogue is served and the refresh is retried on the next request; `503` only when no catalogue was ever loaded.
 - Only `GET` is allowed (`405` otherwise).
 - CORS: only `GET` is allowed, from the origins in `ACCESS_CORS_ORIGINS`. Other origins get no `Access-Control-Allow-Origin` header.
 
@@ -32,6 +33,7 @@ The `access` service (`src/services/access/`) is the public, read-only API of Yi
 - A `304` carries the same `Cache-Control` as the `200` it stands for.
 - Conditional GET: a request with `If-None-Match` that lists the current tag (or `*`) gets `304 Not Modified` with the `ETag` and no body. Lists of tags and weak (`W/`) tags are accepted. Any other tag gets the full `200`.
 - Errors (problem details) carry no `ETag` and no `Cache-Control`; they are never cached by this rule.
+- The curve catalogue is reference data, not bitemporal: `GET /v1/curves` sends `Cache-Control: public, max-age=300` with an `ETag`. Access also keeps it in process for `ACCESS_CATALOGUE_TTL_SECONDS`, so one catalogue read serves many requests.
 
 ### Errors
 
@@ -39,9 +41,9 @@ All errors are RFC 9457 problem details (`application/problem+json`).
 
 | Status | Title | When | Source |
 |---|---|---|---|
-| `404` | Not found | The curve is unknown | Persistence (or processing, for the quality endpoint) `404`, detail passed through |
+| `404` | Not found | The curve is unknown | The curve catalogue (detail `no curve named …`); persistence (or processing, for the quality endpoint) `404`, detail passed through |
 | `422` | Invalid request | Malformed parameters (before persistence is called), or persistence rejects the query | Own validation, or persistence (or processing, for the quality endpoint) `422` with its detail |
-| `503` | Service unavailable | Persistence is unreachable, times out, answers `5xx` or sends an unexpected body; or the quality endpoint cannot reach processing | Transport errors and other statuses; quality reads use detail *The quality service is not reachable; try again later.* |
+| `503` | Service unavailable | Persistence is unreachable, times out, answers `5xx` or sends an unexpected body, or the catalogue cannot be read; or the quality endpoint cannot reach processing | Transport errors and other statuses; quality reads use detail *The quality service is not reachable; try again later.* |
 | `500` | Internal server error | Any unexpected error | Own; generic detail, `trace_id` when traced |
 
 A `500` raised by an unexpected error skips the CORS middleware, so browsers cannot read its body; the frontend shows its generic error.
@@ -52,9 +54,9 @@ The OpenAPI document is generated from the app (`task access:openapi`) and publi
 
 | Package | Content |
 |---|---|
-| `access.domain` | `CurveAsOf` and `CurvePoint`, the version history and changes of values, and the errors of reading a curve |
-| `access.application` | `CurveReader` port |
-| `access.infrastructure` | `PersistenceClient` and `ProcessingClient`: readiness and curve reads from persistence; value quality and per-day quality from processing |
+| `access.domain` | `CurveAsOf` and `CurvePoint`, the curve catalogue entries, the version history and changes of values, and the errors of reading a curve |
+| `access.application` | `CurveReader` and `CatalogueReader` ports; `CachedCatalogue` (TTL cache of the catalogue) |
+| `access.infrastructure` | `PersistenceClient` and `ProcessingClient`: readiness, the catalogue and curve reads from persistence; value quality and per-day quality from processing |
 | `access.facade` | FastAPI app, CORS, routes, problem handlers, mapping to `contracts.access.v1`, OpenAPI export |
 | `access.api` | Composition root of the `api` process |
 
@@ -70,6 +72,7 @@ Environment variables, validated at startup (pydantic-settings):
 | `ACCESS_PERSISTENCE_TIMEOUT_SECONDS` | `10` | Timeout of one call to persistence |
 | `ACCESS_PROCESSING_URL` | – (required) | Base URL of the processing api, e.g. `http://localhost:8002` |
 | `ACCESS_PROCESSING_TIMEOUT_SECONDS` | `5` | Timeout of one call to processing |
+| `ACCESS_CATALOGUE_TTL_SECONDS` | `300` | Seconds the curve catalogue is reused before it is read from persistence again |
 | `ACCESS_CORS_ORIGINS` | `http://localhost:5174` | Comma-separated origins allowed to call the API (the Vite dev server by default). Live: `https://maxbernstetter.github.io` (the Pages origin only), set on the VM (#182) |
 
 ## Running locally
@@ -91,7 +94,7 @@ devbox run -- task access:run       # access api on http://localhost:8000
 ## Not yet in place
 
 - Rate limiting
-- Other read endpoints beyond curves, series, versions, changes and quality
+- Other read endpoints beyond the catalogue, curves, series, versions, changes and quality
 - Run status and alerts (#139)
 - Metrics
 - Traces

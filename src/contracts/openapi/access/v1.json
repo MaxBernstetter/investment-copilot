@@ -46,6 +46,16 @@
         "title": "ChangesMeta",
         "type": "object"
       },
+      "Compounding": {
+        "description": "Compounding convention of the curve's values, as published.",
+        "enum": [
+          "continuous",
+          "annual",
+          "semi-annual"
+        ],
+        "title": "Compounding",
+        "type": "string"
+      },
       "CurveChanges": {
         "additionalProperties": false,
         "description": "The changes of one curve over a range of valid dates, in valid-date and grid order.",
@@ -104,6 +114,110 @@
           "meta"
         ],
         "title": "CurveChangesResponse",
+        "type": "object"
+      },
+      "CurveDefinition": {
+        "additionalProperties": false,
+        "description": "One curve of the catalogue: its metadata, conventions and grid.",
+        "properties": {
+          "area": {
+            "examples": [
+              "Euro area"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Area",
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Required attribution of the values (ESCB reuse terms); for simulated data a note that it is simulated",
+            "examples": [
+              "Source: ECB statistics"
+            ],
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Attribution",
+            "type": "string"
+          },
+          "compounding": {
+            "$ref": "#/components/schemas/Compounding"
+          },
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "label": {
+            "examples": [
+              "ECB euro area AAA spot"
+            ],
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "maturities": {
+            "description": "The curve's grid, shortest maturity first",
+            "items": {
+              "$ref": "#/components/schemas/GridMaturity"
+            },
+            "minItems": 1,
+            "title": "Maturities",
+            "type": "array"
+          },
+          "rate_type": {
+            "$ref": "#/components/schemas/RateType"
+          },
+          "simulated": {
+            "description": "True for a curve of simulated data",
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "source_id": {
+            "description": "Source of the values, as in observations; scenario for a simulated curve",
+            "examples": [
+              "ecb"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Model the source fitted the curve with; null if none",
+            "title": "Source Model"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/Unit"
+          }
+        },
+        "required": [
+          "curve_id",
+          "label",
+          "source_id",
+          "area",
+          "attribution",
+          "rate_type",
+          "compounding",
+          "unit",
+          "source_model",
+          "simulated",
+          "maturities"
+        ],
+        "title": "CurveDefinition",
         "type": "object"
       },
       "CurveMeta": {
@@ -258,6 +372,51 @@
           "quality"
         ],
         "title": "CurvePoint",
+        "type": "object"
+      },
+      "CurvesResponse": {
+        "additionalProperties": false,
+        "description": "Body of ``GET /v1/curves``; curves ordered by curve_id.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CurveDefinition"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "CurvesResponse",
+        "type": "object"
+      },
+      "GridMaturity": {
+        "additionalProperties": false,
+        "description": "One maturity of a curve's grid.",
+        "properties": {
+          "maturity": {
+            "examples": [
+              "10Y"
+            ],
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Maturity",
+            "type": "string"
+          },
+          "months": {
+            "description": "Length of the tenor in months, for ordering",
+            "exclusiveMinimum": 0.0,
+            "title": "Months",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "maturity",
+          "months"
+        ],
+        "title": "GridMaturity",
         "type": "object"
       },
       "Origin": {
@@ -569,6 +728,16 @@
         "title": "QualityStatus",
         "type": "string"
       },
+      "RateType": {
+        "description": "What the curve's rates are: zero-coupon, par or forward.",
+        "enum": [
+          "spot",
+          "par",
+          "forward"
+        ],
+        "title": "RateType",
+        "type": "string"
+      },
       "Rule": {
         "description": "A plausibility or completeness rule of the processing service.",
         "enum": [
@@ -709,6 +878,14 @@
           "info"
         ],
         "title": "Severity",
+        "type": "string"
+      },
+      "Unit": {
+        "description": "Unit of the curve's values.",
+        "enum": [
+          "percent"
+        ],
+        "title": "Unit",
         "type": "string"
       },
       "ValueChange": {
@@ -1041,6 +1218,38 @@
           }
         },
         "summary": "Ready"
+      }
+    },
+    "/v1/curves": {
+      "get": {
+        "description": "The curve catalogue: every curve with its source, conventions, attribution and grid.",
+        "operationId": "curve_catalogue_v1_curves_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurvesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified: the ETag matches If-None-Match"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Curve Catalogue"
       }
     },
     "/v1/curves/{curve_id}/changes": {
