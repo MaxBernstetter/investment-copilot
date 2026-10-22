@@ -1,6 +1,7 @@
 """Use case: load a published curve from its source into the bitemporal core."""
 
-from collections.abc import AsyncIterator, Sequence
+from collections import Counter
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -65,6 +66,8 @@ class WindowResult:
     batches: tuple[RecordedBatch, ...]
     last_modified: datetime | None
     """Delivery metadata from the source; not a knowledge time."""
+    delivered_by_curve: Mapping[str, int]
+    """Observations delivered per curve, by curve id (one delivery can feed several curves)."""
 
     @property
     def recorded_count(self) -> int:
@@ -128,5 +131,10 @@ class LoadPublishedCurve:
                 delivery.source_id, observations, run_id, delivery_id
             )
         return WindowResult(
-            window, delivery_id, len(observations), tuple(batches), delivery.last_modified
+            window,
+            delivery_id,
+            len(observations),
+            tuple(batches),
+            delivery.last_modified,
+            dict(sorted(Counter(o.curve_id for o in observations).items())),
         )

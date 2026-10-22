@@ -27,6 +27,7 @@ from tests.recorded import (
     HISTORY_2025,
     HISTORY_2026,
     MALFORMED,
+    MIXED,
     NO_SERIES_404,
     payload,
     recorded_response,
@@ -34,7 +35,7 @@ from tests.recorded import (
 from tests.stub_persistence import KNOWN_FROM, URL, StubPersistence
 
 ECB_DATA_URL = (
-    "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM."
+    "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A+G_N_C.SV_C_YM."
     "SR_3M+SR_6M+SR_1Y+SR_2Y+SR_3Y+SR_5Y+SR_7Y+SR_10Y+SR_15Y+SR_20Y+SR_30Y"
 )
 GRID = {"3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"}
@@ -116,6 +117,40 @@ def test_daily_load_requests_the_whole_grid_in_one_polite_call(
         "detail": "dataonly",
     }
     assert request.headers["User-Agent"] == USER_AGENT
+
+
+def test_one_delivery_feeds_both_curves_and_every_value_names_it(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ecb = StubEcb({("2026-10-14", "2026-10-15"): MIXED})
+    persistence = StubPersistence()
+
+    result = run(
+        capsys, ["history", "--start", "2026-10-14", "--end", "2026-10-15"], ecb, persistence
+    )
+
+    assert result.exit_code == 0
+    assert len(ecb.requests) == 1
+    assert Counter(o.curve_id for o in persistence.observations) == {
+        "ecb-aaa-spot": 22,
+        "ecb-all-spot": 22,
+    }
+    assert {
+        (o.source_id, o.delivery_id, o.normalization_version) for o in persistence.observations
+    } == {("ecb", "1", "2")}
+    assert result.summary["delivered_count"] == 44
+    assert result.summary["windows"][0]["delivered_by_curve"] == {
+        "ecb-aaa-spot": 22,
+        "ecb-all-spot": 22,
+    }
+
+
+def test_an_aaa_only_delivery_reports_one_curve(capsys: pytest.CaptureFixture[str]) -> None:
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+
+    result = run(capsys, ["daily", "--valid-date", "2026-10-15"], ecb, StubPersistence())
+
+    assert result.summary["windows"][0]["delivered_by_curve"] == {"ecb-aaa-spot": 121}
 
 
 def test_daily_load_stores_all_11_tenors_as_published_values_of_the_run(

@@ -1,6 +1,7 @@
-"""ECB Data Portal adapter for the euro area AAA spot curve (``docs/project/00-data-ingestion``).
+"""ECB Data Portal adapter for the euro area spot curves, AAA and all issuers.
 
-The whole grid costs one request per window: the 11 series are joined with ``+``.
+See ``docs/project/00-data-ingestion``. Both curves on the whole grid cost one request
+per window: instruments and series are joined with ``+``.
 """
 
 from email.utils import parsedate_to_datetime
@@ -10,11 +11,13 @@ import httpx
 from ingestion.domain.delivery import RawDelivery
 from ingestion.domain.observation import PublishedObservation
 from ingestion.domain.windows import DateWindow
-from ingestion.infrastructure.ecb.payload import DATA_TYPES, SERIES_PREFIX, parse_payload
+from ingestion.infrastructure.ecb.payload import DATA_TYPES, INSTRUMENTS, parse_payload, series_key
 from ingestion.infrastructure.http import Outcome, SourceClient
 
 SOURCE_ID = "ecb"
-DATA_URL = "https://data-api.ecb.europa.eu/service/data/YC/" + SERIES_PREFIX + "+".join(DATA_TYPES)
+DATA_URL = "https://data-api.ecb.europa.eu/service/data/YC/" + series_key(
+    "+".join(INSTRUMENTS), "+".join(DATA_TYPES)
+)
 
 NO_DATA_MESSAGES = ("No results found", "No Series was returned")
 """How the API words its ``404`` for a query without data (the second is what it sends

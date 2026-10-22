@@ -1,6 +1,6 @@
 # ECB Curve Load
 
-The first vertical slice of ingestion: it loads the ECB euro area AAA spot curve (11 grid tenors, 3M–30Y) into the bitemporal core, for one valid date with a lookback window, or for a history range. The source itself is described in [[01-data-sources]]; every call goes through the [[02-source-client]].
+The first vertical slice of ingestion: it loads the ECB euro area AAA and all-issuer spot curves (11 grid tenors, 3M–30Y each) into the bitemporal core, for one valid date with a lookback window, or for a history range. The source itself is described in [[01-data-sources]]; every call goes through the [[02-source-client]].
 
 Tracked in [#14](https://github.com/MaxBernstetter/yield-lens/issues/14). Code: `src/services/ingestion/src/ingestion/`.
 
@@ -15,7 +15,7 @@ ingestion-load-ecb ──▶ LoadPublishedCurve ──▶ EcbSpotCurveSource ─
 ```
 
 1. The command is turned into date windows: one window for `daily`, one window per calendar year for `history`.
-2. Each window costs **one** request for the whole grid (the 11 series joined with `+`, `format=csvdata&detail=dataonly`). Windows run one after another, never in parallel.
+2. Each window costs **one** request for the whole grid (the 11 series of both instruments joined with `+`, `format=csvdata&detail=dataonly`). Windows run one after another, never in parallel.
 3. The answer is stored as a raw delivery in `ING` and committed, before it is parsed ([[04-raw-deliveries]]). An answer without data is stored without payload.
 4. The CSV is validated against the declared source schema, then mapped to observations.
 5. The observations are written through the persistence write interface, in batches of at most 10 000, each naming its delivery (`delivery_id`). Ingestion never touches `CORE`.
@@ -39,7 +39,7 @@ ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-messag
 | `replay` | 0 | The deliveries stored in `ING` that were fetched on these days (UTC), see [[04-raw-deliveries#Replay]] |
 
 - **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
-- **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered, recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message). The summary and failure lines carry `trace_id` and `span_id` of the run's root span `ingestion-load-ecb` (`run_id`, `operation`, `source`, `attempt`). Log lines inside a span carry the same ids.
+- **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered (and `delivered_by_curve`), recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message). The summary and failure lines carry `trace_id` and `span_id` of the run's root span `ingestion-load-ecb` (`run_id`, `operation`, `source`, `attempt`). Log lines inside a span carry the same ids.
 - **Exit status:** `0` the load finished, also with zero rows; `1` the load failed (kill switch, request failed, delivery not stored, payload invalid, write rejected); `2` usage or configuration error.
 - **Locally:** `devbox run -- task ingestion:load:ecb:daily VALID_DATE=2026-10-15` or `task ingestion:load:ecb:history START=… END=…` against a running persistence api (`task persistence:run`). These call the live ECB API: manual use only, never in CI.
 
@@ -67,32 +67,33 @@ The telemetry follows the standard OpenTelemetry variables. Traces and metrics a
 | `OTEL_SEMCONV_STABILITY_OPT_IN` | `http` in the image | Current HTTP semantic conventions |
 | `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` | `health,ready` in the image | Probe routes that are not traced |
 
-## Source schema (version 1)
+## Source schema (version 2)
 
 Declared with Pandera on a Polars frame (`infrastructure/ecb/payload.py`). Every column is read as text, so the published digits are kept exactly.
 
 | Column | Rule |
 |---|---|
-| `KEY` | One of the 11 grid series keys, and equal to `YC.B.U2.EUR.4F.G_N_A.SV_C_YM.` + `DATA_TYPE_FM` |
-| `FREQ`, `REF_AREA`, `CURRENCY`, `PROVIDER_FM`, `INSTRUMENT_FM`, `PROVIDER_FM_ID` | `B`, `U2`, `EUR`, `4F`, `G_N_A`, `SV_C_YM` |
+| `KEY` | One of the 22 grid series keys (both instruments), and equal to `YC.B.U2.EUR.4F.` + `INSTRUMENT_FM` + `.SV_C_YM.` + `DATA_TYPE_FM` |
+| `FREQ`, `REF_AREA`, `CURRENCY`, `PROVIDER_FM`, `PROVIDER_FM_ID` | `B`, `U2`, `EUR`, `4F`, `SV_C_YM` |
+| `INSTRUMENT_FM` | `G_N_A` (AAA) or `G_N_C` (all issuers) |
 | `DATA_TYPE_FM` | `SR_3M` … `SR_30Y` (the grid) |
 | `TIME_PERIOD` | ISO date `YYYY-MM-DD`, and a real calendar date |
 | `OBS_VALUE` | A decimal number (no `NaN`, no exponent, not empty) |
-| Rows | Unique per `DATA_TYPE_FM` and `TIME_PERIOD` |
+| Rows | Unique per `INSTRUMENT_FM`, `DATA_TYPE_FM` and `TIME_PERIOD` |
 
 Missing columns, unreadable CSV and any rule violation fail the load with `InvalidPayloadError` before any observation of that window is written; the raw delivery is already stored. Extra columns are tolerated. Quarantine and schema-drift alerts come later ([[12-data-pipeline#Source contracts and schema drift]]).
 
-## Mapping (normalization version 1)
+## Mapping (normalization version 2)
 
 The rules and the recorded conventions are described in [[01-data-sources#Mapping rules]].
 
 | Observation field | From |
 |---|---|
-| `curve_id` | `ecb-aaa-spot` |
+| `curve_id` | `INSTRUMENT_FM`: `G_N_A` → `ecb-aaa-spot`, `G_N_C` → `ecb-all-spot` |
 | `maturity` | `DATA_TYPE_FM` without `SR_` (`SR_10Y` → `10Y`) |
 | `valid_date` | `TIME_PERIOD` |
 | `value` | `OBS_VALUE`, unchanged (percent per annum) |
-| `normalization_version` | `NORMALIZATION_VERSION` (`1`) |
+| `normalization_version` | `NORMALIZATION_VERSION` (`2`) |
 | `origin`, `source_id`, `run_id`, `change_reason` | `published`, `ecb`, the run id, `initial` |
 | `delivery_id` | The raw delivery in `ING` the window's values were parsed from |
 
@@ -118,11 +119,11 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store): request shape, raw delivery kept byte for byte and named by every value, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors, run history per attempt |
-| `tests/unit/infrastructure/ecb/test_payload.py` | The declared schema against the recorded payload and a set of broken ones |
+| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store): request shape (one request for both curves), raw delivery kept byte for byte and named by every value, one delivery feeding both curves, `delivered_by_curve` per window, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors, run history per attempt |
+| `tests/unit/infrastructure/ecb/test_payload.py` | The declared schema against the recorded payloads (AAA only and both curves) and a set of broken ones; AAA maps as before, `G_N_C` to `ecb-all-spot`, the same tenor and date of both instruments are two observations |
 | `tests/unit/infrastructure/persistence/test_client.py` | Contract requests, batching at 10 000, unchanged values, responses with and without `unchanged_count`, bounded `409` retry, other rejected writes |
 | `tests/unit/infrastructure/ecb/test_source.py` | The no-data answer; a delivered answer keeps body, status, URL and `ETag`; `404`, `304` and an empty `200` are deliveries without payload |
 | `tests/integration/test_delivery_store.py` | `OracleDeliveryStore` against `ING` in Oracle Free: payload byte for byte (also above 32 KB) with hash and UTC times, empty delivery, one id per delivery |
 | `tests/unit/domain/test_windows.py` | Lookback and yearly windows |
 
-Recorded ECB payloads live in `tests/fixtures/ecb/` (see `recordings.json`): a daily window, an empty window, the `404` answer and two history windows, recorded on 2026-10-18 with the source client. `malformed_*.csv` is crafted. The fixtures are kept byte for byte (CRLF), so the whitespace hooks skip `tests/fixtures/` and `.gitattributes` marks them `-text`. The persistence side is a stub that validates every request against `contracts.persistence.v1`.
+Recorded ECB payloads live in `tests/fixtures/ecb/` (see `recordings.json`): a daily window, an empty window, the `404` answer and two history windows, recorded on 2026-10-18 with the source client; and a two-day window of both instruments (`mixed_*.csv`, the same request with the key `G_N_A+G_N_C`), recorded on 2026-10-22. `malformed_*.csv` is crafted. The fixtures are kept byte for byte (CRLF), so the whitespace hooks skip `tests/fixtures/` and `.gitattributes` marks them `-text`. The persistence side is a stub that validates every request against `contracts.persistence.v1`.
