@@ -100,7 +100,7 @@ async def test_serves_the_last_loaded_catalogue_when_a_refresh_fails() -> None:
     assert reader.calls == 2
 
     reader.error = None
-    clock.now = 61
+    clock.now = 120
     assert await catalogue.curves() == reader.answer
     assert reader.calls == 3
 
@@ -120,3 +120,17 @@ async def test_an_unknown_curve_is_not_found() -> None:
         await catalogue.attribution("unknown")
 
     assert error.value.detail == "no curve named unknown"
+
+
+async def test_a_failed_refresh_is_retried_once_per_ttl() -> None:
+    reader = FakeReader((curve("ecb-aaa-spot", "Source: ECB statistics"),))
+    clock = FakeClock()
+    catalogue = CachedCatalogue(reader, ttl_seconds=60, clock=clock)
+    loaded = await catalogue.curves()
+
+    reader.error = PersistenceUnavailableError()
+    clock.now = 60
+    assert await catalogue.curves() == loaded
+    clock.now = 61
+    assert await catalogue.curves() == loaded
+    assert reader.calls == 2
