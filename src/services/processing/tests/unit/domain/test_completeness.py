@@ -1,10 +1,11 @@
 from datetime import date
 from decimal import Decimal
 
-from processing.domain.calendar import target_business_days
+from processing.domain.calendar import TARGET
 from processing.domain.completeness import check_completeness
 from processing.domain.explanations import MISSING_DATE, MISSING_MATURITY
 from processing.domain.quality import Rule, Severity, Value
+from processing.domain.rule_config import ECB_AAA_SPOT_RULES, CurveRules, MaturityPeriod
 
 ECB_GRID = (
     "3M",
@@ -41,7 +42,7 @@ def full_day(valid_date: date) -> list[Value]:
 
 
 def test_a_business_day_without_any_value_is_a_missing_date_warn() -> None:
-    findings = check_completeness([], ECB_GRID, [OCT_07])
+    findings = check_completeness([], [OCT_07], ECB_AAA_SPOT_RULES)
 
     assert len(findings) == 1
     finding = findings[0]
@@ -53,12 +54,12 @@ def test_a_business_day_without_any_value_is_a_missing_date_warn() -> None:
 
 
 def test_weekends_and_target_holidays_are_never_missing() -> None:
-    business_days = target_business_days(GOOD_FRIDAY, SATURDAY)
+    business_days = TARGET.business_days(GOOD_FRIDAY, SATURDAY)
 
     assert GOOD_FRIDAY not in business_days
     assert SATURDAY not in business_days
 
-    findings = check_completeness([], ECB_GRID, business_days)
+    findings = check_completeness([], business_days, ECB_AAA_SPOT_RULES)
 
     flagged = {finding.valid_date for finding in findings}
     assert GOOD_FRIDAY not in flagged
@@ -71,7 +72,7 @@ def test_the_scenario_gap_day_misses_10y_and_30y() -> None:
     ]
     values = full_day(OCT_06) + gap_day_values + full_day(OCT_08)
 
-    findings = check_completeness(values, ECB_GRID, [OCT_06, OCT_07, OCT_08])
+    findings = check_completeness(values, [OCT_06, OCT_07, OCT_08], ECB_AAA_SPOT_RULES)
 
     assert len(findings) == 2
     assert all(finding.rule is Rule.MISSING_MATURITY for finding in findings)
@@ -83,7 +84,7 @@ def test_the_scenario_gap_day_misses_10y_and_30y() -> None:
 def test_a_missing_date_reports_no_missing_maturities() -> None:
     values = full_day(OCT_06) + full_day(OCT_08)
 
-    findings = check_completeness(values, ECB_GRID, [OCT_06, OCT_07, OCT_08])
+    findings = check_completeness(values, [OCT_06, OCT_07, OCT_08], ECB_AAA_SPOT_RULES)
 
     assert len(findings) == 1
     assert findings[0].rule is Rule.MISSING_DATE
@@ -91,8 +92,24 @@ def test_a_missing_date_reports_no_missing_maturities() -> None:
 
 
 def test_completeness_findings_explain_their_rule() -> None:
-    missing_date = check_completeness([], ECB_GRID, [OCT_07])[0]
-    missing_maturity = check_completeness([value(OCT_07, "3M")], ECB_GRID, [OCT_07])[0]
+    missing_date = check_completeness([], [OCT_07], ECB_AAA_SPOT_RULES)[0]
+    missing_maturity = check_completeness([value(OCT_07, "3M")], [OCT_07], ECB_AAA_SPOT_RULES)[0]
 
     assert missing_date.explanation == MISSING_DATE
     assert missing_maturity.explanation == MISSING_MATURITY
+
+
+def test_missing_maturities_follow_the_expected_maturities_of_the_day() -> None:
+    rules = CurveRules(
+        ECB_AAA_SPOT_RULES.thresholds,
+        TARGET,
+        (MaturityPeriod(OCT_06, ("10Y",)), MaturityPeriod(OCT_08, ("10Y", "30Y"))),
+    )
+    values = [value(OCT_07, "10Y"), value(OCT_08, "10Y")]
+
+    findings = check_completeness(values, [OCT_07, OCT_08], rules)
+
+    assert len(findings) == 1
+    assert findings[0].rule is Rule.MISSING_MATURITY
+    assert findings[0].valid_date == OCT_08
+    assert findings[0].maturity == "30Y"

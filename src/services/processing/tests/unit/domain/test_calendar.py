@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from processing.domain.calendar import is_target_business_day, target_business_days
+from processing.domain.calendar import TARGET, BusinessCalendar, is_target_business_day
 
 TARGET_HOLIDAYS_2026 = [
     date(2026, 4, 3),
@@ -30,7 +30,7 @@ def test_a_normal_weekday_is_a_business_day() -> None:
 def test_target_business_days_excludes_holidays_and_weekends() -> None:
     start = date(2026, 4, 1)
     end = date(2026, 4, 10)
-    days = target_business_days(start, end)
+    days = TARGET.business_days(start, end)
 
     assert date(2026, 4, 3) not in days
     assert date(2026, 4, 6) not in days
@@ -38,3 +38,21 @@ def test_target_business_days_excludes_holidays_and_weekends() -> None:
     assert date(2026, 4, 5) not in days
     assert date(2026, 4, 2) in days
     assert date(2026, 4, 7) in days
+
+
+def test_the_target_calendar_is_named_target() -> None:
+    assert TARGET.name == "TARGET"
+    assert TARGET.is_business_day is is_target_business_day
+
+
+def test_a_calendar_lists_the_days_its_rule_accepts() -> None:
+    mondays = BusinessCalendar("Mondays", lambda day: day.weekday() == 0)
+
+    assert mondays.business_days(date(2026, 10, 5), date(2026, 10, 18)) == [
+        date(2026, 10, 5),
+        date(2026, 10, 12),
+    ]
+
+
+def test_an_inverted_range_has_no_business_days() -> None:
+    assert TARGET.business_days(date(2026, 10, 8), date(2026, 10, 7)) == []

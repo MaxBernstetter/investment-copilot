@@ -1,4 +1,4 @@
-"""Completeness rules: missing dates and missing maturities on TARGET business days."""
+"""Completeness rules: missing dates and missing maturities on the curve's business days."""
 
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -6,14 +6,15 @@ from datetime import date
 
 from processing.domain.explanations import MISSING_DATE, MISSING_MATURITY
 from processing.domain.quality import Finding, Rule, Severity, Value
+from processing.domain.rule_config import CurveRules
 
 
 def check_completeness(
     values: Iterable[Value],
-    grid: Sequence[str],
     business_days: Sequence[date],
+    rules: CurveRules,
 ) -> list[Finding]:
-    """Flag TARGET business days with no values or with missing grid maturities."""
+    """Flag business days with no values or with missing expected maturities."""
     by_date: dict[date, set[str]] = defaultdict(set)
     for value in values:
         by_date[value.valid_date].add(value.maturity)
@@ -35,7 +36,7 @@ def check_completeness(
                 )
             )
             continue
-        for maturity in grid:
+        for maturity in rules.maturities_on(day):
             if maturity not in present:
                 findings.append(
                     Finding(

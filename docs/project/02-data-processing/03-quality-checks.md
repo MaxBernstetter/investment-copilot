@@ -9,24 +9,25 @@ The rules that check the published values of a curve, the severities and statuse
 | `range` | `warn` | the value is strictly below the range minimum or strictly above the maximum (−2.00 % to 8.00 % for the ECB AAA spot curve) | one value |
 | `jump` | `info` | the move against the previous value of the same maturity is strictly more than 25 bp | one value |
 | `jump` | `warn` | the move is strictly more than 50 bp | one value |
-| `missing-date` | `warn` | a TARGET business day has no value at any maturity | one day |
-| `missing-maturity` | `warn` | a TARGET business day has values for some maturities, but a grid maturity has none (not reported on a missing-date day) | one day and maturity |
+| `missing-date` | `warn` | a business day of the curve's calendar has no value at any maturity | one day |
+| `missing-maturity` | `warn` | a business day has values for some maturities, but a maturity the curve expects on that day has none (not reported on a missing-date day) | one day and maturity |
 
 - **Comparisons are strict.** A value exactly on a threshold is not flagged.
 - **Jumps** compare a value with the previous valid date that has a value for the same maturity, so a gap such as a weekend or a TARGET holiday is spanned. A previous value more than 31 days back is not compared.
-- **Weekends and TARGET holidays** have no values and are not flagged.
-- **Thresholds** are configuration per curve in the processing code. The simulated curve `ecb-aaa-spot-sim` uses the thresholds of the real curve.
+- Days outside the curve's calendar (for the ECB curves: weekends and TARGET holidays) have no values and are not flagged.
+- **Rule configuration** is per curve in `processing.domain.rule_config` (`RULES_BY_CURVE`): thresholds, business-day calendar and expected maturities per period. The simulated curve `ecb-aaa-spot-sim` uses the rules of the real curve.
 - **Explanations** are fixed texts per flag. They match "How users see it" in [[01-plausibility-thresholds]]. Findings recorded before the number formats of the evidence texts changed (issue #225) keep their old evidence text until they are checked again.
 
 ## Completeness
 
-Completeness checks run over the TARGET business days in the checked range and the curve's grid maturities.
+Completeness checks run over the business days of the curve's calendar in the checked range and the maturities the curve expects on each day. The expected maturities are configured per period; a period applies from its start date until the next one starts. The ECB curves use the TARGET calendar and expect all 11 grid maturities (3M to 30Y) on every day.
 
 - A day with **no value at any maturity** produces one `missing-date` finding for that day (no `missing-maturity` findings on the same day).
 - A day with **values for some maturities** produces one `missing-maturity` finding per grid maturity without a value.
 - **Weekends and TARGET holidays** are not in the business-day set and are never flagged.
+- A grid maturity the period does not expect is still checked for range and jumps but never reported missing.
 
-The calendar logic matches orchestration's TARGET schedule (see `processing.domain.calendar`).
+The TARGET calendar (`processing.domain.calendar`) matches orchestration's TARGET schedule.
 
 ## Severities
 

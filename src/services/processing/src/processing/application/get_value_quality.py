@@ -14,7 +14,7 @@ from processing.domain.read import (
     InvalidRangeError,
     ValueQualityResult,
 )
-from processing.domain.rule_config import THRESHOLDS_BY_CURVE
+from processing.domain.rule_config import RULES_BY_CURVE
 
 
 class ValueQualityReader(Protocol):
@@ -57,7 +57,7 @@ class GetValueQuality:
         *,
         maturity: str | None = None,
     ) -> CurveValueQualities:
-        if curve_id not in THRESHOLDS_BY_CURVE:
+        if curve_id not in RULES_BY_CURVE:
             raise UnknownCurveError(curve_id)
         as_of = await resolve_as_of(self._reader, as_of)
         if valid_from > valid_to:

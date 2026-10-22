@@ -1,4 +1,4 @@
-"""Use case: quality of each TARGET business day of a curve as known at a time."""
+"""Use case: quality of each business day of a curve as known at a time."""
 
 from collections import defaultdict
 from datetime import date, datetime
@@ -7,7 +7,6 @@ from typing import Protocol
 from processing.application.check_quality import UnknownCurveError
 from processing.application.knowledge_time import resolve_as_of
 from processing.domain.assessment import CheckedDay
-from processing.domain.calendar import target_business_days
 from processing.domain.quality import Finding
 from processing.domain.read import (
     MAX_DAYS_RANGE,
@@ -17,7 +16,7 @@ from processing.domain.read import (
     checked_day,
     unchecked_day,
 )
-from processing.domain.rule_config import THRESHOLDS_BY_CURVE
+from processing.domain.rule_config import RULES_BY_CURVE
 
 
 class QualityReader(Protocol):
@@ -50,7 +49,8 @@ class GetQualityDays:
         valid_to: date,
         as_of: datetime | None,
     ) -> QualityDays:
-        if curve_id not in THRESHOLDS_BY_CURVE:
+        rules = RULES_BY_CURVE.get(curve_id)
+        if rules is None:
             raise UnknownCurveError(curve_id)
         as_of = await resolve_as_of(self._reader, as_of)
         if valid_from > valid_to:
@@ -67,7 +67,7 @@ class GetQualityDays:
 
         days = tuple(
             _day(valid_date, checked_by_date.get(valid_date), findings_by_day.get(valid_date, ()))
-            for valid_date in target_business_days(valid_from, valid_to)
+            for valid_date in rules.calendar.business_days(valid_from, valid_to)
         )
         return QualityDays(
             curve_id=curve_id,

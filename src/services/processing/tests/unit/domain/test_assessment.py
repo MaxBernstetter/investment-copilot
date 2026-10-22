@@ -1,9 +1,11 @@
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from processing.domain.assessment import QualityCheck, assess
+from processing.domain.calendar import BusinessCalendar
 from processing.domain.quality import Rule, Status, Value
-from processing.domain.rule_config import ECB_AAA_SPOT
+from processing.domain.rule_config import ECB_AAA_SPOT_RULES, MaturityPeriod
 
 RUN_ID = "check-quality-ecb-aaa-spot-sim-2026-10-05-2026-10-08"
 CURVE_ID = "ecb-aaa-spot-sim"
@@ -39,7 +41,7 @@ def assess_chunk(
         checked_as_of=CHECKED_AS_OF,
         grid=grid,
         series=series,
-        thresholds=ECB_AAA_SPOT,
+        rules=replace(ECB_AAA_SPOT_RULES, expected_maturities=(MaturityPeriod(date.min, grid),)),
     )
 
 
@@ -103,3 +105,28 @@ def test_day_status_includes_completeness_findings() -> None:
     assert day_statuses[OCT_07] is Status.WARN
     missing = [finding for finding in check.findings if finding.valid_date == OCT_07]
     assert {finding.rule for finding in missing} == {Rule.MISSING_MATURITY}
+
+
+def test_days_follow_the_curve_calendar() -> None:
+    mondays = BusinessCalendar("Mondays", lambda day: day.weekday() == 0)
+    rules = replace(
+        ECB_AAA_SPOT_RULES,
+        calendar=mondays,
+        expected_maturities=(MaturityPeriod(date.min, GRID),),
+    )
+
+    check = assess(
+        run_id=RUN_ID,
+        curve_id=CURVE_ID,
+        valid_from=OCT_05,
+        valid_to=OCT_08,
+        checked_as_of=CHECKED_AS_OF,
+        grid=GRID,
+        series={},
+        rules=rules,
+    )
+
+    assert [day.valid_date for day in check.days] == [OCT_05]
+    assert [(finding.rule, finding.valid_date) for finding in check.findings] == [
+        (Rule.MISSING_DATE, OCT_05)
+    ]

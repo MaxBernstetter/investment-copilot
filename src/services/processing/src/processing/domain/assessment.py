@@ -5,11 +5,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from processing.domain.calendar import target_business_days
 from processing.domain.completeness import check_completeness
 from processing.domain.plausibility import check_jumps, check_range
 from processing.domain.quality import Finding, Status, Value, worst
-from processing.domain.rule_config import RULE_SET_VERSION, PlausibilityThresholds
+from processing.domain.rule_config import RULE_SET_VERSION, CurveRules
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,10 +57,10 @@ def assess(
     checked_as_of: datetime,
     grid: Sequence[str],
     series: Mapping[str, Sequence[Value]],
-    thresholds: PlausibilityThresholds,
+    rules: CurveRules,
 ) -> QualityCheck:
     """Run all rules on one chunk; every in-range value and business day gets a status."""
-    business_days = target_business_days(valid_from, valid_to)
+    business_days = rules.calendar.business_days(valid_from, valid_to)
     in_range: list[Value] = []
     for maturity in grid:
         for point in series.get(maturity, ()):
@@ -69,10 +68,10 @@ def assess(
                 in_range.append(point)
 
     findings: list[Finding] = []
-    findings.extend(check_range(in_range, thresholds))
-    findings.extend(check_completeness(in_range, grid, business_days))
+    findings.extend(check_range(in_range, rules.thresholds))
+    findings.extend(check_completeness(in_range, business_days, rules))
     for maturity in grid:
-        findings.extend(check_jumps(series.get(maturity, ()), valid_from, thresholds))
+        findings.extend(check_jumps(series.get(maturity, ()), valid_from, rules.thresholds))
 
     by_value: dict[tuple[int, str, date], list[Finding]] = defaultdict(list)
     by_day: dict[date, list[Finding]] = defaultdict(list)
