@@ -48,13 +48,13 @@ The common maturity grid and the curve definitions are versioned reference data 
 |---|---|---|
 | `maturity_grid` | `grid_version` | A grid version and its description. A version is never changed once applied; a different grid is a new version |
 | `grid_maturity` | (`grid_version`, `maturity`) | The tenors of a grid version, with their length in `months` for ordering (unique per version) |
-| `curve` | `curve_id` | The grid version a curve is stored on, and its conventions **as published**: `rate_type` (`spot`, `par`, `forward`), `compounding` (`continuous`, `annual`, `semi-annual`), `unit` (`percent`) and `source_model` (the source's fitting model, optional). `simulated` (`Y`/`N`, default `N`) flags a curve of simulated data, written only by the scenario mechanism |
+| `curve` | `curve_id` | The grid version a curve is stored on, and its conventions **as published**: `rate_type` (`spot`, `par`, `forward`), `compounding` (`continuous`, `annual`, `semi-annual`), `unit` (`percent`) and `source_model` (the source's fitting model, optional). `simulated` (`Y`/`N`, default `N`) flags a curve of simulated data, written only by the scenario mechanism. Its catalogue entry: `label` (display name), `source_id` (`ecb`, or `scenario` for a simulated curve), `area` (economic area) and `attribution` (required wherever its values are shown). All four are required |
 
 - **Grid version 1** holds the 11 tenors of phase 1: `3M`, `6M`, `1Y`, `2Y`, `3Y`, `5Y`, `7Y`, `10Y`, `15Y`, `20Y`, `30Y` ([[01-data-sources]]).
-- **`ecb-aaa-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)`.
-- **`ecb-aaa-spot-sim`** is the simulated twin of `ecb-aaa-spot` on grid 1 (`simulated` = `Y`, no source model). Simulated and real data never share a curve: a simulated curve takes only source `scenario`, and source `scenario` only simulated curves (`-20005`).
+- **`ecb-aaa-spot`** is on grid 1 with `spot`, `continuous`, `percent`, `Svensson (ECB)`. Catalogue entry: label `ECB euro area AAA spot`, source `ecb`, area `Euro area`, attribution `Source: ECB statistics`.
+- **`ecb-aaa-spot-sim`** is the simulated twin of `ecb-aaa-spot` on grid 1 (`simulated` = `Y`, no source model). Catalogue entry: label `ECB euro area AAA spot (scenario data)`, source `scenario`, area `Euro area`, attribution `Simulated scenario based on ECB statistics`. Simulated and real data never share a curve: a simulated curve takes only source `scenario`, and source `scenario` only simulated curves (`-20005`).
 - Conventions are **recorded, not converted**: values are stored as the source publishes them. Converting between conventions (for example semi-annual par yields to continuous spot rates) is a calculation and produces *derived* values in processing.
-- Both are seeded by Liquibase changesets (`db/core/19_curve_reference_data.sql`). A new curve or grid version is a new changeset.
+- Both are seeded by Liquibase changesets (`db/core/19_curve_reference_data.sql`, and the catalogue entries in `db/core/23_curve_catalogue.sql`). A new curve sets all catalogue columns; a new grid version is a new changeset.
 
 Partitioning: interval range partitions of **one month on `valid_date`** (all indexes are local except the primary key). Queries filter by `valid_date`, so they prune partitions.
 
@@ -83,6 +83,7 @@ The service only calls the package; it never touches the table (see [[#Users and
 | `get_changes(p_curve_id, p_from, p_to, p_since, p_as_of)` | The published values of one curve whose visible version differs between two knowledge states, for valid dates in the inclusive range `p_from`..`p_to`, as a cursor with columns `valid_date`, `maturity`, `old_value`, `new_value`, `change_reason`, `source_id`, `known_from`, ordered by `valid_date` and grid order. `old_value` is the value known at `p_since` (null if none); `new_value` and the other columns describe the version known at `p_as_of`. States are compared, not the versions in between, so a value changed and changed back shows old = new. Derived values are not included. |
 | `has_maturity(p_curve_id, p_maturity)` | `1` if the maturity is on the curve's grid, else `0` (also `0` for an undefined curve). |
 | `has_curve(p_curve_id)` | `1` if the curve is defined, else `0`. |
+| `get_curves()` | The curve catalogue: every defined curve with its catalogue entry, conventions and grid, as a cursor with columns `curve_id`, `label`, `source_id`, `area`, `attribution`, `rate_type`, `compounding`, `unit`, `source_model`, `simulated`, `maturity`, `months`; one row per curve and grid maturity, ordered by `curve_id`, `months`. |
 | `latest_valid_date(p_curve_id, p_as_of)` | The latest valid date with a published value visible at `p_as_of`; null if none. |
 | `current_knowledge_time()` | The database clock now in UTC (`sys_extract_utc(systimestamp)`). It is not the knowledge time a write gets; see [[#Knowledge clock]]. |
 | `knowledge_horizon()` | The committed knowledge horizon: the knowledge time of the latest committed call. Does not lock. |
