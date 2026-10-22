@@ -37,7 +37,7 @@ export function CurveSelect({ value, onChange, catalogue, fullWidth }: CurveSele
     <Select
       aria-label="Curve"
       size="xs"
-      w={fullWidth ? '100%' : 240}
+      w={fullWidth ? '100%' : 280}
       allowDeselect={false}
       checkIconPosition="right"
       comboboxProps={{ width: 'max-content', position: 'bottom-end' }}

@@ -172,7 +172,7 @@ The "Known as of" time shows every view as it was known at a chosen time (the AP
 
 The curves come from `GET /v1/curves` (the curve catalogue), fetched once after the health check. The choice applies to the curve and time series views.
 
-- **Control:** a `Select` labelled "Curve" in the header from `sm` up (w 240), and full width in the navbar below `sm`. Options are grouped "Published" then "Simulated", in catalogue order, showing the catalogue label. The default is `ecb-aaa-spot`.
+- **Control:** a `Select` labelled "Curve" in the header from `sm` up (w 280), and full width in the navbar below `sm`. Options are grouped "Published" then "Simulated", in catalogue order, showing the catalogue label. The default is `ecb-aaa-spot`.
 - **Simulated:** choosing a simulated curve shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
 - **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. An unknown id falls back to `ecb-aaa-spot`, else the first published curve, else the first curve, and the URL is rewritten to the curve used. A simulated curve is never chosen as a fallback while a published one exists.
 - **Views:** switching the curve resets the view state (pinned overlays, open history). The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
