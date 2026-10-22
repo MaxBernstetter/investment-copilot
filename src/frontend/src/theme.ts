@@ -10,6 +10,7 @@ import {
   AppShell,
   Badge,
   type BadgeProps,
+  Button,
   Card,
   Table,
   Text,
@@ -101,6 +102,18 @@ export const theme = createTheme({
       styles: { label: { textTransform: 'none' } },
     }),
     Alert: Alert.extend({ defaultProps: { variant: 'light' } }),
+    // Subtle buttons in the primary colour: Mantine's dark light-colour is blue.0 (near white), so pin the text and hover.
+    Button: Button.extend({
+      vars: (_theme, props) => ({
+        root:
+          props.variant === 'subtle'
+            ? {
+                '--button-color': 'light-dark(var(--mantine-color-blue-9), var(--mantine-color-blue-4))',
+                '--button-hover': 'light-dark(var(--mantine-color-blue-1), var(--mantine-color-blue-light))',
+              }
+            : {},
+      }),
+    }),
     Tooltip: Tooltip.extend({
       defaultProps: { withArrow: true, multiline: true, w: 280, openDelay: 300 },
     }),

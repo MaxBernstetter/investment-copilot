@@ -31,13 +31,6 @@ import { fetchCurve, type CurveResult } from './fetchCurve'
 const MAX_OVERLAYS = 5
 const VALID_DATE_HELP = 'The business day the yield applies to, as published by the ECB.'
 const EMPTY = '–'
-/**
- * Subtle buttons take Mantine's dark `light-color` (blue.0, a near-white tint) in dark mode.
- * Pin the link to the light-mode primary (blue.9, unchanged) and blue.4 in dark (6.3:1 on the card).
- */
-const HISTORY_LINK_VARS = () => ({
-  root: { '--button-color': 'light-dark(var(--mantine-color-blue-9), var(--mantine-color-blue-4))' },
-})
 
 type CurveViewProps = {
   curveId: string
@@ -202,7 +195,6 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
                           <Button
                             size="compact-xs"
                             variant="subtle"
-                            vars={HISTORY_LINK_VARS}
                             aria-label={`History ${point.maturity}`}
                             onClick={() => setHistoryMaturity(point.maturity)}
                           >
