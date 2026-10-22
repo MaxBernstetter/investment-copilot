@@ -25,7 +25,7 @@ import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
 import { flaggedMaturities, missingMaturities, spread2s10s, yield10y, type LabelledCurve } from './curveData'
-import { curveById } from './curves'
+import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 
 const MAX_OVERLAYS = 5
@@ -33,36 +33,35 @@ const VALID_DATE_HELP = 'The business day the yield applies to, as published by 
 const EMPTY = '–'
 
 type CurveViewProps = {
-  curveId: string
+  curve: CurveInfo
   /** The knowledge time shared by all views, set in the header. */
   asOf?: string
 }
 
-export default function CurveView({ curveId, asOf }: CurveViewProps) {
+export default function CurveView({ curve, asOf }: CurveViewProps) {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
   const [overlayDates, setOverlayDates] = useState<string[]>([])
   const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
   const [historyMaturity, setHistoryMaturity] = useState<string | undefined>(undefined)
 
-  const curve = curveById(curveId)
-  const subtitle = curve.isSimulated
+  const subtitle = curve.simulated
     ? 'Simulated scenario based on ECB AAA spot'
-    : 'ECB euro area AAA government bonds, spot rates by maturity'
+    : `${curve.label}, spot rates by maturity`
 
   useEffect(() => {
     let active = true
-    fetchCurve({ curveId, validDate, asOf }).then((next) => {
+    fetchCurve({ curveId: curve.id, validDate, asOf }).then((next) => {
       if (active) setResult(next)
     })
     return () => {
       active = false
     }
-  }, [curveId, validDate, asOf])
+  }, [curve.id, validDate, asOf])
 
   useEffect(() => {
     let active = true
-    Promise.all(overlayDates.map((date) => fetchCurve({ curveId, validDate: date, asOf }))).then(
+    Promise.all(overlayDates.map((date) => fetchCurve({ curveId: curve.id, validDate: date, asOf }))).then(
       (results) => {
         if (!active) return
         setOverlayCurves(
@@ -75,7 +74,7 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
     return () => {
       active = false
     }
-  }, [curveId, overlayDates, asOf])
+  }, [curve.id, overlayDates, asOf])
 
   const returnedDate = result?.kind === 'ok' ? result.curve.data.valid_date : ''
   const shownDate = validDate ?? returnedDate
@@ -210,7 +209,7 @@ export default function CurveView({ curveId, asOf }: CurveViewProps) {
             {hasUnchecked && <UncheckedNote />}
           </Card>
           <VersionHistory
-            curveId={curveId}
+            curveId={curve.id}
             maturity={historyMaturity ?? ''}
             validDate={shownDate}
             asOf={asOf}

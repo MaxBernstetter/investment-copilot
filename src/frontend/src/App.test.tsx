@@ -1,12 +1,16 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { localInputToUtc } from './asOf'
 import CurveView from './curve/CurveView'
+import { fetchCurves } from './curve/fetchCurves'
 import { formatUtc } from './format'
 import { METHODOLOGY_URL } from './config'
+import { CATALOGUE } from './test/catalogue'
 import { render } from './test/render'
+
+vi.mock('./curve/fetchCurves', () => ({ fetchCurves: vi.fn() }))
 
 // Each view shows the knowledge time it received, so the tests can check what every tab sees.
 vi.mock('./curve/CurveView', () => ({
@@ -36,12 +40,23 @@ vi.mock('./changes/ChangesView', () => ({
   ),
 }))
 
-/** The Simulated badge in the header (the curve control shows the same word as a radio label). */
+/** The Simulated badge in the header. */
 const simulatedBadges = () =>
   Array.from(document.querySelectorAll('.mantine-Badge-label')).filter((el) => el.textContent === 'Simulated')
 
 /** The navbar on small screens: the second "Views" navigation, after the header tabs. */
 const navbarOf = () => screen.getAllByRole('navigation', { name: 'Views' }).at(-1)!
+
+beforeEach(() => {
+  vi.mocked(fetchCurves).mockResolvedValue({ kind: 'ok', curves: CATALOGUE })
+})
+
+/** Opens the curve select and picks the option with this label. */
+const chooseCurve = async (label: string) => {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Curve' }))
+  await user.click(screen.getByRole('option', { name: label }))
+}
 
 afterEach(() => {
   cleanup()
@@ -64,6 +79,74 @@ describe('App', () => {
     expect(screen.getByText('YieldLens')).toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
     expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  })
+
+  it('shows the offline page when the curve list fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    vi.mocked(fetchCurves).mockResolvedValue({ kind: 'error' })
+
+    render(<App />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+    expect(screen.queryByText('Curve view')).not.toBeInTheDocument()
+  })
+
+  it('shows the connecting page while the curve list loads', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    vi.mocked(fetchCurves).mockReturnValue(new Promise(() => {}))
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Connecting' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Curve' })).not.toBeInTheDocument()
+  })
+
+  it('fetches the curve list once, after the health check', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    expect(fetchCurves).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fetch the curve list while the backend is offline', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    render(<App />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+
+    expect(fetchCurves).not.toHaveBeenCalled()
+  })
+
+  it('offers the catalogue curves, grouped published then simulated', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    const user = userEvent.setup()
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Curve' }))
+
+    const options = screen.getAllByRole('option').map((option) => option.textContent)
+    expect(options).toEqual([
+      'ECB euro area AAA spot',
+      'ECB euro area all-issuer spot',
+      'ECB euro area AAA spot (scenario data)',
+    ])
+    expect(screen.getByText('Published')).toBeVisible()
+    expect(screen.getByText('Simulated')).toBeVisible()
+  })
+
+  it('falls back to the default curve for an unknown id and rewrites the URL', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    window.history.replaceState(null, '', '/?curve=nope')
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+
+    expect(vi.mocked(CurveView).mock.lastCall?.[0]).toMatchObject({ curve: { id: 'ecb-aaa-spot' } })
+    expect(new URLSearchParams(window.location.search).get('curve')).toBe('ecb-aaa-spot')
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
 
   it('shows one h1 while the health check runs', async () => {
@@ -168,12 +251,12 @@ describe('App', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(simulatedBadges()).toHaveLength(0)
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Simulated' }))
+    await chooseCurve('ECB euro area AAA spot (scenario data)')
 
     expect(screen.getByRole('note')).toHaveTextContent('Simulated scenario data, not an ECB publication.')
     expect(simulatedBadges()).toHaveLength(1)
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Real' }))
+    await chooseCurve('ECB euro area AAA spot')
 
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(simulatedBadges()).toHaveLength(0)
@@ -219,7 +302,7 @@ describe('App', () => {
 
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('radio', { name: 'Simulated' }))
+    await chooseCurve('ECB euro area AAA spot (scenario data)')
 
     const footer = screen.getByRole('contentinfo')
     expect(within(footer).getByText('Scenario data, not published by the ECB.')).toBeInTheDocument()
@@ -337,7 +420,7 @@ describe('App', () => {
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
 
-    expect(vi.mocked(CurveView).mock.lastCall?.[0]).toMatchObject({ curveId: 'ecb-aaa-spot-sim' })
+    expect(vi.mocked(CurveView).mock.lastCall?.[0]).toMatchObject({ curve: { id: 'ecb-aaa-spot-sim' } })
     expect(new URLSearchParams(window.location.search).get('curve')).toBe('ecb-aaa-spot-sim')
   })
 })

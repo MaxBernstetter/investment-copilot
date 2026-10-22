@@ -7,6 +7,7 @@ import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchVersions } from '../versions/fetchVersions'
 import type { ValueQuality } from '../quality/qualityData'
+import { AAA, SIM } from '../test/catalogue'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -79,7 +80,7 @@ afterEach(() => {
 })
 
 async function renderLoaded() {
-  const view = render(<CurveView curveId="ecb-aaa-spot" />)
+  const view = render(<CurveView curve={AAA} />)
   await waitFor(() => expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16'))
   return view
 }
@@ -105,14 +106,14 @@ function expectStatValue(label: string, value: string | RegExp) {
 
 describe('CurveView', () => {
   it('shows the latest curve on open', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" />)
+    render(<CurveView curve={AAA} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
   })
 
   it('has one h1, the page title', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" />)
+    render(<CurveView curve={AAA} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     const headings = screen.getAllByRole('heading', { level: 1 })
@@ -127,17 +128,17 @@ describe('CurveView', () => {
     expect(screen.getByRole('heading', { name: 'Spot curve (%)' })).toBeInTheDocument()
   })
 
-  it('shows the real-curve subtitle', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" />)
+  it('names the curve in the real-curve subtitle', async () => {
+    render(<CurveView curve={AAA} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(
-      screen.getByText('ECB euro area AAA government bonds, spot rates by maturity'),
+      screen.getByText('ECB euro area AAA spot, spot rates by maturity'),
     ).toBeInTheDocument()
   })
 
   it('shows the simulated-curve subtitle', async () => {
-    render(<CurveView curveId="ecb-aaa-spot-sim" />)
+    render(<CurveView curve={SIM} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(screen.getByText('Simulated scenario based on ECB AAA spot')).toBeInTheDocument()
@@ -234,13 +235,13 @@ describe('CurveView', () => {
   })
 
   it('marks missing points', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" />)
+    render(<CurveView curve={AAA} />)
 
     expect(await screen.findByText('No value for: 15Y, 20Y')).toBeInTheDocument()
   })
 
   it('refetches for a picked date', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" />)
+    render(<CurveView curve={AAA} />)
     const input = await screen.findByLabelText(/Valid date/)
 
     fireEvent.change(input, { target: { value: '2026-10-01' } })
@@ -251,13 +252,13 @@ describe('CurveView', () => {
   it('shows the offline state', async () => {
     mockedFetch.mockResolvedValue({ kind: 'offline' })
 
-    render(<CurveView curveId="ecb-aaa-spot" />)
+    render(<CurveView curve={AAA} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
   })
 
   it('passes asOf to the API', async () => {
-    render(<CurveView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
+    render(<CurveView curve={AAA} asOf="2026-10-01T12:00:00Z" />)
 
     await waitFor(() =>
       expect(mockedFetch).toHaveBeenCalledWith({
@@ -275,7 +276,7 @@ describe('CurveView', () => {
         ? { kind: 'not-found', detail: 'no curve as of then' }
         : curveResult('2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
     )
-    render(<CurveView curveId="ecb-aaa-spot" asOf={asOf} />)
+    render(<CurveView curve={AAA} asOf={asOf} />)
 
     expect(await screen.findByText(`No data known as of ${formatUtc(asOf)}`)).toBeInTheDocument()
   })
@@ -316,7 +317,7 @@ describe('CurveView', () => {
 
     rerender(
       <>
-        <CurveView curveId="ecb-aaa-spot" asOf={asOf} />
+        <CurveView curve={AAA} asOf={asOf} />
       </>,
     )
 

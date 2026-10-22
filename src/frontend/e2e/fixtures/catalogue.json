@@ -1,0 +1,79 @@
+{
+  "data": [
+    {
+      "curve_id": "ecb-aaa-spot",
+      "label": "ECB euro area AAA spot",
+      "source_id": "ecb",
+      "area": "Euro area",
+      "rate_type": "spot",
+      "compounding": "continuous",
+      "unit": "percent",
+      "source_model": null,
+      "simulated": false,
+      "attribution": "Source: ECB statistics",
+      "maturities": [
+        {"maturity": "3M", "months": 3},
+        {"maturity": "6M", "months": 6},
+        {"maturity": "1Y", "months": 12},
+        {"maturity": "2Y", "months": 24},
+        {"maturity": "3Y", "months": 36},
+        {"maturity": "5Y", "months": 60},
+        {"maturity": "7Y", "months": 84},
+        {"maturity": "10Y", "months": 120},
+        {"maturity": "15Y", "months": 180},
+        {"maturity": "20Y", "months": 240},
+        {"maturity": "30Y", "months": 360}
+      ]
+    },
+    {
+      "curve_id": "ecb-aaa-spot-sim",
+      "label": "ECB euro area AAA spot (scenario data)",
+      "source_id": "scenario",
+      "area": "Euro area",
+      "rate_type": "spot",
+      "compounding": "continuous",
+      "unit": "percent",
+      "source_model": null,
+      "simulated": true,
+      "attribution": "Simulated scenario based on ECB statistics",
+      "maturities": [
+        {"maturity": "3M", "months": 3},
+        {"maturity": "6M", "months": 6},
+        {"maturity": "1Y", "months": 12},
+        {"maturity": "2Y", "months": 24},
+        {"maturity": "3Y", "months": 36},
+        {"maturity": "5Y", "months": 60},
+        {"maturity": "7Y", "months": 84},
+        {"maturity": "10Y", "months": 120},
+        {"maturity": "15Y", "months": 180},
+        {"maturity": "20Y", "months": 240},
+        {"maturity": "30Y", "months": 360}
+      ]
+    },
+    {
+      "curve_id": "ecb-all-spot",
+      "label": "ECB euro area all-issuer spot",
+      "source_id": "ecb",
+      "area": "Euro area",
+      "rate_type": "spot",
+      "compounding": "continuous",
+      "unit": "percent",
+      "source_model": null,
+      "simulated": false,
+      "attribution": "Source: ECB statistics",
+      "maturities": [
+        {"maturity": "3M", "months": 3},
+        {"maturity": "6M", "months": 6},
+        {"maturity": "1Y", "months": 12},
+        {"maturity": "2Y", "months": 24},
+        {"maturity": "3Y", "months": 36},
+        {"maturity": "5Y", "months": 60},
+        {"maturity": "7Y", "months": 84},
+        {"maturity": "10Y", "months": 120},
+        {"maturity": "15Y", "months": 180},
+        {"maturity": "20Y", "months": 240},
+        {"maturity": "30Y", "months": 360}
+      ]
+    }
+  ]
+}

@@ -10,21 +10,26 @@ import AppHeader from './layout/AppHeader'
 import AppNavbar from './layout/AppNavbar'
 import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
-import { curveById, readCurveId, writeCurveId } from './curve/curves'
+import { readCurveId, resolveCurve, writeCurveId } from './curve/curves'
+import { fetchCurves, type CurvesResult } from './curve/fetchCurves'
 import SeriesView from './series/SeriesView'
 import QualityView from './quality/QualityView'
 
 type BackendState = 'checking' | 'online' | 'offline'
+type CatalogueState = { kind: 'loading' } | CurvesResult
 
 export default function App() {
   const [state, setState] = useState<BackendState>('checking')
   const [attempt, setAttempt] = useState(0)
   const [view, setView] = useState<string | null>('curve')
+  const [catalogue, setCatalogue] = useState<CatalogueState>({ kind: 'loading' })
   const [curveId, setCurveId] = useState(() => readCurveId(window.location.search))
   const [asOf, setAsOf] = useState<string | undefined>(() => readAsOf(window.location.search))
   const [navOpened, navHandlers] = useDisclosure(false)
-  const simulated = curveById(curveId).isSimulated
-  const online = state === 'online'
+  const curves = catalogue.kind === 'ok' ? catalogue.curves : []
+  const curve = resolveCurve(curves, curveId)
+  const ready = state === 'online' && curve !== undefined
+  const simulated = curve?.simulated ?? false
 
   const changeCurve = (next: string) => {
     setCurveId(next)
@@ -46,8 +51,24 @@ export default function App() {
     }
   }, [attempt])
 
+  useEffect(() => {
+    if (state !== 'online') return
+    let active = true
+    fetchCurves().then((next) => {
+      if (active) setCatalogue(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [state])
+
+  useEffect(() => {
+    if (curve && curve.id !== readCurveId(window.location.search)) writeCurveId(curve.id)
+  }, [curve])
+
   const retry = () => {
     setState('checking')
+    setCatalogue({ kind: 'loading' })
     setAttempt((count) => count + 1)
   }
 
@@ -56,7 +77,7 @@ export default function App() {
       <AppShell
         header={{ height: 56 }}
         navbar={
-          online
+          ready
             ? { width: 260, breakpoint: 'sm', collapsed: { desktop: true, mobile: !navOpened } }
             : undefined
         }
@@ -64,8 +85,9 @@ export default function App() {
       >
         <AppShell.Header>
           <AppHeader
-            online={online}
-            curveId={curveId}
+            ready={ready}
+            curveId={curve?.id ?? curveId}
+            catalogue={curves}
             onCurveChange={changeCurve}
             simulated={simulated}
             asOf={asOf}
@@ -74,13 +96,14 @@ export default function App() {
             onToggleNav={navHandlers.toggle}
           />
         </AppShell.Header>
-        {online && (
+        {ready && (
           <AppShell.Navbar p="md" hiddenFrom="sm" aria-label="Views">
             {navOpened && (
               <AppNavbar
                 view={view}
                 onViewChange={setView}
-                curveId={curveId}
+                curveId={curve.id}
+                catalogue={curves}
                 onCurveChange={changeCurve}
                 onNavigate={navHandlers.close}
               />
@@ -89,14 +112,14 @@ export default function App() {
         )}
         <AppShell.Main>
           <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
-            {state === 'checking' && (
+            {(state === 'checking' || (state === 'online' && catalogue.kind === 'loading')) && (
               <Stack gap="lg">
                 <PageHeader title="Connecting" />
                 <Skeleton h={320} />
                 <VisuallyHidden>Loading…</VisuallyHidden>
               </Stack>
             )}
-            {state === 'offline' && (
+            {(state === 'offline' || (state === 'online' && catalogue.kind !== 'loading' && curve === undefined)) && (
               <Stack gap="lg">
                 <PageHeader title="Service unavailable" />
                 <Alert color="red" role="alert" title="Backend offline" icon={<IconAlertTriangle size={18} />}>
@@ -109,7 +132,7 @@ export default function App() {
                 </Alert>
               </Stack>
             )}
-            {online && (
+            {ready && (
               <Stack gap="lg">
                 {simulated && (
                   <Alert color="orange" role="note" py="xs" icon={<IconInfoCircle size={18} />}>
@@ -117,16 +140,16 @@ export default function App() {
                   </Alert>
                 )}
                 <Tabs.Panel value="curve">
-                  <CurveView key={curveId} curveId={curveId} asOf={asOf} />
+                  <CurveView key={curve.id} curve={curve} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="series">
-                  <SeriesView key={curveId} curveId={curveId} asOf={asOf} />
+                  <SeriesView key={curve.id} curveId={curve.id} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="changes">
-                  <ChangesView key={curveId} curveId={curveId} asOf={asOf} />
+                  <ChangesView key={curve.id} curveId={curve.id} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="quality">
-                  <QualityView key={curveId} curveId={curveId} asOf={asOf} />
+                  <QualityView key={curve.id} curve={curve} asOf={asOf} />
                 </Tabs.Panel>
               </Stack>
             )}

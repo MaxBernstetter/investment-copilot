@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
 import { fetchQuality, type QualityResult } from './fetchQuality'
 import QualityView from './QualityView'
+import { AAA } from '../test/catalogue'
 
 type QualityDay = components['schemas']['QualityDay']
 type QualityFinding = components['schemas']['QualityFinding']
@@ -134,14 +135,14 @@ afterEach(() => {
 describe('QualityView', () => {
   it('shows skeletons and Loading… before the answer', () => {
     mockedFetch.mockReturnValue(new Promise(() => {}))
-    const { container } = render(<QualityView curveId="ecb-aaa-spot" />)
+    const { container } = render(<QualityView curve={AAA} />)
 
     expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(container.querySelectorAll('.mantine-Skeleton-root')).toHaveLength(5)
   })
 
   it('shows stat cards from the days', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     expect(await screen.findByText('of 4 business days')).toBeInTheDocument()
     expect(screen.getByText('Days checked')).toBeInTheDocument()
@@ -156,7 +157,7 @@ describe('QualityView', () => {
   })
 
   it('lists rows newest first with status badges', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     await screen.findByRole('cell', { name: '2026-10-16' })
     expect(dateCells()).toEqual(['2026-10-16', '2026-10-09', '2026-10-08', '2026-10-07'])
@@ -167,7 +168,7 @@ describe('QualityView', () => {
   })
 
   it('filter Warn keeps warn days; no match shows the filter empty state and Show all days restores', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
     await screen.findByRole('cell', { name: '2026-10-16' })
 
     fireEvent.click(screen.getByRole('radio', { name: 'Warn' }))
@@ -183,7 +184,7 @@ describe('QualityView', () => {
   })
 
   it('partial check shows Not checked: Jump', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     expect(await screen.findByText('Not checked: Jump')).toBeInTheDocument()
     expect(screen.getAllByText('Not checked: Jump')).toHaveLength(1)
@@ -191,7 +192,7 @@ describe('QualityView', () => {
 
   it('empty days shows the empty state; Show last 30 days refetches the default range', async () => {
     mockedFetch.mockResolvedValueOnce(okResult([]))
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     expect(await screen.findByText('No business days in this range')).toBeInTheDocument()
     expect(mockedFetch).toHaveBeenCalledTimes(1)
@@ -208,7 +209,7 @@ describe('QualityView', () => {
 
   it('404 shows No quality results for this curve', async () => {
     mockedFetch.mockResolvedValue({ kind: 'not-found', detail: 'No quality results.' })
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     expect(await screen.findByText('No quality results for this curve')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show last 30 days' })).toBeInTheDocument()
@@ -216,7 +217,7 @@ describe('QualityView', () => {
 
   it('offline shows Backend offline and Try again refetches', async () => {
     mockedFetch.mockResolvedValueOnce({ kind: 'offline' })
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
@@ -227,7 +228,7 @@ describe('QualityView', () => {
 
   it('422 shows detail under Could not load quality results', async () => {
     mockedFetch.mockResolvedValue({ kind: 'invalid', detail: 'The range is not valid.' })
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Could not load quality results')
@@ -235,7 +236,7 @@ describe('QualityView', () => {
   })
 
   it('To before From shows the error and does not fetch', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
     await screen.findByRole('cell', { name: '2026-10-16' })
     mockedFetch.mockClear()
 
@@ -245,8 +246,16 @@ describe('QualityView', () => {
     expect(mockedFetch).not.toHaveBeenCalled()
   })
 
+  it('names the curve in the subtitle', async () => {
+    render(<QualityView curve={AAA} />)
+
+    expect(
+      await screen.findByText('Plausibility and completeness checks per business day, ECB euro area AAA spot'),
+    ).toBeInTheDocument()
+  })
+
   it('range over 366 days shows the error and does not fetch', async () => {
-    render(<QualityView curveId="ecb-aaa-spot" />)
+    render(<QualityView curve={AAA} />)
     await screen.findByRole('cell', { name: '2026-10-16' })
     mockedFetch.mockClear()
 
