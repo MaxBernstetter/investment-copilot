@@ -18,7 +18,7 @@ from processing.domain.measures import (
 )
 from processing.domain.quality import Status
 from processing.domain.read import InvalidRangeError
-from processing.domain.rule_config import THRESHOLDS_BY_CURVE
+from processing.domain.rule_config import RULES_BY_CURVE
 
 
 class MeasureQualityReader(Protocol):
@@ -49,7 +49,7 @@ class GetMeasures:
         valid_to: date,
         as_of: datetime | None,
     ) -> CurveMeasures:
-        if curve_id not in THRESHOLDS_BY_CURVE:
+        if curve_id not in RULES_BY_CURVE:
             raise UnknownCurveError(curve_id)
         if as_of is not None:
             await resolve_as_of(self._quality, as_of)
