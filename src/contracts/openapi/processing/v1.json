@@ -244,6 +244,9 @@
         },
         "required": [
           "valid_date",
+          "spread_2y_10y",
+          "spread_3m_10y",
+          "curvature_2y_5y_10y",
           "inputs",
           "missing",
           "quality"

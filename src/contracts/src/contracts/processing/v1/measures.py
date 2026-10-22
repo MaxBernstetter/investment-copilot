@@ -52,19 +52,16 @@ class MeasurePoint(BaseModel):
 
     valid_date: date = Field(description="Valid time: the business date of the point")
     spread_2y_10y: float | None = Field(
-        default=None,
         allow_inf_nan=False,
         description="The slope: 10Y minus 2Y, in basis points; null when an input is missing",
         examples=[66.0],
     )
     spread_3m_10y: float | None = Field(
-        default=None,
         allow_inf_nan=False,
         description="10Y minus 3M, in basis points; null when an input is missing",
         examples=[71.0],
     )
     curvature_2y_5y_10y: float | None = Field(
-        default=None,
         allow_inf_nan=False,
         description="2 times 5Y minus 2Y and 10Y, in basis points; null when an input is missing",
         examples=[-20.0],

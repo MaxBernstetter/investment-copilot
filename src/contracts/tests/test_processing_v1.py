@@ -133,3 +133,11 @@ def test_measures_meta_requires_a_timezone() -> None:
 
     with pytest.raises(ValidationError):
         MeasuresResponse.model_validate(body)
+
+
+def test_measure_fields_are_required_but_nullable() -> None:
+    body = measures_response()
+    del body["data"]["points"][0]["spread_2y_10y"]
+
+    with pytest.raises(ValidationError):
+        MeasuresResponse.model_validate(body)
