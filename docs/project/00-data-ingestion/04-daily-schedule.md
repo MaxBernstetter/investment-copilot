@@ -65,7 +65,7 @@ The all-issuer curve `ecb-all-spot` starts with the same history as the AAA curv
 - **On a stack with the Airflow profile:** trigger `backfill_ecb` with `{"start":"2004-09-06","end":"<yesterday>"}` (about 23 requests). The AAA values come again in the same requests and are no-ops.
 - **Without Airflow:** `task dev:seed START=2004-09-06` on a stack that may be written (see [[01-data-sources]]).
 - **Expected `warn` days for `ecb-all-spot`:** 2008-10-08, 2009-01-23 and 2010-10-15 (the quality-warn alert may fire for these year chunks). The method is in [[01-plausibility-thresholds#All-issuer curve]].
-- **Record the result:** as a comment on [#264](https://github.com/MaxBernstetter/yield-lens/issues/264), the `load_finished` line of each year (`rows`, `attempt`) and the check status per curve.
+- **Record the result:** as a comment on [#264](https://github.com/MaxBernstetter/yield-lens/issues/264), the `load_finished` line of each year (`attempt`, `delivered_count`, `recorded_count`, `unchanged_count`) and the check status per curve.
 
 ## Pools
 
