@@ -26,6 +26,10 @@ databaseChangeLog:
   - include:
       file: 22_simulated_curve.sql
       relativeToChangelogFile: true
+  # Catalogue columns before the package: get_curves reads them.
+  - include:
+      file: 23_curve_catalogue.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

@@ -161,5 +161,14 @@ create or replace package ut_core_observation as
 
   --%test(Has curve checks the definition of the curve)
   procedure has_curve_checks_the_definition;
+
+  --%test(Curves list each curve with its catalogue entry and grid in order)
+  procedure curves_list_each_curve_with_its_grid_in_order;
+
+  --%test(Curves flag a simulated curve)
+  procedure curves_flag_a_simulated_curve;
+
+  --%test(Curves are ordered by curve id, then by months)
+  procedure curves_are_ordered_by_curve_and_months;
 end ut_core_observation;
 /
