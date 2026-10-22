@@ -1,4 +1,4 @@
-"""Client of the processing service: value quality and per-day quality reads."""
+"""Client of the processing service: value quality, per-day quality and derived measures."""
 
 import json
 import logging
@@ -15,6 +15,13 @@ from access.domain.curve import (
     CurveNotFoundError,
     InvalidCurveQueryError,
     ProcessingUnavailableError,
+)
+from access.domain.measures import (
+    CurveMeasures,
+    MeasureInput,
+    MeasurePoint,
+    MeasureQuality,
+    MeasuresUnavailableError,
 )
 from access.domain.quality import QualityFlag, QualityStatus, Severity, ValueQuality
 from access.domain.quality_days import (
@@ -84,6 +91,32 @@ class ProcessingClient:
             return None
         return _to_domain(v1.ValueQualityResponse.model_validate_json(response.content))
 
+    async def measures(
+        self,
+        curve_id: str,
+        valid_from: date,
+        valid_to: date,
+        as_of: datetime | None,
+    ) -> CurveMeasures:
+        path = v1.MEASURES_PATH.format(curve_id=quote(curve_id, safe=""))
+        params: dict[str, str] = {
+            "from": valid_from.isoformat(),
+            "to": valid_to.isoformat(),
+        }
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat()
+        try:
+            response = await self._http.get(path, params=params)
+        except httpx.HTTPError as error:
+            raise MeasuresUnavailableError from error
+        if response.status_code == httpx.codes.OK:
+            return _measures_to_domain(_parse_measures(response))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == 422:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise MeasuresUnavailableError(f"processing answered {response.status_code}")
+
     async def quality_days(
         self,
         curve_id: str,
@@ -116,6 +149,48 @@ def _parse_quality_days(response: httpx.Response) -> v1.QualityDaysResponse:
         return v1.QualityDaysResponse.model_validate_json(response.content)
     except ValidationError as error:
         raise ProcessingUnavailableError("processing sent an unexpected quality body") from error
+
+
+def _parse_measures(response: httpx.Response) -> v1.MeasuresResponse:
+    try:
+        return v1.MeasuresResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise MeasuresUnavailableError("processing sent an unexpected measures body") from error
+
+
+def _measures_to_domain(response: v1.MeasuresResponse) -> CurveMeasures:
+    return CurveMeasures(
+        curve_id=response.data.curve_id,
+        valid_from=response.data.valid_from,
+        valid_to=response.data.valid_to,
+        as_of=response.meta.as_of,
+        method_version=response.meta.method_version,
+        points=tuple(_measure_point_to_domain(point) for point in response.data.points),
+    )
+
+
+def _measure_point_to_domain(point: v1.MeasurePoint) -> MeasurePoint:
+    return MeasurePoint(
+        valid_date=point.valid_date,
+        spread_2y_10y=point.spread_2y_10y,
+        spread_3m_10y=point.spread_3m_10y,
+        curvature_2y_5y_10y=point.curvature_2y_5y_10y,
+        inverted=point.inverted,
+        inputs=tuple(
+            MeasureInput(
+                maturity=input_.maturity,
+                value=input_.value,
+                version_id=input_.version_id,
+                status=QualityStatus(input_.status),
+            )
+            for input_ in point.inputs
+        ),
+        missing=tuple(point.missing),
+        quality=MeasureQuality(
+            status=QualityStatus(point.quality.status),
+            flagged=tuple(point.quality.flagged),
+        ),
+    )
 
 
 def _log_unavailable(

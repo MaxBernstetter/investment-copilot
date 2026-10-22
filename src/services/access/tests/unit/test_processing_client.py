@@ -8,6 +8,7 @@ from access.domain.curve import (
     InvalidCurveQueryError,
     ProcessingUnavailableError,
 )
+from access.domain.measures import MeasuresUnavailableError
 from access.domain.quality import QualityStatus, Severity
 from access.infrastructure.processing import ProcessingClient
 
@@ -226,3 +227,120 @@ async def test_quality_days_malformed_200_body_raises_processing_unavailable() -
     async with client_answering(httpx.MockTransport(malformed)) as client:
         with pytest.raises(ProcessingUnavailableError):
             await client.quality_days("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+
+MEASURES_PATH = "/v1/curves/ecb-aaa-spot/measures"
+MEASURES_BODY = {
+    "data": {
+        "curve_id": "ecb-aaa-spot",
+        "valid_from": "2026-03-12",
+        "valid_to": "2026-03-12",
+        "points": [
+            {
+                "valid_date": "2026-03-12",
+                "spread_2y_10y": 66.0,
+                "spread_3m_10y": None,
+                "curvature_2y_5y_10y": None,
+                "inverted": False,
+                "inputs": [
+                    {"maturity": "2Y", "value": 1.98, "version_id": 3, "status": "passed"},
+                    {"maturity": "10Y", "value": 2.64, "version_id": 7, "status": "warn"},
+                ],
+                "missing": ["3M", "5Y"],
+                "quality": {"status": "warn", "flagged": ["10Y"]},
+            }
+        ],
+    },
+    "meta": {"as_of": "2026-03-13T08:00:00Z", "method_version": "1"},
+}
+
+
+async def test_measures_maps_points_inputs_and_quality() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=MEASURES_BODY)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        measures = await client.measures(
+            "ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF
+        )
+
+    assert seen[0].url.path == MEASURES_PATH
+    assert dict(seen[0].url.params) == {
+        "from": "2026-03-12",
+        "to": "2026-03-12",
+        "as_of": AS_OF.isoformat(),
+    }
+    assert measures.as_of == AS_OF
+    assert measures.method_version == "1"
+    point = measures.points[0]
+    assert point.spread_2y_10y == 66.0
+    assert point.spread_3m_10y is None
+    assert point.inverted is False
+    assert point.missing == ("3M", "5Y")
+    assert point.inputs[1].status == QualityStatus.WARN
+    assert point.inputs[1].version_id == 7
+    assert point.quality.status == QualityStatus.WARN
+    assert point.quality.flagged == ("10Y",)
+
+
+async def test_measures_leaves_out_as_of_when_none() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=MEASURES_BODY)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), None)
+
+    assert "as_of" not in dict(seen[0].url.params)
+
+
+async def test_measures_404_raises_curve_not_found_with_detail() -> None:
+    def unknown(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "no curve named ecb-aaa-spot"})
+
+    async with client_answering(httpx.MockTransport(unknown)) as client:
+        with pytest.raises(CurveNotFoundError) as raised:
+            await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+    assert raised.value.detail == "no curve named ecb-aaa-spot"
+
+
+async def test_measures_422_raises_invalid_query() -> None:
+    def rejected(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(422, json={"detail": "to is before from"})
+
+    async with client_answering(httpx.MockTransport(rejected)) as client:
+        with pytest.raises(InvalidCurveQueryError):
+            await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+
+async def test_measures_500_raises_measures_unavailable() -> None:
+    def broken(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    async with client_answering(httpx.MockTransport(broken)) as client:
+        with pytest.raises(MeasuresUnavailableError):
+            await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+
+async def test_measures_transport_error_raises_measures_unavailable() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async with client_answering(httpx.MockTransport(refuse)) as client:
+        with pytest.raises(MeasuresUnavailableError):
+            await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+
+async def test_measures_malformed_200_body_raises_measures_unavailable() -> None:
+    def malformed(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    async with client_answering(httpx.MockTransport(malformed)) as client:
+        with pytest.raises(MeasuresUnavailableError, match="unexpected measures body"):
+            await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
