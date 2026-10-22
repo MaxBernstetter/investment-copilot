@@ -1,5 +1,8 @@
 from typing import Any
 
+import pytest
+from pydantic import ValidationError
+
 from contracts.access import v1
 
 
@@ -191,3 +194,64 @@ def test_quality_days_response_round_trips() -> None:
 
     assert response.data.days[0].status is v1.QualityStatus.WARN
     assert v1.QualityDaysResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def catalogue_response() -> dict[str, Any]:
+    return {
+        "data": [
+            {
+                "curve_id": "ecb-aaa-spot",
+                "label": "ECB euro area AAA spot",
+                "source_id": "ecb",
+                "area": "Euro area",
+                "attribution": "Source: ECB statistics",
+                "rate_type": "spot",
+                "compounding": "continuous",
+                "unit": "percent",
+                "source_model": "Svensson",
+                "simulated": False,
+                "maturities": [
+                    {"maturity": "3M", "months": 3},
+                    {"maturity": "10Y", "months": 120},
+                ],
+            }
+        ]
+    }
+
+
+def test_curves_response_round_trips() -> None:
+    response = v1.CurvesResponse.model_validate(catalogue_response())
+
+    assert v1.CurvesResponse.model_validate_json(response.model_dump_json()) == response
+    assert set(v1.CurveDefinition.model_fields) == {
+        "curve_id",
+        "label",
+        "source_id",
+        "area",
+        "attribution",
+        "rate_type",
+        "compounding",
+        "unit",
+        "source_model",
+        "simulated",
+        "maturities",
+    }
+
+
+def test_curve_definition_rejects_maturities_out_of_grid_order() -> None:
+    body = catalogue_response()
+    body["data"][0]["maturities"] = [
+        {"maturity": "10Y", "months": 120},
+        {"maturity": "3M", "months": 3},
+    ]
+
+    with pytest.raises(ValidationError):
+        v1.CurvesResponse.model_validate(body)
+
+
+def test_curve_definition_rejects_an_unknown_rate_type() -> None:
+    body = catalogue_response()
+    body["data"][0]["rate_type"] = "bogus"
+
+    with pytest.raises(ValidationError):
+        v1.CurvesResponse.model_validate(body)
