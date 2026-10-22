@@ -1,10 +1,17 @@
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from functools import partial
 
 import pytest
-from contracts.processing.v1 import QUALITY_DAYS_PATH, VALUE_QUALITY_PATH
+from contracts.processing.v1 import (
+    MEASURES_PATH,
+    QUALITY_DAYS_PATH,
+    VALUE_QUALITY_PATH,
+    MeasuresResponse,
+)
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry import trace
@@ -13,12 +20,23 @@ from pydantic import SecretStr
 from starlette.types import Receive, Scope, Send
 
 from processing.api import create_app_from_environment, instrument_app, proc_services
+from processing.application.get_measures import GetMeasures
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
-from processing.config import DatabaseSettings
+from processing.config import ApiSettings, DatabaseSettings, PersistenceSettings
+from processing.domain.quality import Value
 from processing.facade.rest.app import Services, create_app
 from processing.infrastructure.telemetry import Telemetry
-from tests.unit.fakes import FakeQualityStore, job_telemetry
+from tests.unit.fakes import (
+    FakeMeasureQuality,
+    FakeObservationReader,
+    FakeQualityStore,
+    job_telemetry,
+)
+
+HORIZON = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
+KNOWN = datetime(2026, 10, 1, 8, 0, tzinfo=UTC)
+MEASURE_DAY = date(2026, 10, 8)
 
 
 async def _reachable() -> bool:
@@ -33,21 +51,39 @@ def _client(
     is_ready: Callable[[], Awaitable[bool]] = _reachable,
     store: FakeQualityStore | None = None,
     telemetry: Telemetry | None = None,
+    observations: FakeObservationReader | None = None,
+    measure_quality: FakeMeasureQuality | None = None,
 ) -> TestClient:
     quality_store = store or FakeQualityStore()
+    observation_reader = observations or _observations()
+    quality_reader = measure_quality or FakeMeasureQuality()
 
     @asynccontextmanager
     async def services() -> AsyncIterator[Services]:
         yield Services(
-            is_ready,
-            GetQualityDays(quality_store),
-            GetValueQuality(quality_store),
+            is_ready=is_ready,
+            get_quality_days=GetQualityDays(quality_store),
+            get_value_quality=GetValueQuality(quality_store),
+            get_measures=GetMeasures(observation_reader, quality_reader),
         )
 
     app = create_app(services)
     if telemetry is not None:
         instrument_app(app, telemetry)
     return TestClient(app)
+
+
+def _observations(*, unknown: bool = False) -> FakeObservationReader:
+    return FakeObservationReader(
+        horizon=HORIZON,
+        versions=[
+            (KNOWN, Value(1, "3M", MEASURE_DAY, Decimal("1.98"))),
+            (KNOWN, Value(2, "2Y", MEASURE_DAY, Decimal("1.98"))),
+            (KNOWN, Value(3, "5Y", MEASURE_DAY, Decimal("2.21"))),
+            (KNOWN, Value(4, "10Y", MEASURE_DAY, Decimal("2.64"))),
+        ],
+        unknown=unknown,
+    )
 
 
 def test_health_is_ok() -> None:
@@ -166,7 +202,10 @@ def test_the_lifespan_shuts_telemetry_down_after_the_spans_are_recorded(
 
     telemetry = RecordingTelemetry(base.tracer_provider, base.meter_provider)
     monkeypatch.setattr("processing.api.create_pool", lambda _settings: _FakePool())
-    settings = DatabaseSettings(dsn="oracle.test:1521/FREEPDB1", password=SecretStr("x"))
+    settings = ApiSettings(
+        db=DatabaseSettings(dsn="oracle.test:1521/FREEPDB1", password=SecretStr("x")),
+        persistence=PersistenceSettings(url="http://persistence.test:8001"),
+    )
     app = create_app(partial(proc_services, settings, telemetry))
     instrument_app(app, telemetry)
 
@@ -182,6 +221,7 @@ def test_the_factory_instruments_the_app(
     calls: list[str] = []
     monkeypatch.setenv("PROCESSING_DB__DSN", "oracle.test:1521/FREEPDB1")
     monkeypatch.setenv("PROCESSING_DB__PASSWORD", "not-a-secret")
+    monkeypatch.setenv("PROCESSING_PERSISTENCE__URL", "http://persistence.test:8001")
     monkeypatch.setattr(
         "processing.api.instrument_app", lambda app, telemetry: calls.append("instrumented")
     )
@@ -197,9 +237,10 @@ def _app_with_boom() -> FastAPI:
     @asynccontextmanager
     async def services() -> AsyncIterator[Services]:
         yield Services(
-            _reachable,
-            GetQualityDays(quality_store),
-            GetValueQuality(quality_store),
+            is_ready=_reachable,
+            get_quality_days=GetQualityDays(quality_store),
+            get_value_quality=GetValueQuality(quality_store),
+            get_measures=GetMeasures(_observations(), FakeMeasureQuality()),
         )
 
     app = create_app(services)
@@ -253,3 +294,85 @@ def test_an_unexpected_error_carries_the_trace_id(caplog: pytest.LogCaptureFixtu
     records = [r for r in caplog.records if getattr(r, "event", None) == "unexpected_error"]
     assert len(records) == 1
     assert getattr(records[0], "trace_id", None) == trace_id
+
+
+def _measures_query(**params: str) -> dict[str, str]:
+    return {"from": "2026-10-08", "to": "2026-10-08"} | params
+
+
+def _measures_path(curve_id: str = "ecb-aaa-spot") -> str:
+    return MEASURES_PATH.format(curve_id=curve_id)
+
+
+def test_measures_match_the_contract() -> None:
+    with _client() as client:
+        response = client.get(_measures_path(), params=_measures_query())
+
+    assert response.status_code == 200
+    body = response.json()
+    parsed = MeasuresResponse.model_validate(body)
+    assert parsed.meta.method_version == "1"
+    point = parsed.data.points[0]
+    assert len(point.inputs) == 4
+    assert point.spread_2y_10y == 66.0
+    assert point.curvature_2y_5y_10y == -20.0
+    assert point.inverted is False
+
+
+def test_measures_of_an_unknown_curve_are_404() -> None:
+    with _client() as client:
+        response = client.get(_measures_path("unknown-curve"), params=_measures_query())
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not found"
+
+
+def test_measures_reject_from_after_to_with_422() -> None:
+    with _client() as client:
+        response = client.get(_measures_path(), params=_measures_query(**{"from": "2026-10-09"}))
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid range"
+
+
+def test_measures_reject_more_than_3660_days_with_422() -> None:
+    too_long_from = MEASURE_DAY - timedelta(days=3661)
+    with _client() as client:
+        response = client.get(
+            _measures_path(),
+            params=_measures_query(**{"from": too_long_from.isoformat()}),
+        )
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid range"
+
+
+def test_measures_reject_a_future_as_of_with_422() -> None:
+    with _client() as client:
+        response = client.get(
+            _measures_path(), params=_measures_query(as_of="2026-10-09T09:00:00Z")
+        )
+
+    assert response.status_code == 422
+    assert response.json()["title"] == "Invalid as_of"
+
+
+def test_measures_with_a_settled_as_of_are_immutable() -> None:
+    with _client() as client:
+        response = client.get(
+            _measures_path(), params=_measures_query(as_of="2026-10-09T07:30:00Z")
+        )
+
+    assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
+def test_measures_answer_304_for_a_matching_etag() -> None:
+    with _client() as client:
+        first = client.get(_measures_path(), params=_measures_query())
+        etag = first.headers["etag"]
+        second = client.get(
+            _measures_path(), params=_measures_query(), headers={"If-None-Match": etag}
+        )
+
+    assert second.status_code == 304

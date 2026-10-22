@@ -17,8 +17,18 @@ One image, two process types (see [[09-deployment]]):
 
 | Process | Status | Command |
 |---|---|---|
-| `api` | quality reads plus health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
+| `api` | quality reads, derived measures plus health and readiness | `uvicorn --factory processing.api:create_app_from_environment --port 8002` |
 | `job` | quality check over a date range | `processing-check-quality CURVE_ID --from D --to D [--run-id ID]` |
+
+## Interface (`api` process)
+
+| Route | Parameters | Answers | Errors |
+|---|---|---|---|
+| `GET /v1/curves/{curve_id}/quality` | `from`, `to`, `as_of` | Quality per TARGET business day | 404 unknown curve; 422 invalid range or `as_of` |
+| `GET /v1/curves/{curve_id}/value-quality` | `from`, `to`, `maturity`, `as_of` | Quality per published value | 404 unknown curve; 422 invalid range or `as_of` |
+| `GET /v1/curves/{curve_id}/measures` | `from`, `to`, `as_of` | Spreads, curvature and inversion per valid date, see [[04-derived-measures]] | 404 unknown curve; 422 `from` after `to`, a range over 3660 days, or a future `as_of` |
+
+The measures are computed on read from the persistence service (grid and series) and the PROC quality results, so the route needs `PROCESSING_PERSISTENCE__URL`. An unreachable persistence service is a 500 problem.
 
 The PROC schema (`check_run`, `checked_day`, `value_quality`, `quality_finding`) is created by the Liquibase changelogs in `db/` (`db/admin` as SYSTEM, then `db/proc` as the owner `proc`). The runtime user `proc_app` has `CREATE SESSION` and nothing else until the check use case adds its grants. Its integration tests start Oracle Free with Testcontainers and check the migrations, the privileges and the readiness probe.
 
@@ -42,7 +52,7 @@ Read from environment variables with the prefix `PROCESSING_`, validated at star
 | `PROCESSING_DB__POOL_MIN` / `_POOL_MAX` | `1` / `4` | Connection pool size |
 | `PROCESSING_DB__ACQUIRE_TIMEOUT_MS` | `5000` | Wait for a free connection |
 | `PROCESSING_DB__CALL_TIMEOUT_MS` | `30000` | Timeout per database call |
-| `PROCESSING_PERSISTENCE__URL` | none (required for the job) | Base URL of the persistence service, e.g. `http://localhost:8001` |
+| `PROCESSING_PERSISTENCE__URL` | none (required) | Base URL of the persistence service, read by the job and by the measures route, e.g. `http://localhost:8001` |
 | `PROCESSING_PERSISTENCE__TIMEOUT_SECONDS` | `30` | Timeout per persistence request |
 
 The telemetry follows the standard OpenTelemetry variables. Traces and metrics are exported over OTLP/HTTP only when an endpoint is set; without one the service runs and records nothing outside the process.
