@@ -61,6 +61,14 @@ Every flag in the explorer carries a short explanation that states the rule and 
 - **Missing date (warn):** "No value was published for this TARGET business day."
 - **Missing maturity (warn):** "No value for this maturity on a TARGET business day on which other maturities have one."
 
+For the all-issuer curve `ecb-all-spot`:
+
+- **Range (warn):** "Outside the plausible range of −2.00 % to 8.00 %. ECB all-issuer spot yields stayed between −0.83 % and 5.84 % since 2004."
+- **Jump (info):** "Moved more than 25 bp since the previous business day. This happened on 51 days since 2004, mostly in market stress."
+- **Jump (warn):** "Moved more than 50 bp since the previous business day. This happened on only 3 days since 2004 (2008 to 2010); check the source data."
+
+The missing-date and missing-maturity texts are the same as for the AAA curve.
+
 The quality dashboard links to this note for the full method. The rule configuration in the processing service names this note in a comment next to each threshold.
 
 ## Re-deriving
