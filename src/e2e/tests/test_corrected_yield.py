@@ -110,6 +110,19 @@ def quality_path(curve_id: str) -> str:
     return f"/v1/curves/{curve_id}/quality"
 
 
+def measures_path(curve_id: str) -> str:
+    return f"/v1/curves/{curve_id}/measures"
+
+
+def point_input(payload: dict[str, Any], maturity: str) -> dict[str, Any]:
+    """The measure input of one maturity in a measures body."""
+    for item in payload["data"]["points"][0]["inputs"]:
+        if item["maturity"] == maturity:
+            input_: dict[str, Any] = item
+            return input_
+    raise AssertionError(f"no input for maturity {maturity}")
+
+
 @pytest.fixture(scope="module")
 def scenario_after_gap() -> None:
     """Publish and gap once; gap-day quality must be read before late-value arrives."""
@@ -159,6 +172,21 @@ def test_past_view_is_reproduced_exactly_after_a_correction(scenario_after_gap: 
         content = past.content
         etag = past.headers["etag"]
 
+        measures_query = {"from": VALID_DATE, "to": VALID_DATE, "as_of": t1}
+        measured = client.get(measures_path(SIM), params=measures_query)
+        assert measured.status_code == 200
+        assert "immutable" in measured.headers["cache-control"]
+        measured_body = body(measured)
+        assert measured_body["meta"]["method_version"] == "1"
+        assert measured_body["meta"]["as_of"] == t1
+        measured_point = measured_body["data"]["points"][0]
+        assert measured_point["spread_2y_10y"] == pytest.approx(2442.0)
+        assert measured_point["inverted"] is False
+        assert measured_point["quality"] == {"status": "warn", "flagged": ["10Y"]}
+        measures_content = measured.content
+        measures_etag = measured.headers["etag"]
+        bad_10y_version = point_input(measured_body, "10Y")["version_id"]
+
         run_event("correction")
 
         reproduced = client.get(curve_path(SIM), params={"valid_date": VALID_DATE, "as_of": t1})
@@ -176,6 +204,19 @@ def test_past_view_is_reproduced_exactly_after_a_correction(scenario_after_gap: 
         current = client.get(curve_path(SIM), params={"valid_date": VALID_DATE})
         assert value_of(body(current), "10Y") == 2.64
         assert quality_of(body(current), "10Y")["status"] == "passed"
+
+        reproduced_measures = client.get(measures_path(SIM), params=measures_query)
+        assert reproduced_measures.content == measures_content
+        assert reproduced_measures.headers["etag"] == measures_etag
+
+        current_measures = body(
+            client.get(measures_path(SIM), params={"from": VALID_DATE, "to": VALID_DATE})
+        )
+        current_point = current_measures["data"]["points"][0]
+        assert current_measures["meta"]["method_version"] == "1"
+        assert current_point["spread_2y_10y"] == pytest.approx(66.0)
+        assert current_point["quality"]["status"] == "passed"
+        assert point_input(current_measures, "10Y")["version_id"] != bad_10y_version
 
         versions = client.get(versions_path(SIM, "10Y", VALID_DATE))
         assert versions.status_code == 200
