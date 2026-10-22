@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
+from access.domain.catalogue import CurveDefinition, GridMaturity
 from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
@@ -523,3 +524,77 @@ async def test_changes_unavailable() -> None:
                 await client.changes(
                     "ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14), since, None
                 )
+
+
+CATALOGUE_BODY = {
+    "data": [
+        {
+            "curve_id": "ecb-aaa-spot",
+            "label": "ECB euro area AAA spot",
+            "source_id": "ecb",
+            "area": "Euro area",
+            "attribution": "Source: ECB statistics",
+            "rate_type": "spot",
+            "compounding": "continuous",
+            "unit": "percent",
+            "source_model": "Svensson",
+            "simulated": False,
+            "maturities": [
+                {"maturity": "3M", "months": 3},
+                {"maturity": "10Y", "months": 120},
+            ],
+        }
+    ]
+}
+
+
+async def test_reads_the_catalogue() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/curves"
+        return httpx.Response(200, json=CATALOGUE_BODY)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        curves = await client.curves()
+
+    assert curves == (
+        CurveDefinition(
+            curve_id="ecb-aaa-spot",
+            label="ECB euro area AAA spot",
+            source_id="ecb",
+            area="Euro area",
+            attribution="Source: ECB statistics",
+            rate_type="spot",
+            compounding="continuous",
+            unit="percent",
+            source_model="Svensson",
+            simulated=False,
+            maturities=(GridMaturity("3M", 3), GridMaturity("10Y", 120)),
+        ),
+    )
+
+
+async def test_catalogue_server_error_is_unavailable() -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.curves()
+
+
+async def test_catalogue_connection_error_is_unavailable() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async with client_answering(httpx.MockTransport(refuse)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.curves()
+
+
+async def test_catalogue_unexpected_body_is_unavailable() -> None:
+    def garbage(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [{}]})
+
+    async with client_answering(httpx.MockTransport(garbage)) as client:
+        with pytest.raises(PersistenceUnavailableError):
+            await client.curves()

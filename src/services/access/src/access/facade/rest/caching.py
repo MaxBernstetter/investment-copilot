@@ -12,6 +12,8 @@ from pydantic import BaseModel
 ETAG_HEX_CHARS = 32
 NO_CACHE = "no-cache"
 IMMUTABLE = "public, max-age=31536000, immutable"
+# Reference data: reuse for five minutes, then revalidate with the ETag.
+CATALOGUE = "public, max-age=300"
 
 
 def cache_control(requested: datetime | None, answered: datetime, *, complete: bool = True) -> str:

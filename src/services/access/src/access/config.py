@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     persistence_timeout_seconds: float = Field(default=10.0, gt=0)
     processing_url: AnyHttpUrl = Field(description="Base URL of the processing api")
     processing_timeout_seconds: float = Field(default=5.0, gt=0)
+    catalogue_ttl_seconds: float = Field(
+        default=300.0,
+        gt=0,
+        description="Seconds the curve catalogue is reused before persistence is read again",
+    )
     cors_origins: str = Field(
         default="http://localhost:5174",
         description="Comma-separated origins allowed to call the API (the frontend)",

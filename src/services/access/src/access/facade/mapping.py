@@ -1,11 +1,11 @@
 """Translation between the domain and the public contract (contracts.access.v1)."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC
 
 from contracts.access import v1
 
-from access.domain.attribution import source_attribution
+from access.domain.catalogue import CurveDefinition
 from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.quality import ValueQuality, quality_for
@@ -15,7 +15,7 @@ from access.domain.versions import ValueVersions
 
 
 def to_response(
-    curve: CurveAsOf, *, known: Mapping[int, ValueQuality] | None
+    curve: CurveAsOf, *, known: Mapping[int, ValueQuality] | None, attribution: str
 ) -> v1.CurveObservationsResponse:
     return v1.CurveObservationsResponse(
         data=v1.CurveObservations(
@@ -35,13 +35,13 @@ def to_response(
         ),
         meta=v1.CurveMeta(
             as_of=curve.as_of.astimezone(UTC),
-            source_attribution=source_attribution(curve.curve_id),
+            source_attribution=attribution,
         ),
     )
 
 
 def to_series_response(
-    series: Series, *, known: Mapping[int, ValueQuality] | None
+    series: Series, *, known: Mapping[int, ValueQuality] | None, attribution: str
 ) -> v1.SeriesObservationsResponse:
     return v1.SeriesObservationsResponse(
         data=v1.SeriesObservations(
@@ -60,12 +60,12 @@ def to_series_response(
         ),
         meta=v1.CurveMeta(
             as_of=series.as_of.astimezone(UTC),
-            source_attribution=source_attribution(series.curve_id),
+            source_attribution=attribution,
         ),
     )
 
 
-def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
+def to_versions_response(versions: ValueVersions, *, attribution: str) -> v1.ValueVersionsResponse:
     return v1.ValueVersionsResponse(
         data=v1.ValueVersions(
             curve_id=versions.curve_id,
@@ -88,12 +88,12 @@ def to_versions_response(versions: ValueVersions) -> v1.ValueVersionsResponse:
         ),
         meta=v1.CurveMeta(
             as_of=versions.as_of.astimezone(UTC),
-            source_attribution=source_attribution(versions.curve_id),
+            source_attribution=attribution,
         ),
     )
 
 
-def to_quality_days_response(days: QualityDays) -> v1.QualityDaysResponse:
+def to_quality_days_response(days: QualityDays, *, attribution: str) -> v1.QualityDaysResponse:
     return v1.QualityDaysResponse(
         data=v1.QualityDays(
             curve_id=days.curve_id,
@@ -131,12 +131,12 @@ def to_quality_days_response(days: QualityDays) -> v1.QualityDaysResponse:
         ),
         meta=v1.QualityMeta(
             as_of=days.as_of.astimezone(UTC),
-            source_attribution=source_attribution(days.curve_id),
+            source_attribution=attribution,
         ),
     )
 
 
-def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
+def to_changes_response(changes: CurveChanges, *, attribution: str) -> v1.CurveChangesResponse:
     return v1.CurveChangesResponse(
         data=v1.CurveChanges(
             curve_id=changes.curve_id,
@@ -158,8 +158,32 @@ def to_changes_response(changes: CurveChanges) -> v1.CurveChangesResponse:
         meta=v1.ChangesMeta(
             since=changes.since.astimezone(UTC),
             as_of=changes.as_of.astimezone(UTC),
-            source_attribution=source_attribution(changes.curve_id),
+            source_attribution=attribution,
         ),
+    )
+
+
+def to_curves_response(curves: Sequence[CurveDefinition]) -> v1.CurvesResponse:
+    return v1.CurvesResponse(
+        data=[
+            v1.CurveDefinition(
+                curve_id=curve.curve_id,
+                label=curve.label,
+                source_id=curve.source_id,
+                area=curve.area,
+                attribution=curve.attribution,
+                rate_type=v1.RateType(curve.rate_type),
+                compounding=v1.Compounding(curve.compounding),
+                unit=v1.Unit(curve.unit),
+                source_model=curve.source_model,
+                simulated=curve.simulated,
+                maturities=[
+                    v1.GridMaturity(maturity=maturity.maturity, months=maturity.months)
+                    for maturity in curve.maturities
+                ],
+            )
+            for curve in curves
+        ]
     )
 
 

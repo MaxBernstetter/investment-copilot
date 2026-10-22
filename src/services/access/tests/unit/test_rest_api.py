@@ -14,6 +14,8 @@ from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext
 from starlette.types import Receive, Scope, Send
 
+from access.application.catalogue import CachedCatalogue
+from access.domain.catalogue import CurveDefinition, GridMaturity
 from access.domain.changes import CurveChanges, ValueChange
 from access.domain.curve import (
     CurveAsOf,
@@ -214,18 +216,64 @@ class FakeQualityReader:
         return replace(self.days_result, curve_id=curve_id)
 
 
+class FakeCatalogueReader:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.error: Exception | None = None
+        self.curves_result: tuple[CurveDefinition, ...] = (
+            CurveDefinition(
+                curve_id="ecb-aaa-spot",
+                label="ECB euro area AAA spot",
+                source_id="ecb",
+                area="Euro area",
+                attribution="Source: ECB statistics",
+                rate_type="spot",
+                compounding="continuous",
+                unit="percent",
+                source_model="Svensson",
+                simulated=False,
+                maturities=(GridMaturity("3M", 3), GridMaturity("10Y", 120)),
+            ),
+            CurveDefinition(
+                curve_id="ecb-aaa-spot-sim",
+                label="ECB euro area AAA spot (simulated)",
+                source_id="scenario",
+                area="Euro area",
+                attribution="Simulated scenario based on ECB statistics",
+                rate_type="spot",
+                compounding="continuous",
+                unit="percent",
+                source_model="Svensson",
+                simulated=True,
+                maturities=(GridMaturity("3M", 3), GridMaturity("10Y", 120)),
+            ),
+        )
+
+    async def curves(self) -> tuple[CurveDefinition, ...]:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.curves_result
+
+
 class FakeServices:
     def __init__(self) -> None:
         self.ready = True
         self.curves = FakeCurveReader()
         self.quality = FakeQualityReader()
+        self.catalogue_reader = FakeCatalogueReader()
 
     async def is_ready(self) -> bool:
         return self.ready
 
     @asynccontextmanager
     async def open(self) -> AsyncIterator[Services]:
-        yield Services(self.is_ready, self.curves, self.quality)
+        yield Services(
+            self.is_ready,
+            self.curves,
+            self.quality,
+            CachedCatalogue(self.catalogue_reader, ttl_seconds=60),
+        )
 
 
 @pytest.fixture
@@ -500,6 +548,109 @@ def test_series_naive_as_of_is_rejected_without_calling_persistence(
 
     assert response.status_code == 422
     assert services.curves.series_calls == []
+
+
+CATALOGUE_PATH = "/v1/curves"
+
+
+def test_returns_the_catalogue_in_the_public_envelope(client: TestClient) -> None:
+    response = client.get(CATALOGUE_PATH)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "curve_id": "ecb-aaa-spot",
+                "label": "ECB euro area AAA spot",
+                "source_id": "ecb",
+                "area": "Euro area",
+                "attribution": "Source: ECB statistics",
+                "rate_type": "spot",
+                "compounding": "continuous",
+                "unit": "percent",
+                "source_model": "Svensson",
+                "simulated": False,
+                "maturities": [
+                    {"maturity": "3M", "months": 3},
+                    {"maturity": "10Y", "months": 120},
+                ],
+            },
+            {
+                "curve_id": "ecb-aaa-spot-sim",
+                "label": "ECB euro area AAA spot (simulated)",
+                "source_id": "scenario",
+                "area": "Euro area",
+                "attribution": "Simulated scenario based on ECB statistics",
+                "rate_type": "spot",
+                "compounding": "continuous",
+                "unit": "percent",
+                "source_model": "Svensson",
+                "simulated": True,
+                "maturities": [
+                    {"maturity": "3M", "months": 3},
+                    {"maturity": "10Y", "months": 120},
+                ],
+            },
+        ]
+    }
+
+
+def test_catalogue_carries_an_etag_and_reference_cache_control(client: TestClient) -> None:
+    first = client.get(CATALOGUE_PATH)
+    assert first.status_code == 200
+    assert re.fullmatch(r'"[0-9a-f]{32}"', first.headers["etag"])
+    assert first.headers["cache-control"] == "public, max-age=300"
+
+    second = client.get(CATALOGUE_PATH, headers={"If-None-Match": first.headers["etag"]})
+
+    assert second.status_code == 304
+    assert second.headers["cache-control"] == "public, max-age=300"
+
+
+def test_catalogue_unavailable_is_a_503_problem(client: TestClient, services: FakeServices) -> None:
+    services.catalogue_reader.error = PersistenceUnavailableError()
+
+    response = client.get(CATALOGUE_PATH)
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Service unavailable"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/curves/ecb-aaa-spot/observations",
+        "/v1/curves/ecb-aaa-spot/maturities/10Y/observations",
+        "/v1/curves/ecb-aaa-spot/maturities/10Y/observations/2026-03-12/versions",
+        "/v1/curves/ecb-aaa-spot/changes",
+        "/v1/curves/ecb-aaa-spot/quality",
+    ],
+)
+def test_attribution_comes_from_the_catalogue(
+    client: TestClient, services: FakeServices, path: str
+) -> None:
+    services.catalogue_reader.curves_result = tuple(
+        replace(curve, attribution="Source: test catalogue")
+        if curve.curve_id == "ecb-aaa-spot"
+        else curve
+        for curve in services.catalogue_reader.curves_result
+    )
+    params = {"from": "2026-03-12", "to": "2026-03-14", "since": SINCE.isoformat()}
+
+    response = client.get(path, params=params)
+
+    assert response.status_code == 200
+    assert response.json()["meta"]["source_attribution"] == "Source: test catalogue"
+
+
+def test_the_catalogue_is_read_once_for_many_requests(
+    client: TestClient, services: FakeServices
+) -> None:
+    client.get(CURVE_PATH)
+    client.get(SERIES_PATH)
+
+    assert services.catalogue_reader.calls == 1
 
 
 def test_curve_response_carries_an_etag(client: TestClient) -> None:
@@ -880,13 +1031,14 @@ def test_simulated_curve_answers_carry_the_simulated_note(client: TestClient, pa
     )
 
 
-def test_a_curve_without_attribution_is_not_found(client: TestClient) -> None:
+def test_an_unknown_curve_is_not_found(client: TestClient, services: FakeServices) -> None:
     response = client.get("/v1/curves/unknown/observations")
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Not found"
     assert response.json()["detail"] == "no curve named unknown"
+    assert services.curves.calls == []
 
 
 def test_a_flagged_value_carries_its_status_and_flags(
@@ -1008,8 +1160,6 @@ def test_quality_answers_304_when_etag_matches(client: TestClient) -> None:
 
 
 def test_an_unknown_curve_is_404(client: TestClient, services: FakeServices) -> None:
-    services.quality.days_error = CurveNotFoundError("no curve named unknown")
-
     response = client.get(
         "/v1/curves/unknown/quality",
         params={"from": "2026-03-12", "to": "2026-03-14"},
@@ -1017,6 +1167,7 @@ def test_an_unknown_curve_is_404(client: TestClient, services: FakeServices) -> 
 
     assert response.status_code == 404
     assert response.json()["detail"] == "no curve named unknown"
+    assert services.quality.days_calls == []
 
 
 UNEXPECTED_TRACE_ID = 0x0AF7651916CD43DD8448EB211C80319C

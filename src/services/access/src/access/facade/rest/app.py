@@ -1,4 +1,4 @@
-"""REST facade (``api`` process type): the public read API plus liveness and readiness."""
+"""REST facade (``api`` process type): the public read API, the catalogue, liveness, readiness."""
 
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from pydantic import AwareDatetime
 
+from access.application.catalogue import CachedCatalogue
 from access.application.ports import CurveReader, QualityReader
 from access.domain.curve import (
     CurveNotFoundError,
@@ -25,12 +26,13 @@ from access.domain.curve import (
 from access.domain.quality import quality_is_complete
 from access.facade.mapping import (
     to_changes_response,
+    to_curves_response,
     to_quality_days_response,
     to_response,
     to_series_response,
     to_versions_response,
 )
-from access.facade.rest.caching import NO_CACHE, cache_control, json_with_etag
+from access.facade.rest.caching import CATALOGUE, NO_CACHE, cache_control, json_with_etag
 
 PROBLEM_JSON = "application/problem+json"
 UNAVAILABLE_DETAIL = "The curve store is not reachable; try again later."
@@ -48,6 +50,7 @@ class Services:
     is_ready: Callable[[], Awaitable[bool]]
     curves: CurveReader
     quality: QualityReader
+    catalogue: CachedCatalogue
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -84,6 +87,22 @@ ServicesDependency = Annotated[Services, Depends(_services)]
 
 def _add_routes(app: FastAPI) -> None:
     @app.get(
+        v1.CURVES_PATH,
+        response_model=v1.CurvesResponse,
+        responses={
+            status.HTTP_304_NOT_MODIFIED: {"description": NOT_MODIFIED},
+            status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
+        },
+    )
+    async def curve_catalogue(request: Request, services: ServicesDependency) -> Response:
+        """The curve catalogue: every curve with its source, conventions, attribution and grid."""
+        return json_with_etag(
+            request,
+            to_curves_response(await services.catalogue.curves()),
+            cache_control=CATALOGUE,
+        )
+
+    @app.get(
         v1.CURVE_OBSERVATIONS_PATH,
         response_model=v1.CurveObservationsResponse,
         responses={
@@ -105,6 +124,7 @@ def _add_routes(app: FastAPI) -> None:
         Without ``valid_date`` or ``as_of`` the store picks its defaults; the answer
         reports the knowledge time it used in ``meta.as_of``.
         """
+        attribution = await services.catalogue.attribution(curve_id)
         curve = await services.curves.curve_as_of(curve_id, valid_date, as_of)
         known = await services.quality.value_quality(
             curve_id, curve.valid_date, curve.valid_date, None, curve.as_of
@@ -113,7 +133,7 @@ def _add_routes(app: FastAPI) -> None:
         complete = quality_is_complete(version_ids, known)
         return json_with_etag(
             request,
-            to_response(curve, known=known),
+            to_response(curve, known=known, attribution=attribution),
             cache_control=cache_control(as_of, curve.as_of, complete=complete),
         )
 
@@ -141,6 +161,7 @@ def _add_routes(app: FastAPI) -> None:
         Without ``from``, ``to`` or ``as_of`` the store picks its defaults; the answer
         reports the knowledge time it used in ``meta.as_of``.
         """
+        attribution = await services.catalogue.attribution(curve_id)
         series = await services.curves.series_as_of(curve_id, maturity, valid_from, valid_to, as_of)
         if series.points:
             dates = [point.valid_date for point in series.points]
@@ -154,7 +175,7 @@ def _add_routes(app: FastAPI) -> None:
             complete = True
         return json_with_etag(
             request,
-            to_series_response(series, known=known),
+            to_series_response(series, known=known, attribution=attribution),
             cache_control=cache_control(as_of, series.as_of, complete=complete),
         )
 
@@ -182,10 +203,11 @@ def _add_routes(app: FastAPI) -> None:
         Without ``as_of`` the store picks its default; the answer reports the knowledge
         time it used in ``meta.as_of``.
         """
+        attribution = await services.catalogue.attribution(curve_id)
         versions = await services.curves.value_versions(curve_id, maturity, valid_date, as_of)
         return json_with_etag(
             request,
-            to_versions_response(versions),
+            to_versions_response(versions, attribution=attribution),
             cache_control=cache_control(as_of, versions.as_of),
         )
 
@@ -214,10 +236,11 @@ def _add_routes(app: FastAPI) -> None:
         ``old_value`` is null when the value was not known at ``since``. Without ``as_of``
         the store picks its default; the answer reports both knowledge times in ``meta``.
         """
+        attribution = await services.catalogue.attribution(curve_id)
         changes = await services.curves.changes(curve_id, valid_from, valid_to, since, as_of)
         return json_with_etag(
             request,
-            to_changes_response(changes),
+            to_changes_response(changes, attribution=attribution),
             cache_control=cache_control(as_of, changes.as_of),
         )
 
@@ -244,10 +267,11 @@ def _add_routes(app: FastAPI) -> None:
         ``from`` and ``to`` bound the valid-date range (inclusive). Without ``as_of`` processing
         picks its default; the answer reports the knowledge time it used in ``meta.as_of``.
         """
+        attribution = await services.catalogue.attribution(curve_id)
         days = await services.quality.quality_days(curve_id, valid_from, valid_to, as_of)
         return json_with_etag(
             request,
-            to_quality_days_response(days),
+            to_quality_days_response(days, attribution=attribution),
             cache_control=NO_CACHE,
         )
 
