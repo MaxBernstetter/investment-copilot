@@ -122,3 +122,14 @@ def test_api_settings_need_no_persistence_url(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("INGESTION_DB__PASSWORD", "api-secret")
 
     ApiSettings()
+
+
+def test_for_source_returns_the_slot_of_the_source() -> None:
+    sources = IngestionSettings().sources
+
+    assert sources.for_source("ecb") == sources.ecb
+
+
+def test_for_source_rejects_an_unknown_source() -> None:
+    with pytest.raises(ValueError, match="unknown source 'nope'"):
+        IngestionSettings().sources.for_source("nope")

@@ -2,7 +2,7 @@
 
 The first vertical slice of ingestion: it loads the ECB euro area AAA and all-issuer spot curves (11 grid tenors, 3M–30Y each) into the bitemporal core, for one valid date with a lookback window, or for a history range. The source itself is described in [[01-data-sources]]; every call goes through the [[02-source-client]].
 
-Tracked in [#14](https://github.com/MaxBernstetter/yield-lens/issues/14). Code: `src/services/ingestion/src/ingestion/`.
+Tracked in [#14](https://github.com/MaxBernstetter/yield-lens/issues/14). Code: `src/services/ingestion/src/ingestion/`; the job is `facade/jobs/load.py` (command line) and `job.py` (`load_source("ecb")`, the entry point `ingestion-load-ecb`), and the source wiring is `sources.py`. The job is per source: `ingestion-load-<source>`, with ECB as the shipped source. Adding a source is a settings slot, a `SOURCES` entry and a console script line.
 
 ## Flow
 
@@ -38,7 +38,7 @@ ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-messag
 | `history` | 1 per calendar year | Each year clipped to `start`…`end`; the full history is 23 requests |
 | `replay` | 0 | The deliveries stored in `ING` that were fetched on these days (UTC), see [[04-raw-deliveries#Replay]] |
 
-- **Run id:** defaults to a deterministic value (`ecb-daily-<date>`, `ecb-history-<start>-<end>`, `ecb-replay-<from>-<to>`), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
+- **Run id:** defaults to a deterministic value `<source>-daily-<date>`, `<source>-history-<start>-<end>`, `<source>-replay-<from>-<to>` (for ECB: `ecb-daily-<date>` and so on), so a rerun of the same load reuses it. The daily DAG passes its own, `daily_load_ecb-<valid date>` (see [[04-daily-schedule]]).
 - **Output:** one JSON line on stdout (`load_finished`, `run_id`, `attempt`, per window its `delivery_id`, delivered (and `delivered_by_curve`), recorded and unchanged counts, `known_from` per batch, the source's `Last-Modified`). `replay` prints `replay_finished` with the counts per delivery. A failure is one JSON line on stderr (`load_failed`, error type and message). The summary and failure lines carry `trace_id` and `span_id` of the run's root span `ingestion-load-ecb` (`run_id`, `operation`, `source`, `attempt`). Log lines inside a span carry the same ids.
 - **Exit status:** `0` the load finished, also with zero rows; `1` the load failed (kill switch, request failed, delivery not stored, payload invalid, write rejected); `2` usage or configuration error.
 - **Locally:** `devbox run -- task ingestion:load:ecb:daily VALID_DATE=2026-10-15` or `task ingestion:load:ecb:history START=… END=…` against a running persistence api (`task persistence:run`). These call the live ECB API: manual use only, never in CI.
@@ -49,7 +49,7 @@ Besides the source settings of the [[02-source-client#Configuration|source clien
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS` | `10` | Business days before the valid date that a daily load re-fetches (≥ 0) |
+| `INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS` | `10` | Business days before the valid date that a daily load re-fetches (≥ 0). Per-source settings are `INGESTION_SOURCES__<SOURCE>__…`; the ECB slot is shown |
 | `INGESTION_PERSISTENCE__URL` | – (required) | Base URL of the persistence api, e.g. `http://localhost:8001` (the Taskfile sets this local default) |
 | `INGESTION_PERSISTENCE__TIMEOUT_SECONDS` | `30` | Timeout per write request |
 | `INGESTION_DB__DSN` | – (required) | Oracle DSN of the `ING` schema, e.g. `localhost:1521/FREEPDB1` (Taskfile local default) |
@@ -119,7 +119,9 @@ Both are a successful run with zero rows, are stored as a delivery without paylo
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store): request shape (one request for both curves), raw delivery kept byte for byte and named by every value, one delivery feeding both curves, `delivered_by_curve` per window, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors, run history per attempt |
+| `tests/unit/test_load_ecb_job.py` | The job end to end inside ingestion (with an in-memory delivery store), and the ECB job keeps its name in span and output: request shape (one request for both curves), raw delivery kept byte for byte and named by every value, one delivery feeding both curves, `delivered_by_curve` per window, 11 tenors per date with provenance, unchanged values, knowledge time, empty answers, history per year, malformed payload, rejected write, kill switch, configuration and usage errors, run history per attempt |
+| `tests/unit/test_load_command.py` | The command line for any source (pure facade): job name `ingestion-load-<source>`, run ids (ECB values unchanged, other sources carry their id), parser prog, JSON summaries name their source with the key order kept, root span attributes |
+| `tests/unit/test_sources.py` | The ECB is wired; every wired source has a settings slot; an unknown source is a `ValueError` |
 | `tests/unit/infrastructure/ecb/test_payload.py` | The declared schema against the recorded payloads (AAA only and both curves) and a set of broken ones; AAA maps as before, `G_N_C` to `ecb-all-spot`, the same tenor and date of both instruments are two observations |
 | `tests/unit/infrastructure/persistence/test_client.py` | Contract requests, batching at 10 000, unchanged values, responses with and without `unchanged_count`, bounded `409` retry, other rejected writes |
 | `tests/unit/infrastructure/ecb/test_source.py` | The no-data answer; a delivered answer keeps body, status, URL and `ETag`; `404`, `304` and an empty `200` are deliveries without payload |

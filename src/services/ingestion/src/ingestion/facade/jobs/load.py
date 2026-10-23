@@ -1,4 +1,6 @@
-"""Command line of the ECB load job: arguments in, a JSON run summary out.
+"""Command line of the source load jobs: arguments in, a JSON run summary out.
+
+The job is ``ingestion-load-<source>``; ``ecb`` is the shipped example:
 
     ingestion-load-ecb daily --valid-date 2026-10-15 [--run-id ID]
     ingestion-load-ecb history --start 2004-09-06 --end 2026-10-16 [--run-id ID]
@@ -6,7 +8,7 @@
     ingestion-load-ecb fail-unfinished --run-id ID --error-type TYPE [--error-message TEXT]
 
 ``daily`` loads the valid date and the lookback window before it
-(``INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS``). ``history`` loads a range with
+(``INGESTION_SOURCES__<SOURCE>__LOOKBACK_BUSINESS_DAYS``). ``history`` loads a range with
 one request per calendar year. ``replay`` parses the deliveries stored in ``ING`` that
 were fetched on those days (UTC) again and records their values, without calling the
 ECB. ``fail-unfinished`` marks the attempts of a run id that are still running as failed;
@@ -51,18 +53,27 @@ class FailUnfinishedCommand:
     error_message: str | None
 
 
+def job_name(source_id: str) -> str:
+    """The name of the job's console script, root span and program: ``ingestion-load-<id>``."""
+    return f"ingestion-load-{source_id}"
+
+
 def parse_command(
-    argv: Sequence[str] | None, *, lookback_business_days: int
+    argv: Sequence[str] | None,
+    *,
+    source_id: str,
+    description: str,
+    lookback_business_days: int,
 ) -> LoadCommand | ReplayCommand | FailUnfinishedCommand:
     """Parse the arguments; exits with status 2 on a usage error (argparse)."""
-    parser = _parser()
+    parser = _parser(source_id, description)
     arguments = parser.parse_args(argv)
     if arguments.command == "daily":
         valid_date: date = arguments.valid_date
         window = lookback_window(valid_date, lookback_business_days)
         return LoadCommand(
             (window,),
-            arguments.run_id or f"ecb-daily-{valid_date}",
+            arguments.run_id or f"{source_id}-daily-{valid_date}",
             Operation.DAILY,
         )
     if arguments.command == "replay":
@@ -70,7 +81,7 @@ def parse_command(
         fetched_to: date = arguments.fetched_to
         if fetched_from > fetched_to:
             parser.error(f"--fetched-from {fetched_from} is after --fetched-to {fetched_to}")
-        run_id = arguments.run_id or f"ecb-replay-{fetched_from}-{fetched_to}"
+        run_id = arguments.run_id or f"{source_id}-replay-{fetched_from}-{fetched_to}"
         return ReplayCommand(fetched_from, fetched_to, run_id)
     if arguments.command == "fail-unfinished":
         return FailUnfinishedCommand(
@@ -83,13 +94,13 @@ def parse_command(
     windows = yearly_windows(DateWindow(start, end))
     return LoadCommand(
         tuple(windows),
-        arguments.run_id or f"ecb-history-{start}-{end}",
+        arguments.run_id or f"{source_id}-history-{start}-{end}",
         Operation.HISTORY,
     )
 
 
 def root_span_attributes(
-    command: LoadCommand | ReplayCommand | FailUnfinishedCommand,
+    command: LoadCommand | ReplayCommand | FailUnfinishedCommand, source_id: str
 ) -> dict[str, str]:
     """Attributes of the root span of a job run: the run, its source and its operation."""
     if isinstance(command, LoadCommand):
@@ -98,15 +109,15 @@ def root_span_attributes(
         operation = Operation.REPLAY.value
     else:
         operation = "fail-unfinished"
-    return {"run_id": command.run_id, "source": "ecb", "operation": operation}
+    return {"run_id": command.run_id, "source": source_id, "operation": operation}
 
 
-def summary(result: LoadResult, trace: Mapping[str, str]) -> str:
+def summary(source_id: str, result: LoadResult, trace: Mapping[str, str]) -> str:
     """One JSON line describing the finished run, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "load_finished",
-            "source": "ecb",
+            "source": source_id,
             "run_id": result.run_id,
             "attempt": result.attempt,
             "delivered_count": result.delivered_count,
@@ -133,12 +144,12 @@ def summary(result: LoadResult, trace: Mapping[str, str]) -> str:
     )
 
 
-def replay_summary(result: ReplayResult, trace: Mapping[str, str]) -> str:
+def replay_summary(source_id: str, result: ReplayResult, trace: Mapping[str, str]) -> str:
     """One JSON line describing the finished replay, with the trace ids of its root span."""
     return json.dumps(
         {
             "event": "replay_finished",
-            "source": "ecb",
+            "source": source_id,
             "run_id": result.run_id,
             "attempt": result.attempt,
             "delivered_count": result.delivered_count,
@@ -158,13 +169,15 @@ def replay_summary(result: ReplayResult, trace: Mapping[str, str]) -> str:
     )
 
 
-def unfinished_summary(run_id: str, failed_count: int, trace: Mapping[str, str]) -> str:
+def unfinished_summary(
+    source_id: str, run_id: str, failed_count: int, trace: Mapping[str, str]
+) -> str:
     """One JSON line describing the attempts that were marked failed, with the trace ids of
     its root span."""
     return json.dumps(
         {
             "event": "unfinished_failed",
-            "source": "ecb",
+            "source": source_id,
             "run_id": run_id,
             "failed_count": failed_count,
             **trace,
@@ -172,13 +185,13 @@ def unfinished_summary(run_id: str, failed_count: int, trace: Mapping[str, str])
     )
 
 
-def failure(run_id: str | None, error: Exception, trace: Mapping[str, str]) -> str:
+def failure(source_id: str, run_id: str | None, error: Exception, trace: Mapping[str, str]) -> str:
     """One JSON line describing a failed run, with the trace ids of its root span (none
     before the span exists, e.g. on a configuration error)."""
     return json.dumps(
         {
             "event": "load_failed",
-            "source": "ecb",
+            "source": source_id,
             "run_id": run_id,
             "error": type(error).__name__,
             "message": str(error),
@@ -187,13 +200,8 @@ def failure(run_id: str | None, error: Exception, trace: Mapping[str, str]) -> s
     )
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="ingestion-load-ecb",
-        description=(
-            "Load the ECB euro area spot curves (AAA and all issuers) into the bitemporal core."
-        ),
-    )
+def _parser(source_id: str, description: str) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog=job_name(source_id), description=description)
     commands = parser.add_subparsers(dest="command", required=True)
     daily = commands.add_parser("daily", help="one valid date plus its lookback window")
     daily.add_argument("--valid-date", type=date.fromisoformat, required=True)
