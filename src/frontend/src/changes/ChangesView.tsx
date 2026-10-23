@@ -20,7 +20,7 @@ import { reasonBadgeProps } from '../theme'
 import { defaultRange } from '../series/seriesData'
 import ChangesEmptyState from './ChangesEmptyState'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
-import { toChangeRows } from './changesData'
+import { defaultSinceInput, toChangeRows } from './changesData'
 
 type ChangesViewProps = {
   curveId: string
@@ -33,7 +33,7 @@ const COMPARE_FROM_TOOLTIP =
 
 export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
   const [range, setRange] = useState(() => defaultRange(new Date()))
-  const [sinceInput, setSinceInput] = useState('')
+  const [sinceInput, setSinceInput] = useState(() => defaultSinceInput(new Date(), asOf))
   const [result, setResult] = useState<ChangesResult | undefined>(undefined)
 
   const since = sinceInput ? localInputToUtc(sinceInput) : undefined

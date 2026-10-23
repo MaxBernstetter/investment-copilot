@@ -1,4 +1,5 @@
 import type { components } from '../api/schema'
+import { utcToLocalInput } from '../asOf'
 import { formatBp, formatUtc, formatYield } from '../format'
 
 export type ValueChange = components['schemas']['ValueChange']
@@ -31,4 +32,17 @@ export function toChangeRows(changes: ValueChange[]): ChangeRow[] {
     source: change.source_id ?? EMPTY,
     knownFrom: formatUtc(change.known_from),
   }))
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * The prefilled "Compare from" (a `datetime-local` value): one week before the knowledge time the
+ * views show, so the table lists what the platform learned in the last week.
+ */
+export function defaultSinceInput(now: Date, asOf?: string): string {
+  const shown = asOf === undefined ? now : new Date(asOf)
+  const week = new Date(shown.getTime() - WEEK_MS)
+  week.setSeconds(0, 0)
+  return utcToLocalInput(week.toISOString())
 }
