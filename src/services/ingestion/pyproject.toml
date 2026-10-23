@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 ingestion-load-ecb = "ingestion.job:main"
+ingestion-load-ust = "ingestion.job:load_ust"
 ingestion-scenario = "ingestion.job:run_scenario"
 ingestion-openapi = "ingestion.facade.rest.openapi:main"
 

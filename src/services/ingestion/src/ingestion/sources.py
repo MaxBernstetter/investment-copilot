@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import httpx
+from opentelemetry.metrics import Meter
 
 from ingestion.application.load_published_curve import CurveSource
 from ingestion.domain.delivery import RawDelivery
@@ -17,6 +18,9 @@ from ingestion.infrastructure.ecb import EcbSpotCurveSource
 from ingestion.infrastructure.ecb import is_no_data as ecb_is_no_data
 from ingestion.infrastructure.ecb import parse_delivery as ecb_parse_delivery
 from ingestion.infrastructure.http import SourceClient
+from ingestion.infrastructure.ust import UstParCurveSource
+from ingestion.infrastructure.ust import is_no_data as ust_is_no_data
+from ingestion.infrastructure.ust import parse_delivery as ust_parse_delivery
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,7 +30,8 @@ class SourceWiring:
     source_id: str
     description: str
     """The argparse description of the job's command line."""
-    make_curve_source: Callable[[SourceClient], CurveSource]
+    make_curve_source: Callable[[SourceClient, Meter], CurveSource]
+    """The source client and the job's meter (for the adapter's own counters)."""
     parse_delivery: Callable[[RawDelivery], list[PublishedObservation]]
     is_no_data: Callable[[httpx.Response], bool]
 
@@ -40,6 +45,13 @@ SOURCES: Mapping[str, SourceWiring] = {
         make_curve_source=EcbSpotCurveSource,
         parse_delivery=ecb_parse_delivery,
         is_no_data=ecb_is_no_data,
+    ),
+    "ust": SourceWiring(
+        source_id="ust",
+        description="Load the US Treasury daily par yield curve into the bitemporal core.",
+        make_curve_source=UstParCurveSource,
+        parse_delivery=ust_parse_delivery,
+        is_no_data=ust_is_no_data,
     ),
 }
 

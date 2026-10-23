@@ -46,6 +46,10 @@ class SourcesSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     ecb: SourceSettings = SourceSettings()
+    ust: SourceSettings = SourceSettings(
+        min_interval_seconds=3.0, timeout_seconds=120.0, lookback_business_days=5
+    )
+    """Slower defaults: the Treasury server answers some yearly files in more than 10 seconds."""
 
     def for_source(self, source_id: str) -> SourceSettings:
         """The settings slot of ``source_id``; an unknown id is a ``ValueError``."""

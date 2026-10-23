@@ -7,6 +7,7 @@ per window: instruments and series are joined with ``+``.
 from email.utils import parsedate_to_datetime
 
 import httpx
+from opentelemetry.metrics import Meter
 
 from ingestion.domain.delivery import RawDelivery
 from ingestion.domain.observation import PublishedObservation
@@ -34,7 +35,9 @@ def is_no_data(response: httpx.Response) -> bool:
 class EcbSpotCurveSource:
     """Fetches one window of the grid through the polite source client, and parses it."""
 
-    def __init__(self, client: SourceClient) -> None:
+    def __init__(self, client: SourceClient, meter: Meter | None = None) -> None:
+        """``meter`` is accepted so every source factory has one shape; the ECB counts no
+        compatible schema changes."""
         self._client = client
 
     async def fetch(self, window: DateWindow) -> RawDelivery:

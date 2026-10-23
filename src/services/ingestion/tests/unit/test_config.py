@@ -26,6 +26,30 @@ def test_defaults_are_the_conservative_ecb_values() -> None:
     )
 
 
+def test_the_ust_defaults_are_slower_than_the_ecb_ones() -> None:
+    ust = IngestionSettings().sources.ust
+
+    assert ust == SourceSettings(
+        min_interval_seconds=3.0,
+        timeout_seconds=120.0,
+        lookback_business_days=5,
+    )
+
+
+def test_ust_settings_come_from_environment_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INGESTION_SOURCES__UST__ENABLED", "false")
+    monkeypatch.setenv("INGESTION_SOURCES__UST__MIN_INTERVAL_SECONDS", "4")
+    monkeypatch.setenv("INGESTION_SOURCES__UST__TIMEOUT_SECONDS", "90")
+    monkeypatch.setenv("INGESTION_SOURCES__UST__LOOKBACK_BUSINESS_DAYS", "3")
+
+    ust = IngestionSettings().sources.for_source("ust")
+
+    assert not ust.enabled
+    assert ust.min_interval_seconds == 4.0
+    assert ust.timeout_seconds == 90.0
+    assert ust.lookback_business_days == 3
+
+
 def test_source_settings_come_from_environment_variables(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INGESTION_SOURCES__ECB__ENABLED", "false")
     monkeypatch.setenv("INGESTION_SOURCES__ECB__MAX_CONCURRENT_REQUESTS", "2")
@@ -88,6 +112,7 @@ def test_the_ing_database_is_required(monkeypatch: pytest.MonkeyPatch, name: str
         ("INGESTION_SOURCES__ECB__MAX_CONCURRENT_REQUESTS", "0"),
         ("INGESTION_SOURCES__ECB__MIN_INTERVAL", "2"),
         ("INGESTION_SOURCES__UNKNOWN__ENABLED", "true"),
+        ("INGESTION_SOURCES__UST__MIN_INTERVAL", "3"),
         ("INGESTION_SOURCES__ECB__LOOKBACK_BUSINESS_DAYS", "-1"),
         ("INGESTION_PERSISTENCE__URL", "not a url"),
     ],
