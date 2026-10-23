@@ -27,12 +27,17 @@ export function formatUtc(iso: string, precision: 'seconds' | 'minutes' = 'secon
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${time}${seconds} UTC`
 }
 
+/** A change in basis points without the unit, for table cells under a "(bp)" header: `+9.0`, `−2,376.0`. */
+export function formatBpPlain(bp: number): string {
+  const rounded = Math.sign(bp) * Math.round(Math.abs(bp) * 10) / 10
+  if (rounded === 0) return '0.0'
+  const sign = rounded > 0 ? '+' : MINUS
+  return `${sign}${groupThousands(Math.abs(rounded).toFixed(1))}`
+}
+
 /** A change in basis points, signed with a true minus and one decimal: `+9.0 bp`, `−2,376.0 bp`. */
 export function formatBp(bp: number): string {
-  const rounded = Math.sign(bp) * Math.round(Math.abs(bp) * 10) / 10
-  if (rounded === 0) return '0.0 bp'
-  const sign = rounded > 0 ? '+' : MINUS
-  return `${sign}${groupThousands(Math.abs(rounded).toFixed(1))} bp`
+  return `${formatBpPlain(bp)} bp`
 }
 
 /** A yield in percent with three decimals and a narrow no-break space (\u202F) before the unit: `2.871 %`. */

@@ -58,22 +58,27 @@ The page shows the curve chosen in Curve choice below (default `ecb-aaa-spot`) o
 
 ## Time series
 
-The "Time series" view shows one maturity of the same curve (`ecb-aaa-spot`) over a range of valid dates, via `GET /v1/curves/{curve_id}/maturities/{maturity}/observations`. The layout matches the curve view: `PageHeader`, a row of `StatCard` key figures, then one card with a chart or values table.
+The "Time series" view shows one yield maturity or one measure of the same curve (`ecb-aaa-spot`) over a range of valid dates. Yields come from `GET /v1/curves/{curve_id}/maturities/{maturity}/observations`, measures from `GET /v1/curves/{curve_id}/measures`. The layout matches the curve view: `PageHeader`, a row of `StatCard` key figures, then one card with a chart or values table.
 
-- **Header:** title "Time series", subtitle "{maturity} yield over valid dates (%)", and actions for maturity and the date range.
-- **Maturity:** a select over the 11 grid tenors (3M to 30Y); it defaults to 10Y and refetches on change.
+- **Header:** title "Time series", subtitle "{maturity} yield over valid dates (%)" or "{measure} over valid dates (bp)", and actions for the series and the date range.
+- **Series:** a select labelled "Series" with two groups: "Yields" (the 11 grid tenors, 3M to 30Y) and "Measures" (2Y–10Y spread, 3M–10Y spread, 2Y–5Y–10Y curvature). It defaults to 10Y and refetches on change; the range and the as-of time carry over.
+- **Measures:** the card is titled "{measure} (bp)" with an info icon whose tooltip gives the definition (`MEASURE_HELP`, the same as the curve view). Key figures are last, min, max and change in signed bp (`formatBp`); "Last" is dated when its day is not the last returned day, and "Change over range" says "Needs two values" with fewer than two values. The chart uses 1 dp for tooltips and ticks, and a null day is a gap. Under the chart or table, a caption counts the gap days ("No value on 1 day; shown as gaps.") and the flagged days. The table has the columns "Valid date", "Value (bp)" (plain signed values, no unit, as the header carries it) and "Quality", where a null or flagged day shows its dimmed hint ("No 2Y value", "Input flagged: 10Y").
+- **Empty and errors:** a range with no values, or a measure with no non-null day, shows an `EmptyState`; a measure's empty state offers "Show 10Y yield". Offline and error answers show a titled red `Alert` with "Try again", which refetches. Until the answer for the current selection arrives, the key figures and card are skeletons, so an old series is never shown under a new title.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
 - **Key figures:** last, min and max yield (`formatYield`, 3 dp) and change over the range in basis points (`seriesStats` and `formatBp`, signed, true minus).
 - **Chart or table:** a `SegmentedControl` toggles chart and table in one card titled "{maturity} yield (%)". The chart is a linear Mantine line over valid dates (`curveType` linear, `domain: ['auto','auto']`, dots when ≤ 15 points, brush, tooltips at 3 dp, y-axis ticks at 3 dp without unit (the card title carries %), no animation, colour `CHART_COLORS[0]`, no legend). The table lists valid date and yield (%) with right-aligned 3 dp values. A dimmed caption under the chart counts the values with an info or warn flag ("Flagged: 1 value. Choose Table to see why.", plural "values", `flaggedCount`); there is none when no value is flagged. The table adds a Quality column (`ValueQualityCell`, as in the curve view) with a minimum width of 560 px, and `UncheckedNote` under it when a value is unchecked.
 - **Known as of:** the shared header status and `as_of` URL parameter, so the choice carries across all views.
-- **Errors:** as for the curve view; 404 shows "No data known for this maturity."
+- **Errors:** see Empty and errors above; 404 shows an `EmptyState` titled "No data known for this selection" (or "No data known as of {time}" with an as-of time).
 - **Navigation:** the header tabs "Curve", "Time series", "Changes" and "Quality" switch views from `sm` up; below `sm` the Burger opens the navbar with the same views. The curve view is the default.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
 
 | Path | Content |
 |---|---|
 | `src/series/SeriesView.tsx` | Time series page: header actions, stat cards, chart/table card |
-| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush |
+| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush; rows, series label and decimals as props |
+| `src/series/MeasureCard.tsx` | Measure key figures, chart or table and captions |
+| `src/series/MeasureTable.tsx` | Measure table with Value (bp) and Quality cells |
+| `src/series/measureSeries.ts` | Series choice values, measure rows, stats, gap and flagged counts |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
 | `src/series/seriesData.ts` | Maturity grid, chart rows, default range, `seriesStats` and `flaggedCount` |
 

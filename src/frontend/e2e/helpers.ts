@@ -41,7 +41,8 @@ export async function waitForCurveLoaded(page: Page) {
 
 /** Waits until the key figures have their measures (the grid is no longer aria-busy). */
 export async function waitForKeyFigures(page: Page) {
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 })
+  // Only the visible view counts: inactive tab panels stay mounted and may still show their loading cards.
+  await expect(page.locator('[aria-busy="true"]:visible')).toHaveCount(0, { timeout: 15_000 })
 }
 
 /** Inner padding of a chart card (design T2/L2): chart content keeps at least this many px from the border. */

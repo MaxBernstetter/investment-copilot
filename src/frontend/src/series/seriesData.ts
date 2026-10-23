@@ -70,3 +70,8 @@ export function seriesStats(points: SeriesPoint[]): SeriesStats {
 export function flaggedCount(points: SeriesPoint[]): number {
   return points.filter((point) => point.quality.status === 'info' || point.quality.status === 'warn').length
 }
+
+/** The dimmed caption under a chart that has flagged values; the table shows why. */
+export function flaggedCaption(count: number): string {
+  return `Flagged: ${count} ${count === 1 ? 'value' : 'values'}. Choose Table to see why.`
+}
