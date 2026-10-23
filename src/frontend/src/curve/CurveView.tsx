@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon,
   Alert,
@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Group,
-  Pill,
   SimpleGrid,
   Skeleton,
   Stack,
@@ -25,36 +24,55 @@ import UncheckedNote from '../quality/UncheckedNote'
 import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
+import OverlayEntries from './OverlayEntries'
 import {
   entryKey,
   flaggedMaturities,
   missingMaturities,
-  nextSlot,
   tenYearHint,
   yield10y,
   type LabelledCurve,
+  type OverlayEntry,
 } from './curveData'
 import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
 import { MEASURE_HELP, MEASURE_LABEL, measureHint, measureValue, type MeasurePoint } from './measuresData'
 import { validDateHelp } from './sources'
+import { MAX_OVERLAYS, type CanAdd, type OverlayState } from './useOverlay'
 
-const MAX_OVERLAYS = 5
 const HELP_10Y = 'Spot rate for a 10-year maturity on this valid date, in percent.'
+const HINT: Record<Exclude<CanAdd, 'ok'>, string> = {
+  duplicate: 'This curve and date are already in the chart.',
+  full: `The overlay holds ${MAX_OVERLAYS} curves. Remove one to add another.`,
+}
+
 type CurveViewProps = {
   curve: CurveInfo
+  /** The whole catalogue, for the labels of the overlay entries. */
+  catalogue: readonly CurveInfo[]
+  /** The pinned overlay, owned by App so it survives a curve switch. */
+  overlay: OverlayState
   /** The knowledge time shared by all views, set in the header. */
   asOf?: string
 }
 
-export default function CurveView({ curve, asOf }: CurveViewProps) {
+export default function CurveView({ curve, catalogue, overlay, asOf }: CurveViewProps) {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
-  const [overlays, setOverlays] = useState<{ date: string; slot: number }[]>([])
-  const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
+  const [overlayData, setOverlayData] = useState<{ asOf: string | undefined; results: Record<string, CurveResult> }>({
+    asOf: undefined,
+    results: {},
+  })
+  const [overlayRetry, setOverlayRetry] = useState(0)
+  const [announcement, setAnnouncement] = useState('')
   const [historyMaturity, setHistoryMaturity] = useState<string | undefined>(undefined)
   const [measures, setMeasures] = useState<{ key: string; result: MeasuresResult } | undefined>(undefined)
+  const hintId = useId()
+  const addRef = useRef<HTMLButtonElement>(null)
+  const pillsRef = useRef<HTMLUListElement>(null)
+  /** Where focus goes after a pill is removed or added: a pill's index, or the add button. A new object per request. */
+  const [focusRequest, setFocusRequest] = useState<{ target: number | 'add' } | undefined>(undefined)
 
   const measuresKey =
     result?.kind === 'ok' ? `${curve.id}|${result.curve.data.valid_date}|${result.curve.meta.as_of}` : undefined
@@ -86,52 +104,93 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
     }
   }, [curve.id, validDate, asOf])
 
+  const { entries } = overlay
+
   useEffect(() => {
     let active = true
-    Promise.all(overlays.map(({ date }) => fetchCurve({ curveId: curve.id, validDate: date, asOf }))).then(
-      (results) => {
+    for (const entry of entries) {
+      fetchCurve({ curveId: entry.curveId, validDate: entry.validDate, asOf }).then((next) => {
         if (!active) return
-        setOverlayCurves(
-          results.flatMap((next, i) =>
-            next.kind === 'ok'
-              ? [
-                  {
-                    key: entryKey({ curveId: curve.id, validDate: overlays[i].date }),
-                    label: overlays[i].date,
-                    points: next.curve.data.points,
-                    slot: overlays[i].slot,
-                  },
-                ]
-              : [],
-          ),
-        )
-      },
-    )
+        setOverlayData((current) => ({
+          asOf,
+          results: { ...(current.asOf === asOf ? current.results : {}), [entryKey(entry)]: next },
+        }))
+      })
+    }
     return () => {
       active = false
     }
-  }, [curve.id, overlays, asOf])
+  }, [entries, asOf, overlayRetry])
+
+  // Keyed on the request, so it runs after the commit that already has the updated pills.
+  useEffect(() => {
+    if (focusRequest === undefined) return
+    const { target } = focusRequest
+    if (target === 'add') addRef.current?.focus()
+    else pillsRef.current?.querySelectorAll<HTMLButtonElement>('button')[target]?.focus()
+  }, [focusRequest])
+
+  const labels = useMemo(() => new Map(catalogue.map((info) => [info.id, info.label])), [catalogue])
+  const labelOf = (curveId: string) => labels.get(curveId) ?? curveId
+  // Results from an earlier knowledge time are not shown; the effect above replaces them.
+  const overlayResults = useMemo(
+    () => (overlayData.asOf === asOf ? overlayData.results : {}),
+    [overlayData, asOf],
+  )
+  const overlayLoading = entries.some((entry) => overlayResults[entryKey(entry)] === undefined)
 
   const returnedDate = result?.kind === 'ok' ? result.curve.data.valid_date : ''
   const shownDate = validDate ?? returnedDate
-  const overlayDates = useMemo(() => overlays.map(({ date }) => date), [overlays])
-  const canAddOverlay =
-    shownDate !== '' && !overlayDates.includes(shownDate) && overlays.length < MAX_OVERLAYS
+  const shownKey = entryKey({ curveId: curve.id, validDate: returnedDate })
 
   const curves = useMemo<LabelledCurve[]>(() => {
     if (result?.kind !== 'ok') return []
-    const validDate = result.curve.data.valid_date
-    const current = {
-      key: entryKey({ curveId: curve.id, validDate }),
-      label: validDate,
+    const shownEntry = entries.find((entry) => entryKey(entry) === shownKey)
+    const overlays = entries.flatMap((entry): LabelledCurve[] => {
+      const key = entryKey(entry)
+      const loaded = overlayResults[key]
+      if (key === shownKey || loaded?.kind !== 'ok') return []
+      return [
+        {
+          key,
+          label: `${labels.get(entry.curveId) ?? entry.curveId} · ${entry.validDate}`,
+          points: loaded.curve.data.points,
+          slot: entry.slot,
+        },
+      ]
+    })
+    const shown: LabelledCurve = {
+      key: shownKey,
+      label: `${curve.label} · ${returnedDate}`,
       points: result.curve.data.points,
-      slot: 0,
+      // The shown curve keeps the colour of its entry when it is pinned too.
+      slot: shownEntry?.slot ?? 0,
     }
-    const overlays = overlayCurves.filter(
-      (overlay) => overlayDates.includes(overlay.label) && overlay.key !== current.key,
-    )
-    return [current, ...overlays]
-  }, [curve.id, result, overlayCurves, overlayDates])
+    return [shown, ...overlays]
+  }, [curve.label, entries, labels, overlayResults, result, returnedDate, shownKey])
+
+  const addEntry: OverlayEntry = { curveId: curve.id, validDate: shownDate }
+  const addState: CanAdd = shownDate === '' ? 'ok' : overlay.canAdd(addEntry)
+  const hint = result?.kind === 'ok' && addState !== 'ok' ? HINT[addState] : undefined
+
+  const seriesCount = (keys: string[]) => new Set(keys).size
+  const inChart = (count: number) => `${count} ${count === 1 ? 'curve' : 'curves'} in the chart.`
+
+  const onAdd = () => {
+    setFocusRequest({ target: entries.length })
+    overlay.add(addEntry)
+    const count = seriesCount([shownKey, ...entries.map(entryKey), entryKey(addEntry)])
+    setAnnouncement(`Added ${labelOf(curve.id)} · ${shownDate} to the overlay. ${inChart(count)}`)
+  }
+
+  const onRemove = (index: number) => {
+    const removed = entries[index]
+    const remaining = entries.filter((_, i) => i !== index)
+    setFocusRequest({ target: remaining.length === 0 ? 'add' : Math.min(index, remaining.length - 1) })
+    overlay.remove(removed)
+    const count = seriesCount([shownKey, ...remaining.map(entryKey)])
+    setAnnouncement(`Removed ${labelOf(removed.curveId)} · ${removed.validDate} from the overlay. ${inChart(count)}`)
+  }
 
   const points = result?.kind === 'ok' ? result.curve.data.points : []
   const missing = result?.kind === 'ok' ? missingMaturities(points) : []
@@ -162,13 +221,10 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
       </Group>
       <Button
         variant="default"
-        disabled={result?.kind !== 'ok' || !canAddOverlay}
-        onClick={() =>
-          setOverlays((current) => [
-            ...current,
-            { date: shownDate, slot: nextSlot([0, ...current.map((o) => o.slot)]) },
-          ])
-        }
+        ref={addRef}
+        disabled={result?.kind !== 'ok' || addState !== 'ok'}
+        aria-describedby={hint ? hintId : undefined}
+        onClick={onAdd}
       >
         Add to overlay
       </Button>
@@ -222,25 +278,19 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
               hint={measureHint(measurePoint, 'curvature_2y_5y_10y')}
             />
           </SimpleGrid>
-          <Card>
-            <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
-              <Title order={2}>{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
-              {overlays.length > 0 && (
-                <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
-                  {overlays.map(({ date }) => (
-                    <Pill
-                      key={date}
-                      component="li"
-                      withRemoveButton
-                      removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
-                      onRemove={() => setOverlays((current) => current.filter((o) => o.date !== date))}
-                    >
-                      {date}
-                    </Pill>
-                  ))}
-                </Group>
-              )}
-            </Group>
+          <Card aria-busy={overlayLoading || undefined}>
+            <Title order={2} mb="md">{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
+            {entries.length > 0 && (
+              <OverlayEntries entries={entries} labelOf={labelOf} listRef={pillsRef} onRemove={onRemove} />
+            )}
+            {hint && (
+              <Text id={hintId} size="xs" c="dimmed" mb="md">
+                {hint}
+              </Text>
+            )}
+            <VisuallyHidden aria-live="polite" aria-atomic>
+              {announcement}
+            </VisuallyHidden>
             <CurveChart curves={curves} />
             {(missing.length > 0 || flagged.length > 0) && (
               <Stack gap={4} mt="sm">
@@ -248,6 +298,28 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
                 {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
               </Stack>
             )}
+            {entries.map((entry) => {
+              const loaded = overlayResults[entryKey(entry)]
+              const name = `${labelOf(entry.curveId)} · ${entry.validDate}`
+              if (loaded === undefined || loaded.kind === 'ok') return null
+              if (loaded.kind === 'not-found') {
+                return (
+                  <Text key={entryKey(entry)} size="sm" c="dimmed" mt="sm">
+                    {`No data for ${labelOf(entry.curveId)} on ${entry.validDate}.`}
+                  </Text>
+                )
+              }
+              return (
+                <Alert key={entryKey(entry)} color="red" mt="sm" title={`Could not load ${name}`}>
+                  <Stack gap="xs" align="flex-start">
+                    <Text size="sm">Check your connection and try again.</Text>
+                    <Button variant="light" size="xs" onClick={() => setOverlayRetry((count) => count + 1)}>
+                      Try again
+                    </Button>
+                  </Stack>
+                </Alert>
+              )
+            })}
           </Card>
           <Card>
             <Title order={2} mb="md">Values</Title>

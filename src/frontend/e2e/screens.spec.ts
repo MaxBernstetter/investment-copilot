@@ -147,10 +147,54 @@ test.describe('screens §7', () => {
     await page.getByRole('button', { name: 'Add to overlay' }).click()
     await page.getByLabel(/Valid date/).fill('2026-10-14')
     await page.getByRole('button', { name: 'Add to overlay' }).click()
-    await expect(page.getByLabel('Overlaid valid dates')).toBeVisible()
+    await page.getByLabel(/Valid date/).fill('2026-10-16')
+    await expect(page.getByLabel('Overlaid curves')).toBeVisible()
     await waitForKeyFigures(page)
     await assertAxeAt(page, ['light', 'dark'])
     await checkLayout(page, ['light', 'dark'])
+  })
+
+  test('S3b overlay entry from another curve', async ({ page }) => {
+    await page.unroute('http://localhost:8000/**')
+    await installApiMocks(page, 'par')
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByLabel(/Valid date/).fill('2026-10-15')
+    await page.getByRole('button', { name: 'Add to overlay' }).click()
+    await page.getByLabel(/Valid date/).fill('2026-10-16')
+    await page.getByRole('combobox', { name: 'Curve' }).click()
+    await page.getByRole('option', { name: 'US Treasury par' }).click()
+    await expect(page).toHaveURL(/curve=ust-par/)
+    await waitForCurveLoaded(page)
+    await page.getByRole('button', { name: 'Add to overlay' }).click()
+
+    const pills = page.getByRole('list', { name: 'Overlaid curves' })
+    await expect(pills.getByRole('listitem')).toHaveText([
+      'ECB euro area AAA spot · 2026-10-15',
+      'US Treasury par · 2026-10-16',
+    ])
+    await waitForKeyFigures(page)
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S3b', ['light', 'dark'])
+    await pills.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-15 from overlay' }).click()
+    await expect(pills.getByRole('listitem')).toHaveCount(1)
+    await expect(pills.getByRole('button', { name: 'Remove US Treasury par · 2026-10-16 from overlay' })).toBeFocused()
+  })
+
+  test('S3d overlay full: five entries and the disabled add button', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    const add = page.getByRole('button', { name: 'Add to overlay' })
+    for (const date of ['2026-10-15', '2026-10-14', '2026-10-01', '2026-09-30', '2026-09-29']) {
+      await page.getByLabel(/Valid date/).fill(date)
+      await add.click()
+    }
+    await page.getByLabel(/Valid date/).fill('2026-09-28')
+    await expect(add).toBeDisabled()
+    await expect(add).toHaveAccessibleDescription('The overlay holds 5 curves. Remove one to add another.')
+    await waitForKeyFigures(page)
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S3d', ['light', 'dark'])
   })
 
   test('S4 history drawer 10Y simulated', async ({ page }) => {

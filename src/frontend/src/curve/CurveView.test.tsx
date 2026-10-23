@@ -8,9 +8,11 @@ import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchVersions } from '../versions/fetchVersions'
 import type { ValueQuality } from '../quality/qualityData'
-import { AAA, PAR, SIM } from '../test/catalogue'
+import { AAA, ALL, CATALOGUE, PAR, SIM } from '../test/catalogue'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
 import type { MeasurePoint } from './measuresData'
+import type { CurveInfo } from './fetchCurves'
+import { useOverlay } from './useOverlay'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -32,6 +34,12 @@ const mockedFetch = vi.mocked(fetchCurve)
 const mockedVersions = vi.mocked(fetchVersions)
 const mockedMeasures = vi.mocked(fetchMeasures)
 const mockedChart = vi.mocked(CurveChart)
+
+/** App's wiring: the overlay is owned above the curve view and keeps its entries across curve switches. */
+function Host({ curve, asOf, catalogue = CATALOGUE }: { curve: CurveInfo; asOf?: string; catalogue?: CurveInfo[] }) {
+  const overlay = useOverlay(catalogue)
+  return <CurveView key={curve.id} curve={curve} catalogue={catalogue} overlay={overlay} asOf={asOf} />
+}
 
 const passedQuality = { status: 'passed' as const, flags: [] }
 
@@ -121,7 +129,7 @@ afterEach(() => {
 })
 
 async function renderLoaded() {
-  const view = render(<CurveView curve={AAA} />)
+  const view = render(<Host curve={AAA} />)
   await waitFor(() => expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16'))
   return view
 }
@@ -133,12 +141,21 @@ async function waitForMeasures() {
   )
 }
 
+const ASOF = '2026-10-19T10:00:00Z'
+
 function addButton() {
   return screen.getByRole('button', { name: 'Add to overlay' })
 }
 
 function pickDate(date: string) {
   fireEvent.change(screen.getByLabelText(/Valid date/), { target: { value: date } })
+}
+
+/** The polite live region that announces overlay changes. */
+function announcement(): HTMLElement {
+  const region = document.querySelector<HTMLElement>('[aria-live="polite"]')
+  expect(region).not.toBeNull()
+  return region as HTMLElement
 }
 
 function chartLabels(): string[] {
@@ -162,14 +179,14 @@ function expectStatHint(label: string, hint: string) {
 
 describe('CurveView', () => {
   it('shows the latest curve on open', async () => {
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: undefined, asOf: undefined })
   })
 
   it('has one h1, the page title', async () => {
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
 
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     const headings = screen.getAllByRole('heading', { level: 1 })
@@ -185,13 +202,13 @@ describe('CurveView', () => {
   })
 
   it('shows the label and convention in the subtitle', async () => {
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(screen.getByText('ECB euro area AAA spot · spot rates, continuous compounding')).toBeInTheDocument()
   })
 
   it('shows the simulated label in the subtitle', async () => {
-    render(<CurveView curve={SIM} />)
+    render(<Host curve={SIM} />)
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(
       screen.getByText('ECB euro area AAA spot (scenario data) · spot rates, continuous compounding'),
@@ -199,7 +216,7 @@ describe('CurveView', () => {
   })
 
   it('names the chart card after the rate type', async () => {
-    render(<CurveView curve={PAR} />)
+    render(<Host curve={PAR} />)
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(screen.getByRole('heading', { name: 'Par curve (%)' })).toBeInTheDocument()
     expect(screen.getByText('US Treasury par · par rates, semi-annual compounding')).toBeInTheDocument()
@@ -401,13 +418,13 @@ describe('CurveView', () => {
   })
 
   it('marks missing points', async () => {
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
 
     expect(await screen.findByText('No value for: 15Y, 20Y')).toBeInTheDocument()
   })
 
   it('refetches for a picked date', async () => {
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
     const input = await screen.findByLabelText(/Valid date/)
 
     fireEvent.change(input, { target: { value: '2026-10-01' } })
@@ -418,13 +435,13 @@ describe('CurveView', () => {
   it('shows the offline state', async () => {
     mockedFetch.mockResolvedValue({ kind: 'offline' })
 
-    render(<CurveView curve={AAA} />)
+    render(<Host curve={AAA} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
   })
 
   it('passes asOf to the API', async () => {
-    render(<CurveView curve={AAA} asOf="2026-10-01T12:00:00Z" />)
+    render(<Host curve={AAA} asOf="2026-10-01T12:00:00Z" />)
 
     await waitFor(() =>
       expect(mockedFetch).toHaveBeenCalledWith({
@@ -442,7 +459,7 @@ describe('CurveView', () => {
         ? { kind: 'not-found', detail: 'no curve as of then' }
         : curveResult('2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
     )
-    render(<CurveView curve={AAA} asOf={asOf} />)
+    render(<Host curve={AAA} asOf={asOf} />)
 
     expect(await screen.findByText(`No data known as of ${formatUtc(asOf)}`)).toBeInTheDocument()
   })
@@ -455,23 +472,155 @@ describe('CurveView', () => {
     fireEvent.click(addButton())
 
     expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf: undefined })
-    const overlays = screen.getByRole('list', { name: 'Overlaid valid dates' })
+    const overlays = screen.getByRole('list', { name: 'Overlaid curves' })
     expect(within(overlays).getAllByRole('listitem')).toHaveLength(2)
-    await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01', '2026-10-16']))
+    await waitFor(() =>
+      expect(chartLabels()).toEqual(['ECB euro area AAA spot · 2026-10-01', 'ECB euro area AAA spot · 2026-10-16']),
+    )
   })
 
-  it('removes an overlaid date', async () => {
+  it('labels each pill with its curve and date', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+
+    expect(await screen.findByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' })).toBeInTheDocument()
+    expect(screen.getByText('ECB euro area AAA spot · 2026-10-16')).toBeInTheDocument()
+  })
+
+  it('removes an overlaid entry', async () => {
     await renderLoaded()
     fireEvent.click(addButton())
     pickDate('2026-10-01')
     fireEvent.click(addButton())
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove 2026-10-16' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' }))
 
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Remove 2026-10-16' })).not.toBeInTheDocument(),
+      expect(
+        screen.queryByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' }),
+      ).not.toBeInTheDocument(),
     )
-    await waitFor(() => expect(chartLabels()).toEqual(['2026-10-01']))
+    await waitFor(() => expect(chartLabels()).toEqual(['ECB euro area AAA spot · 2026-10-01']))
+  })
+
+  it('moves focus to the next pill after a removal, or to the add button after the last', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+    pickDate('2026-09-30')
+    fireEvent.click(addButton())
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' }))
+    expect(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-01 from overlay' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-09-30 from overlay' }))
+    expect(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-01 from overlay' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-01 from overlay' }))
+    await waitFor(() => expect(addButton()).toHaveFocus())
+  })
+
+  it('announces additions and removals with the chart count', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+    await waitFor(() => expect(chartLabels()).toContain('ECB euro area AAA spot · 2026-10-01'))
+
+    expect(announcement()).toHaveTextContent(
+      'Added ECB euro area AAA spot · 2026-10-01 to the overlay. 2 curves in the chart.',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' }))
+    expect(announcement()).toHaveTextContent(
+      'Removed ECB euro area AAA spot · 2026-10-16 from the overlay. 1 curve in the chart.',
+    )
+  })
+
+  it('a pinned shown date is drawn once, in its entry colour', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+
+    await waitFor(() => expect(mockedChart.mock.lastCall?.[0].curves).toHaveLength(1))
+    expect(mockedChart.mock.lastCall?.[0].curves[0].slot).toBe(1)
+    expect(mockedChart.mock.lastCall?.[0].curves[0].label).toBe('ECB euro area AAA spot · 2026-10-16')
+  })
+
+  it('explains why the add button is disabled for a pinned date', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+
+    const hint = screen.getByText('This curve and date are already in the chart.')
+    expect(addButton()).toBeDisabled()
+    expect(addButton()).toHaveAttribute('aria-describedby', hint.id)
+  })
+
+  it('keeps entries when the curve changes, and fetches them on their own curve', async () => {
+    const { rerender } = await renderLoaded()
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+
+    rerender(
+      <>
+        <Host curve={ALL} />
+      </>,
+    )
+
+    expect(await screen.findByRole('list', { name: 'Overlaid curves' })).toHaveTextContent(
+      'ECB euro area AAA spot · 2026-10-01',
+    )
+    await waitFor(() =>
+      expect(chartLabels()).toEqual(['ECB euro area all-issuer spot · 2026-10-16', 'ECB euro area AAA spot · 2026-10-01']),
+    )
+    expect(mockedFetch).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', validDate: '2026-10-01', asOf: undefined })
+  })
+
+  it('shows an alert for an entry that failed to load, and retries it', async () => {
+    const { rerender } = await renderLoaded()
+    pickDate('2026-10-01')
+    fireEvent.click(addButton())
+    pickDate('2026-10-16')
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      validDate === '2026-10-01'
+        ? { kind: 'offline' }
+        : curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
+    )
+
+    rerender(
+      <>
+        <Host curve={AAA} asOf={ASOF} />
+      </>,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load ECB euro area AAA spot · 2026-10-01')
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await waitFor(() => expect(chartLabels()).toContain('ECB euro area AAA spot · 2026-10-01'))
+  })
+
+  it('says when an entry has no data on its date', async () => {
+    const { rerender } = await renderLoaded()
+    pickDate('2026-09-01')
+    fireEvent.click(addButton())
+    pickDate('2026-10-16')
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      validDate === '2026-09-01'
+        ? { kind: 'not-found', detail: 'none' }
+        : curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
+    )
+
+    rerender(
+      <>
+        <Host curve={AAA} asOf={ASOF} />
+      </>,
+    )
+
+    expect(await screen.findByText('No data for ECB euro area AAA spot on 2026-09-01.')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('refetches overlays when asOf changes', async () => {
@@ -483,7 +632,7 @@ describe('CurveView', () => {
 
     rerender(
       <>
-        <CurveView curve={AAA} asOf={asOf} />
+        <Host curve={AAA} asOf={asOf} />
       </>,
     )
 
@@ -513,7 +662,7 @@ describe('CurveView', () => {
     )
   })
 
-  it('caps the overlay at 5 curves', async () => {
+  it('caps the overlay at 5 entries and says why the add button is disabled', async () => {
     await renderLoaded()
     const dates = ['2026-10-16', '2026-10-01', '2026-09-30', '2026-09-29', '2026-09-28']
     for (const date of dates) {
@@ -521,9 +670,11 @@ describe('CurveView', () => {
       fireEvent.click(addButton())
     }
 
-    const overlays = screen.getByRole('list', { name: 'Overlaid valid dates' })
+    const overlays = screen.getByRole('list', { name: 'Overlaid curves' })
     expect(within(overlays).getAllByRole('listitem')).toHaveLength(5)
     pickDate('2026-09-27')
     expect(addButton()).toBeDisabled()
+    const hint = screen.getByText('The overlay holds 5 curves. Remove one to add another.')
+    expect(addButton()).toHaveAttribute('aria-describedby', hint.id)
   })
 })
