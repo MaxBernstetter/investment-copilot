@@ -23,6 +23,7 @@ import PageHeader from '../layout/PageHeader'
 import { fetchQuality, type QualityResult } from './fetchQuality'
 import HowWeCheck from './HowWeCheck'
 import QualityCalendar from './QualityCalendar'
+import QualityCheckNow from './QualityCheckNow'
 import {
   defaultQualityRange,
   filterDays,
@@ -73,6 +74,13 @@ export default function QualityView({ curve, asOf }: QualityViewProps) {
     setAttempt((count) => count + 1)
   }
 
+  const checkDisabledReason =
+    error !== undefined
+      ? 'Fix the range first.'
+      : asOf !== undefined
+        ? 'Choose Now in Known as of to see a new check.'
+        : undefined
+
   const headerActions = (
     <>
       <TextInput
@@ -91,6 +99,13 @@ export default function QualityView({ curve, asOf }: QualityViewProps) {
         onChange={(event) => {
           if (event.currentTarget.value) setRange({ ...range, to: event.currentTarget.value })
         }}
+      />
+      <QualityCheckNow
+        curveId={curve.id}
+        from={range.from}
+        to={range.to}
+        disabledReason={checkDisabledReason}
+        onChecked={() => setAttempt((count) => count + 1)}
       />
     </>
   )
@@ -228,9 +243,8 @@ function QualityDays({ days, filter, onFilterChange }: QualityDaysProps) {
           ) : (
             <>
               <Text size="sm" c="dimmed">
-                Select a day for its checks. Unchecked means no check result is known yet: checks run after each
-                data load (daily in Airflow) and cannot be started from here, so the newest days stay unchecked
-                until the next load.
+                Select a day for its checks. Unchecked means no check result is known yet. Checks run after each
+                data load (daily in Airflow); Check now runs one for the range above, up to yesterday.
               </Text>
               <QualityCalendar days={days} filter={filter} />
             </>

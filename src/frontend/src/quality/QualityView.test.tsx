@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
 import { fetchQuality, type QualityResult } from './fetchQuality'
+import { fetchQualityCheck, type QualityCheckResult } from './fetchQualityCheck'
 import QualityView from './QualityView'
 import { AAA } from '../test/catalogue'
 
@@ -13,7 +14,28 @@ vi.mock('./fetchQuality', () => ({
   fetchQuality: vi.fn(),
 }))
 
+vi.mock('./fetchQualityCheck', () => ({
+  fetchQualityCheck: vi.fn(),
+}))
+
 const mockedFetch = vi.mocked(fetchQuality)
+const mockedCheck = vi.mocked(fetchQualityCheck)
+
+function checked(overrides: Partial<{ checked_as_of: string | null }> = {}): QualityCheckResult {
+  return {
+    kind: 'ok',
+    check: {
+      curve_id: 'ecb-aaa-spot',
+      run_id: 'ui-check-1',
+      checked_as_of: '2026-10-19T12:00:00Z',
+      days: 3,
+      values: 33,
+      warn_count: 1,
+      info_count: 2,
+      ...overrides,
+    },
+  }
+}
 
 const ALL_PASSED: RuleOutcome[] = [
   { rule: 'range', outcome: 'passed', finding_count: 0 },
@@ -212,10 +234,10 @@ describe('QualityView', () => {
     expect(await screen.findByText('Not checked: Jump')).toBeInTheDocument()
   })
 
-  it('explains an unchecked day and that checks cannot be started here', async () => {
+  it('explains an unchecked day and points to Check now', async () => {
     render(<QualityView curve={AAA} />)
 
-    expect(await screen.findByText(/cannot be started from here/)).toBeInTheDocument()
+    expect(await screen.findByText(/Check now runs one for the range above/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '2026-10-07, Unchecked' }))
     expect(await screen.findByText(/No check result is known for this day/)).toBeInTheDocument()
   })
@@ -293,5 +315,56 @@ describe('QualityView', () => {
 
     expect(screen.getByText('Choose a range of at most 366 days.')).toBeInTheDocument()
     expect(mockedFetch).not.toHaveBeenCalled()
+  })
+
+  it('Check now checks up to yesterday, refetches and reports the result', async () => {
+    mockedCheck.mockResolvedValue(checked())
+    render(<QualityView curve={AAA} />)
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
+    expect(mockedFetch).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check now' }))
+
+    expect(await screen.findByText(/Checked 2026-09-19 to 2026-10-18: 3 business days and 33 values, 1 warnings, 2 info flags\./)).toBeInTheDocument()
+    expect(mockedCheck).toHaveBeenCalledWith({ curveId: 'ecb-aaa-spot', from: '2026-09-19', to: '2026-10-18' })
+    expect(mockedFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('Check now says when there is nothing to check', async () => {
+    mockedCheck.mockResolvedValue(checked({ checked_as_of: null }))
+    render(<QualityView curve={AAA} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Check now' }))
+
+    expect(await screen.findByText('Nothing to check: the curve has no published values yet.')).toBeInTheDocument()
+  })
+
+  it('Check now hides the button where the deployment does not allow checks', async () => {
+    mockedCheck.mockResolvedValue({ kind: 'disabled', detail: 'Quality checks cannot be started here.' })
+    render(<QualityView curve={AAA} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Check now' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Checks cannot be started here')
+    expect(screen.queryByRole('button', { name: 'Check now' })).toBeNull()
+    expect(mockedFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('Check now shows a failed check without refetching', async () => {
+    mockedCheck.mockResolvedValue({ kind: 'offline' })
+    render(<QualityView curve={AAA} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Check now' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The YieldLens API is not reachable.')
+    expect(mockedFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('Check now waits while the range is invalid or a past knowledge time is shown', async () => {
+    const { rerender } = render(<QualityView curve={AAA} asOf="2026-10-10T00:00:00Z" />)
+    expect(await screen.findByRole('button', { name: 'Check now' })).toBeDisabled()
+    expect(screen.getByText('Choose Now in Known as of to see a new check.')).toBeInTheDocument()
+
+    rerender(<QualityView curve={AAA} />)
+    fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-09-01' } })
+    expect(screen.getByRole('button', { name: 'Check now' })).toBeDisabled()
+    expect(mockedCheck).not.toHaveBeenCalled()
   })
 })

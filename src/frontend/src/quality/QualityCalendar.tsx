@@ -85,8 +85,8 @@ function DayBadge({ day, number }: { day: QualityDay; number: number }) {
           {day.status === 'unchecked' && (
             <Text size="sm">
               No check result is known for this day at this knowledge time. Checks run after each data load (the
-              daily load in Airflow); they cannot be started from this page. A day that is not published yet stays
-              unchecked until the next load.
+              daily load in Airflow); Check now runs one for the range, up to yesterday. A day that is not
+              published yet has nothing to check.
             </Text>
           )}
           {sortFindings(day.findings).map((finding, index) => (
