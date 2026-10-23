@@ -15,7 +15,8 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - T2 Spacing: page sections `Stack gap="lg"`; inside cards `gap="md"`; label↔value `gap={4}`; page header `mb="lg"`.
 - T3 Radius `md` everywhere; badges `sm`. Shadows: none. Cards separate by border + page background (gray.0 / dark.8).
 - T4 Colour roles: primary blue.8 (links, primary buttons, active nav). Text: default / `c="dimmed"` only.
-  Amended 2026-10-23 (#282): light-mode subtle primary buttons and links (e.g. the Values table History link) use **blue.9**, not blue.8.
+  Amended 2026-10-23 (#282): light-mode subtle primary buttons (e.g. the Values table History button) use **blue.9**, not blue.8.
+  Primary filled buttons and active nav stay blue.8.
   Reason: blue.8 is 4.23:1 on the gray.1 table row hover, below AA, and the theme cannot target ancestor hover (ADR 0018).
   Contrast: blue.9 on white 6.09:1, on gray.0 5.77:1 (page background), on gray.1 row hover 5.13:1; hover background blue.0 gives blue.9 5.48:1.
   Dark mode keeps its own shade.
