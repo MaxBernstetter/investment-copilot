@@ -135,7 +135,7 @@ class OracleObservationRepository:
         return [
             CurvePoint(
                 maturity=maturity,
-                months=int(months),
+                months=float(months),
                 value=float(value) if value is not None else None,
                 version_id=int(version_id) if version_id is not None else None,
             )
@@ -326,7 +326,7 @@ def _curve_definition(rows: list[Any]) -> CurveDefinition:
         source_model=source_model,
         simulated=simulated == "Y",
         maturities=tuple(
-            GridMaturity(maturity=maturity, months=int(months)) for *_, maturity, months in rows
+            GridMaturity(maturity=maturity, months=float(months)) for *_, maturity, months in rows
         ),
     )
 

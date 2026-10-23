@@ -284,3 +284,32 @@ async def test_curves_list_the_ecb_curve_with_its_grid(
             GridMaturity("30Y", 360),
         ),
     )
+
+
+async def test_curves_keep_fractional_months_of_grid_2(
+    oracle: OracleDatabase, repository: OracleObservationRepository
+) -> None:
+    curve_id = "it-bill-curve"
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "insert into curve (curve_id, grid_version, rate_type, compounding, unit,"
+            " label, source_id, area, attribution)"
+            " values (:curve_id, 2, 'spot', 'continuous', 'percent',"
+            " 'IT bill curve', 'ecb', 'Test area', 'Test attribution')",
+            curve_id=curve_id,
+        )
+        connection.commit()
+    try:
+        curves = await repository.curves()
+
+        bill = next(curve for curve in curves if curve.curve_id == curve_id)
+        assert bill.maturities[:3] == (
+            GridMaturity("1M", 1.0),
+            GridMaturity("1.5M", 1.5),
+            GridMaturity("2M", 2.0),
+        )
+        assert len(bill.maturities) == 15
+    finally:
+        with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+            cursor.execute("delete from curve where curve_id = :curve_id", curve_id=curve_id)
+            connection.commit()

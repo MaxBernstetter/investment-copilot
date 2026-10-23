@@ -170,5 +170,17 @@ create or replace package ut_core_observation as
 
   --%test(Curves are ordered by curve id, then by months)
   procedure curves_are_ordered_by_curve_and_months;
+
+  --%test(Grid 2 is grid 1 plus 1M, 1.5M, 2M and 4M, with fractional months kept)
+  procedure grid_two_adds_the_short_tenors;
+
+  --%test(Has maturity knows the short tenors of grid 2 only)
+  procedure has_maturity_knows_the_short_tenors;
+
+  --%test(As-of orders the short tenors by months)
+  procedure as_of_orders_the_short_tenors_by_months;
+
+  --%test(Curves list the fractional months of a grid 2 curve)
+  procedure curves_list_fractional_months;
 end ut_core_observation;
 /

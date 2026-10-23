@@ -302,3 +302,42 @@ def test_access_measures_meta_requires_source_attribution() -> None:
 
     with pytest.raises(ValidationError):
         v1.MeasuresResponse.model_validate(body)
+
+
+def test_grid_maturity_accepts_fractional_months() -> None:
+    assert v1.GridMaturity(maturity="1.5M", months=1.5).months == 1.5
+
+    with pytest.raises(ValidationError):
+        v1.GridMaturity(maturity="1M", months=0)
+
+
+def test_curve_point_accepts_fractional_months() -> None:
+    point = v1.CurvePoint(
+        maturity="1.5M", months=1.5, value=4.3, version_id=1, origin="published", quality=None
+    )
+
+    assert point.months == 1.5
+
+
+def test_curves_response_accepts_increasing_fractional_months() -> None:
+    body = catalogue_response()
+    body["data"][0]["maturities"] = [
+        {"maturity": "1M", "months": 1},
+        {"maturity": "1.5M", "months": 1.5},
+        {"maturity": "2M", "months": 2},
+    ]
+
+    curves = v1.CurvesResponse.model_validate(body)
+
+    assert [maturity.months for maturity in curves.data[0].maturities] == [1, 1.5, 2]
+
+
+def test_curves_response_rejects_equal_months() -> None:
+    body = catalogue_response()
+    body["data"][0]["maturities"] = [
+        {"maturity": "1M", "months": 1},
+        {"maturity": "1.5M", "months": 1},
+    ]
+
+    with pytest.raises(ValidationError, match="ordered by months"):
+        v1.CurvesResponse.model_validate(body)

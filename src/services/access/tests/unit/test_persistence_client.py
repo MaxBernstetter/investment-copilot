@@ -573,6 +573,29 @@ async def test_reads_the_catalogue() -> None:
     )
 
 
+async def test_reads_fractional_months_of_a_short_tenor() -> None:
+    body = {
+        "data": [
+            {
+                **CATALOGUE_BODY["data"][0],
+                "maturities": [
+                    {"maturity": "1M", "months": 1},
+                    {"maturity": "1.5M", "months": 1.5},
+                ],
+            }
+        ]
+    }
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=body)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        (curve,) = await client.curves()
+
+    assert curve.maturities == (GridMaturity("1M", 1), GridMaturity("1.5M", 1.5))
+    assert curve.maturities[1].months == 1.5
+
+
 async def test_catalogue_server_error_is_unavailable() -> None:
     def answer(_: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="boom")

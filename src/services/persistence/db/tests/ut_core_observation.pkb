@@ -3,6 +3,7 @@ create or replace package body ut_core_observation as
   c_curve      constant varchar2(64) := 'ut-curve';
   c_other      constant varchar2(64) := 'ut-other-curve';
   c_simulated  constant varchar2(64) := 'ut-simulated-curve';
+  c_bill_curve constant varchar2(64) := 'ut-bill-curve';
   c_known_from constant timestamp := timestamp '2026-03-12 18:00:00';
   c_revised_at constant timestamp := timestamp '2026-03-13 18:00:00';
   c_later      constant timestamp := timestamp '2026-03-14 18:00:00';
@@ -69,7 +70,7 @@ create or replace package body ut_core_observation as
     return l_rows;
   end catalogue;
 
-  -- The test curves live on grid version 1, and the knowledge clock starts at
+  -- The test curves live on grid version 1 (the bill curve on grid version 2), and the knowledge clock starts at
   -- 1970 so that tests can pass the fixed knowledge times above. utPLSQL rolls
   -- both back after the suite, and each test's own writes are rolled back.
   procedure define_test_curves is
@@ -87,6 +88,10 @@ create or replace package body ut_core_observation as
                        label, source_id, area, attribution)
     values (c_simulated, 1, 'spot', 'continuous', 'percent', 'Y',
             'UT simulated curve', 'scenario', 'Test area', 'Test simulated attribution');
+    insert into curve (curve_id, grid_version, rate_type, compounding, unit,
+                       label, source_id, area, attribution)
+    values (c_bill_curve, 2, 'spot', 'continuous', 'percent',
+            'UT bill curve', 'ecb', 'Test area', 'Test attribution');
   end define_test_curves;
 
   function version(
@@ -1088,6 +1093,63 @@ create or replace package body ut_core_observation as
     end loop;
     ut.expect(l_ordered).to_be_true();
   end curves_are_ordered_by_curve_and_months;
+
+  procedure grid_two_adds_the_short_tenors is
+    l_maturities varchar2(4000);
+    l_months     number;
+    l_grid_one   number;
+    l_grid_two   number;
+  begin
+    select listagg(maturity, ',') within group (order by months)
+      into l_maturities
+      from grid_maturity
+     where grid_version = 2;
+    ut.expect(l_maturities).to_equal(
+      '1M,1.5M,2M,3M,4M,6M,1Y,2Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y'
+    );
+
+    select count(*) into l_grid_one from grid_maturity where grid_version = 1;
+    select count(*) into l_grid_two from grid_maturity where grid_version = 2;
+    ut.expect(l_grid_one).to_equal(11);
+    ut.expect(l_grid_two).to_equal(15);
+
+    select months into l_months from grid_maturity where grid_version = 2 and maturity = '1.5M';
+    ut.expect(l_months).to_equal(1.5);
+  end grid_two_adds_the_short_tenors;
+
+  procedure has_maturity_knows_the_short_tenors is
+  begin
+    ut.expect(core_observation.has_maturity(c_bill_curve, '1.5M')).to_equal(1);
+    ut.expect(core_observation.has_maturity(c_bill_curve, '4M')).to_equal(1);
+    ut.expect(core_observation.has_maturity(c_curve, '1.5M')).to_equal(0);
+  end has_maturity_knows_the_short_tenors;
+
+  procedure as_of_orders_the_short_tenors_by_months is
+  begin
+    record(observation_version_list_t(
+      version('1.5M', p_value => 2.61, p_curve_id => c_bill_curve)
+    ));
+
+    ut.expect(points_as_of(date '2026-03-12', c_later, c_bill_curve)).to_be_like(
+      '1M=null,1.5M=2.61,2M=null,3M=null,%'
+    );
+  end as_of_orders_the_short_tenors_by_months;
+
+  procedure curves_list_fractional_months is
+    l_rows catalogue_rows := catalogue;
+    l_mine catalogue_rows := catalogue_rows();
+  begin
+    for i in 1 .. l_rows.count loop
+      if l_rows(i).curve_id = c_bill_curve then
+        l_mine.extend;
+        l_mine(l_mine.count) := l_rows(i);
+      end if;
+    end loop;
+
+    ut.expect(l_mine.count).to_equal(15);
+    ut.expect(l_mine(2).maturity).to_equal('1.5M');
+    ut.expect(l_mine(2).months).to_equal(1.5);
+  end curves_list_fractional_months;
 
 end ut_core_observation;
 /

@@ -354,10 +354,10 @@
             "type": "string"
           },
           "months": {
-            "description": "Length of the tenor in months, for ordering",
+            "description": "Tenor length in months, for ordering; fractional for short tenors",
             "exclusiveMinimum": 0.0,
             "title": "Months",
-            "type": "integer"
+            "type": "number"
           },
           "origin": {
             "$ref": "#/components/schemas/Origin",
@@ -448,10 +448,10 @@
             "type": "string"
           },
           "months": {
-            "description": "Length of the tenor in months, for ordering",
+            "description": "Tenor length in months, for ordering; fractional for short tenors",
             "exclusiveMinimum": 0.0,
             "title": "Months",
-            "type": "integer"
+            "type": "number"
           }
         },
         "required": [

@@ -32,4 +32,27 @@ describe('fetchCurves', () => {
       maturities: [{ maturity: '3M', months: 3 }],
     })
   })
+  it('keeps fractional months of a maturity', () => {
+    const definition: components['schemas']['CurveDefinition'] = {
+      curve_id: 'ecb-aaa-spot',
+      label: 'ECB euro area AAA spot',
+      source_id: 'ecb',
+      area: 'Euro area',
+      rate_type: 'spot',
+      compounding: 'continuous',
+      unit: 'percent',
+      source_model: 'Svensson (ECB)',
+      simulated: false,
+      attribution: 'Source: ECB statistics',
+      maturities: [
+        { maturity: '1M', months: 1 },
+        { maturity: '1.5M', months: 1.5 },
+      ],
+    }
+
+    expect(toCurveInfo(definition).maturities).toEqual([
+      { maturity: '1M', months: 1 },
+      { maturity: '1.5M', months: 1.5 },
+    ])
+  })
 })

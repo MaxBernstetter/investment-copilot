@@ -11,7 +11,7 @@ from datetime import date, datetime
 @dataclass(frozen=True, slots=True)
 class CurvePoint:
     maturity: str
-    months: int
+    months: float
     value: float | None
     version_id: int | None
 
