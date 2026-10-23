@@ -6,7 +6,7 @@ import type { Page, Route } from '@playwright/test'
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const ACCESS_URL = 'http://localhost:8000'
 
-export type MockMode = 'online' | 'offline' | 'loading' | 'not-found' | 'catalogue-error' | 'catalogue-empty'
+export type MockMode = 'online' | 'offline' | 'loading' | 'not-found' | 'catalogue-error' | 'catalogue-empty' | 'par'
 
 type CurveFixture = {
   meta: { as_of: string; source_attribution: string }
@@ -25,11 +25,13 @@ function loadJson<T>(name: string): T {
 }
 
 export const curveGrid = loadJson<CurveFixture>('curve-grid.json')
+const curveAllGrid = loadJson<CurveFixture>('curve-all-grid.json')
 const curveOverlay15 = loadJson<CurveFixture>('curve-overlay-2026-10-15.json')
 const curveOverlay14 = loadJson<CurveFixture>('curve-overlay-2026-10-14.json')
 const curveSimSpike = loadJson<CurveFixture>('curve-sim-spike.json')
 const curveInverted = loadJson<CurveFixture>('curve-inverted.json')
 export const catalogue = loadJson<{ data: { curve_id: string; simulated: boolean }[] }>('catalogue.json')
+const catalogueWithPar = loadJson<typeof catalogue>('catalogue-with-par.json')
 type SeriesFixture = {
   meta: { as_of: string; source_attribution: string }
   points: { valid_date: string; value: number; quality?: { status: string; flags: unknown[] } }[]
@@ -124,6 +126,10 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         await fulfillJson(route, 200, { data: [] })
         return
       }
+      if (mode === 'par') {
+        await fulfillJson(route, 200, catalogueWithPar)
+        return
+      }
       await fulfillJson(route, 200, catalogue)
       return
     }
@@ -164,7 +170,7 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         return
       }
 
-      await fulfillJson(route, 200, curveBody(curveId, curveGrid))
+      await fulfillJson(route, 200, curveBody(curveId, curveId === 'ecb-all-spot' ? curveAllGrid : curveGrid))
       return
     }
 

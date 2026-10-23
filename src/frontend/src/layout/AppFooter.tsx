@@ -1,30 +1,39 @@
 import { Anchor, Box, Container, Divider, Group, Text } from '@mantine/core'
 import { ACCESS_URL, APP_VERSION, COMMIT, METHODOLOGY_URL, REPOSITORY_URL } from '../config'
+import type { CurveInfo } from '../curve/fetchCurves'
+import { sourceOf } from '../curve/sources'
 
 type AppFooterProps = {
-  simulated: boolean
+  /** The shown curve; without one (loading or unavailable) the attribution line is empty. */
+  curve?: CurveInfo
+}
+
+function Attribution({ curve }: { curve: CurveInfo }) {
+  if (curve.simulated) {
+    return `${curve.attribution}. Scenario data, not published by ${sourceOf(curve).publisher}.`
+  }
+  const { termsUrl } = sourceOf(curve)
+  if (termsUrl === undefined) return `${curve.attribution}, ${curve.label}.`
+  return (
+    <>
+      {`${curve.attribution}, ${curve.label}. Reuse with attribution, see the `}
+      <Anchor size="xs" href={termsUrl} underline="always">
+        ECB copyright notice
+      </Anchor>
+      .
+    </>
+  )
 }
 
 /** The page footer, in the page flow at the end of the body (not fixed, so it costs no mobile height). */
-export default function AppFooter({ simulated }: AppFooterProps) {
+export default function AppFooter({ curve }: AppFooterProps) {
   return (
     <Box component="footer">
       <Divider />
       <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
         <Group justify="space-between" align="flex-start" gap="md">
           <Text size="xs" c="dimmed" maw={640}>
-            {simulated ? (
-              'Scenario data, not published by the ECB.'
-            ) : (
-              <>
-                Source: <Anchor size="xs" href="https://data.ecb.europa.eu/" underline="always">ECB statistics</Anchor>, euro area AAA
-                government bond spot rates. Reuse with attribution, see the{' '}
-                <Anchor size="xs" href="https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html" underline="always">
-                  ECB copyright notice
-                </Anchor>
-                .
-              </>
-            )}
+            {curve && <Attribution curve={curve} />}
           </Text>
           <Group gap="md">
             <Anchor size="xs" href={`${ACCESS_URL}/docs`}>

@@ -34,6 +34,7 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
   await expect(page.getByRole('listbox')).not.toBeVisible()
   await expect(page).toHaveURL(/curve=ecb-all-spot/)
   await expect(select).toHaveValue('ECB euro area all-issuer spot')
+  await expect(page.getByText('ECB euro area all-issuer spot · spot rates, continuous compounding')).toBeVisible()
 
   await page.keyboard.press('Enter')
   await expect(page.getByRole('listbox')).toBeVisible()

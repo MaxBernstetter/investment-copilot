@@ -12,6 +12,7 @@ import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
 import { readCurveId, resolveCurve, writeCurveId } from './curve/curves'
 import { fetchCurves, type CurvesResult } from './curve/fetchCurves'
+import { sourceOf } from './curve/sources'
 import SeriesView from './series/SeriesView'
 import QualityView from './quality/QualityView'
 
@@ -168,9 +169,9 @@ export default function App() {
             )}
             {ready && (
               <Stack gap="lg">
-                {simulated && (
+                {simulated && curve && (
                   <Alert color="orange" role="note" py="xs" icon={<IconInfoCircle size={18} />}>
-                    Simulated scenario data, not an ECB publication.
+                    {`Simulated scenario data, not published by ${sourceOf(curve).publisher}.`}
                   </Alert>
                 )}
                 <Tabs.Panel value="curve">
@@ -189,7 +190,7 @@ export default function App() {
             )}
           </Container>
         </AppShell.Main>
-        <AppFooter simulated={simulated} />
+        <AppFooter curve={ready ? curve : undefined} />
       </AppShell>
     </Tabs>
   )

@@ -74,6 +74,7 @@ describe('App', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
     expect(screen.getByRole('alert')).toHaveTextContent('The YieldLens API is not reachable. Try again in a moment.')
     expect(screen.getByRole('heading', { level: 1, name: 'Service unavailable' })).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).not.toHaveTextContent('Source:')
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.getByText('YieldLens')).toBeInTheDocument()
@@ -299,7 +300,7 @@ describe('App', () => {
 
     await chooseCurve('ECB euro area AAA spot (scenario data)')
 
-    expect(screen.getByRole('note')).toHaveTextContent('Simulated scenario data, not an ECB publication.')
+    expect(screen.getByRole('note')).toHaveTextContent('Simulated scenario data, not published by the ECB.')
     expect(simulatedBadges()).toHaveLength(1)
 
     await chooseCurve('ECB euro area AAA spot')
@@ -315,9 +316,8 @@ describe('App', () => {
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
 
     const footer = screen.getByRole('contentinfo')
-    expect(within(footer).getByRole('link', { name: 'ECB statistics' })).toHaveAttribute(
-      'href',
-      'https://data.ecb.europa.eu/',
+    expect(footer).toHaveTextContent(
+      'Source: ECB statistics, ECB euro area AAA spot. Reuse with attribution, see the ECB copyright notice.',
     )
     expect(within(footer).getByRole('link', { name: 'API docs' })).toHaveAttribute(
       'href',
@@ -335,7 +335,7 @@ describe('App', () => {
       'href',
       'https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html',
     )
-    expect(within(footer).getByRole('link', { name: 'ECB statistics' })).toHaveAttribute('data-underline', 'always')
+    expect(within(footer).queryByRole('link', { name: 'ECB statistics' })).not.toBeInTheDocument()
     expect(within(footer).getByRole('link', { name: 'ECB copyright notice' })).toHaveAttribute(
       'data-underline',
       'always',
@@ -351,7 +351,9 @@ describe('App', () => {
     await chooseCurve('ECB euro area AAA spot (scenario data)')
 
     const footer = screen.getByRole('contentinfo')
-    expect(within(footer).getByText('Scenario data, not published by the ECB.')).toBeInTheDocument()
+    expect(
+      within(footer).getByText('Simulated scenario based on ECB statistics. Scenario data, not published by the ECB.'),
+    ).toBeInTheDocument()
     expect(within(footer).queryByRole('link', { name: 'ECB statistics' })).not.toBeInTheDocument()
   })
 
