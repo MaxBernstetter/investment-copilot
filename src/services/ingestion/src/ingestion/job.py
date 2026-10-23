@@ -111,6 +111,8 @@ def load_source(
 
 main = functools.partial(load_source, "ecb")
 """The entry point ``ingestion-load-ecb`` (pyproject.toml)."""
+load_ust = functools.partial(load_source, "ust")
+"""The entry point ``ingestion-load-ust`` (pyproject.toml)."""
 
 
 def _load_source(
@@ -205,7 +207,7 @@ async def _load(
         ) as source_client,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
-        load = LoadPublishedCurve(source.make_curve_source(source_client), deliveries, store)
+        load = LoadPublishedCurve(source.make_curve_source(source_client, meter), deliveries, store)
         tracked = await TrackRun(AttemptOnSpan(runs, span))(
             command.run_id, command.operation, load(command.windows, command.run_id)
         )
