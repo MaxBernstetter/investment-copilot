@@ -102,14 +102,15 @@ export const theme = createTheme({
       styles: { label: { textTransform: 'none' } },
     }),
     Alert: Alert.extend({ defaultProps: { variant: 'light' } }),
-    // Subtle buttons in the primary colour (T4 blue.8 links): Mantine's dark light-colour is blue.0 (near white), so pin the text and hover.
+    // Subtle buttons in the primary colour (T4 links): blue.9 in light mode, because blue.8 fails AA on the gray.1 table row hover.
+    // Mantine's dark light-colour is blue.0 (near white), so pin the text and hover.
     // Only the primary colour is pinned; other subtle colours keep Mantine's defaults.
     Button: Button.extend({
       vars: (_theme, props) => ({
         root:
           props.variant === 'subtle' && (props.color === undefined || props.color === 'blue')
             ? {
-                '--button-color': 'light-dark(var(--mantine-color-blue-8), var(--mantine-color-blue-4))',
+                '--button-color': 'light-dark(var(--mantine-color-blue-9), var(--mantine-color-blue-4))',
                 '--button-hover': 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-light))',
               }
             : {},
