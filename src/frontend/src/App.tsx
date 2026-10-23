@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
 import { AppShell, Alert, Box, Button, Container, EmptyState, Skeleton, Stack, Tabs, Text, VisuallyHidden } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
+import { IconAlertTriangle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
 import { readAsOf, writeAsOf } from './asOf'
 import ChangesView from './changes/ChangesView'
 import AppFooter from './layout/AppFooter'
-import AppHeader from './layout/AppHeader'
+import AppHeader, { VIEWS } from './layout/AppHeader'
 import AppNavbar from './layout/AppNavbar'
 import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
 import { readCurveId, resolveCurve, writeCurveId } from './curve/curves'
 import { fetchCurves, type CurvesResult } from './curve/fetchCurves'
 import { useOverlay } from './curve/useOverlay'
-import { sourceOf } from './curve/sources'
 import SeriesView from './series/SeriesView'
 import QualityView from './quality/QualityView'
 
@@ -69,6 +68,11 @@ export default function App() {
   useEffect(() => {
     if (curve && curve.id !== readCurveId(window.location.search)) writeCurveId(curve.id)
   }, [curve])
+
+  const viewLabel = VIEWS.find((item) => item.value === view)?.label
+  useEffect(() => {
+    document.title = viewLabel === undefined || !ready ? 'YieldLens' : `${viewLabel} · YieldLens`
+  }, [viewLabel, ready])
 
   const retry = () => {
     setState('checking')
@@ -180,11 +184,6 @@ export default function App() {
             )}
             {ready && (
               <Stack gap="lg">
-                {simulated && curve && (
-                  <Alert color="orange" role="note" py="xs" icon={<IconInfoCircle size={18} />}>
-                    {`Simulated scenario data, not published by ${sourceOf(curve).publisher}.`}
-                  </Alert>
-                )}
                 <Tabs.Panel value="curve">
                   <CurveView key={curve.id} curve={curve} catalogue={curves} overlay={overlay} asOf={asOf} />
                 </Tabs.Panel>

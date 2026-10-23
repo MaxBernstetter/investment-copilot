@@ -21,7 +21,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   Contrast: blue.9 on white 6.09:1, on gray.0 5.77:1 (page background), on gray.1 row hover 5.13:1; hover background blue.0 gives blue.9 5.48:1.
   Dark mode keeps its own shade.
   Status (only badges/alerts, always with icon + label): ok green, info blue, warn yellow (filled, autoContrast),
-  error red. Simulated: orange (one badge in header + one subtle Alert). Reason: initial gray, revision blue, correction orange.
+  error red. Simulated: orange (one badge in the header; hover or focus explains what is simulated and why, no Alert). Reason: initial gray, revision blue, correction orange.
   Market state is not quality: the 'Inverted' badge is `Badge color="gray" variant="light" size="sm"` with `IconArrowsDownUp` and the word, never a status colour.
 - T5 Chart palette (fixed order, never cycled, same in light and dark; validated with dataviz validate_palette.js,
   light #fff and dark #242424 surfaces): blue.8 #1971c2, orange.8 #e8590c, teal.8 #099268, grape.8 #9c36b5,
@@ -94,7 +94,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - No web fonts, no icon fonts; icons only from `@tabler/icons-react` by named import (≤ 12 icons).
 - No smoothed lines, dual axes, 0-forced yield axes, rainbow or cycled palettes, numbers on every point.
 - No status colours as series colours; no colour-only meaning.
-- No more than one banner (Alert) stacked above content; simulated + as-of go in the header/status, not two alerts.
+- No more than one banner (Alert) stacked above content; simulated + as-of go in the header/status, not alerts.
 - No uppercase badges, no raw floats (`3.4444646497`), no `toUTCString()`, no hyphen as minus.
 - No per-view copies of global state (curve, as-of).
 - No new UI library or chart library; no Mantine components outside core/charts/hooks.
