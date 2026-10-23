@@ -2,6 +2,9 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const MINUS = '−'
 const NARROW_NBSP = '\u202F'
 
+/** Shown for a missing value (D2). */
+export const EMPTY = '\u2013'
+
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Groups the integer digits of a fixed-point string with a comma, e.g. "2376.0" becomes "2,376.0". */

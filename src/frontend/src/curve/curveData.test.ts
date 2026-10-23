@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { flaggedMaturities, missingMaturities, overlayRows, overlaySeries, spread2s10s, yield10y, type CurvePoint } from './curveData'
+import {
+  flaggedMaturities,
+  missingMaturities,
+  overlayRows,
+  overlaySeries,
+  spread2s10s,
+  tenYearHint,
+  yield10y,
+  type CurvePoint,
+} from './curveData'
 
 const passed = { status: 'passed' as const, flags: [] }
 
@@ -61,5 +70,21 @@ describe('curveData', () => {
       { name: '2026-10-16', color: 'blue.8' },
       { name: '2026-10-01', color: 'orange.8' },
     ])
+  })
+
+  it('tenYearHint is Not available for a missing 10Y', () => {
+    expect(tenYearHint([{ ...points[2], value: null, quality: null }])).toBe('Not available')
+    expect(tenYearHint([points[0]])).toBe('Not available')
+  })
+
+  it('tenYearHint is Value flagged for a warn or info 10Y', () => {
+    const warn: CurvePoint = { ...points[2], quality: { status: 'warn', flags: [] } }
+    const info: CurvePoint = { ...points[2], quality: { status: 'info', flags: [] } }
+    expect(tenYearHint([warn])).toBe('Value flagged')
+    expect(tenYearHint([info])).toBe('Value flagged')
+  })
+
+  it('tenYearHint is undefined for a passed 10Y', () => {
+    expect(tenYearHint(points)).toBeUndefined()
   })
 })

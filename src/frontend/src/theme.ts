@@ -115,7 +115,13 @@ export const theme = createTheme({
       }),
     }),
     Tooltip: Tooltip.extend({
-      defaultProps: { withArrow: true, multiline: true, w: 280, openDelay: 300 },
+      defaultProps: {
+        withArrow: true,
+        multiline: true,
+        w: 280,
+        openDelay: 300,
+        events: { hover: true, focus: true, touch: false },
+      },
     }),
   },
   other: {
