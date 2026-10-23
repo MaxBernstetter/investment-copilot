@@ -290,18 +290,21 @@ describe('App', () => {
     expect(screen.getByText('Curve view')).not.toBeVisible()
   })
 
-  it('shows the simulated notice only for the simulated curve', async () => {
+  it('shows the simulated badge, with its explanation on hover, only for the simulated curve', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
 
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
-    expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(simulatedBadges()).toHaveLength(0)
 
     await chooseCurve('ECB euro area AAA spot (scenario data)')
 
-    expect(screen.getByRole('note')).toHaveTextContent('Simulated scenario data, not published by the ECB.')
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(simulatedBadges()).toHaveLength(1)
+    await userEvent.hover(simulatedBadges()[0] as HTMLElement)
+    const tip = await screen.findByRole('tooltip')
+    expect(tip).toHaveTextContent('Demo data, not real market data.')
+    expect(tip).not.toHaveTextContent('ECB')
 
     await chooseCurve('ECB euro area AAA spot')
 

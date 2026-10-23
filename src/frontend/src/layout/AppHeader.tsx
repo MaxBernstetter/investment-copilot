@@ -16,6 +16,10 @@ import type { CurveInfo } from '../curve/fetchCurves'
 import { curveSelectData } from '../curve/curves'
 import AsOfStatus from './AsOfStatus'
 
+/** Why the simulated curve exists and what it holds, shown on hover over the header badge. */
+const SIMULATED_HELP =
+  'Demo data, not real market data. A scripted scenario writes made-up values to this curve, with gaps, a bad value, a late delivery and a correction, so you can see how YieldLens handles them. The real curves are never changed.'
+
 /** The views, in tab order. The navbar on small screens lists the same views. */
 export const VIEWS = [
   {
@@ -139,9 +143,11 @@ export default function AppHeader({
           </Box>
         )}
         {ready && simulated && (
-          <Badge color="orange.6" variant="filled">
-            Simulated
-          </Badge>
+          <Tooltip label={SIMULATED_HELP} multiline w={320} events={{ hover: true, focus: true, touch: true }}>
+            <Badge color="orange.6" variant="filled" tabIndex={0} style={{ cursor: 'help' }}>
+              Simulated
+            </Badge>
+          </Tooltip>
         )}
         {ready && <AsOfStatus asOf={asOf} onChange={onAsOfChange} />}
         <ColorSchemeToggle />
