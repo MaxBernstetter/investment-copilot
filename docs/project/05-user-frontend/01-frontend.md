@@ -40,10 +40,11 @@ The page shows the curve chosen in Curve choice below (default `ecb-aaa-spot`) o
 
 "Add to overlay" (header, default button) pins the valid date currently shown, so the chart compares several dates of the same curve.
 
-- **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date appears as a `Pill` in the chart card header (`aria-label` "Overlaid valid dates") with "Remove <date>".
-- **Chart:** card title "{Rate type} curve ({unit symbol})", for example "Spot curve (%)" or "Par curve (%)", linear axes with `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
+- **Pinning:** up to 5 entries plus the shown curve; each entry is a curve and a valid date. The button is disabled at 5, for a curve and date already pinned, and when no curve is shown. Each entry appears as a `Pill` in a list under the card title (`aria-label` "Overlaid curves", swatch plus "{curve} · {date}") with a remove button named "Remove {curve} · {date} from overlay".
+- **Chart:** card title "{Rate type} curve ({unit symbol})", for example "Spot curve (%)" or "Par curve (%)", categorical x-axis of tenors in months (`monthsLabel`: 3M, 1.5M, 1Y, 30Y) with equal spacing, `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned entry as its own line. Each legend entry is "{curve} · {date}"; a line keeps the colour slot it got when added (the shown curve is slot 0). A tenor a curve does not publish is a gap, not interpolated. An entry equal to the shown curve and date is not drawn twice.
 - **Data:** each pinned date is fetched with the current `as_of` (from `App`), and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
-- **Scope:** overlays compare valid dates only; countries are not overlaid.
+- **Scope:** overlays mix curves (countries, rate types and conventions) as well as valid dates. Pinned entries survive a curve switch.
+- **Notes:** under the chart, a `role="note"` banner says the curves are not directly comparable when their rate types, compounding, or both differ (`comparabilityIssue` in `src/curve/curveData.ts`). Simulated and real curves are not flagged by this rule. Below it, "Attribution" lists each distinct catalogue attribution once, with the curves it covers (`OverlayNotes` in `src/curve/OverlayNotes.tsx`). The footer keeps the shown curve's attribution and terms link.
 
 | Path | Content |
 |---|---|
@@ -87,7 +88,7 @@ The "Time series" view shows one yield maturity or one measure of the same curve
 Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and the `@mantine/charts/styles.css` import in `src/main.tsx`. Plotly.js was removed in PR 3 of #153.
 
 - **Colours:** `CHART_COLORS` in `src/theme.ts` (`blue.8`, `orange.8`, `teal.8`, `grape.8`, `pink.8`, `lime.9`) in a fixed order, the same in light and dark. Series are never cycled past six.
-- **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
+- **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows "{curve} · {date}" for each series. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
 - **Time series chart:** one line over valid dates in valid-date order, linear axes with `domain: ['auto','auto']`, dots when ≤ 15 points, brush to zoom the range, tooltips at 3 dp, no legend (the card title names the series). A table toggle in the same card lists the same points.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
 - **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 180 kB, all JS at most 500 kB, CSS at most 45 kB. The initial-entry limit was raised from 170 kB to 180 kB on 2026-10-23 by the user for the curve catalogue and measures UI (the reason is in the entry's name in `package.json`). The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165), and raised to 500 kB on 2026-10-20 by the user. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
@@ -183,7 +184,7 @@ The curves come from `GET /v1/curves` (the curve catalogue), fetched once after 
 - **Control:** a `Select` labelled "Curve" in the header from `sm` up (w 280), and full width in the navbar below `sm`. Options are grouped "Published" then "Simulated", in catalogue order, showing the catalogue label. The default is `ecb-aaa-spot`.
 - **Simulated:** choosing a simulated curve shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not published by {publisher}.", `role="note"`, the publisher from `sources.ts`). The footer then says the data is scenario data, not published by that publisher.
 - **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. An unknown id falls back to `ecb-aaa-spot`, else the first published curve, else the first curve, and the URL is rewritten to the curve used. A simulated curve is never chosen as a fallback while a published one exists.
-- **Views:** switching the curve resets the view state (pinned overlays, open history). The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
+- **Views:** switching the curve resets the view state (open history); pinned overlays are kept. The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
 
 | Path | Content |
 |---|---|
