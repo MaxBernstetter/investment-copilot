@@ -6,6 +6,8 @@ from datetime import UTC, date, datetime
 import httpx
 import pytest
 from opentelemetry.metrics import NoOpMeter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, NumberDataPoint
 
 from ingestion.config import SourceSettings
 from ingestion.domain.delivery import RawDelivery
@@ -124,3 +126,38 @@ async def test_the_source_parses_its_own_delivery() -> None:
         delivery = await source.fetch(WINDOW_2025)
 
         assert len(source.parse(delivery)) == 4 * 14 - 2
+
+
+def test_an_unknown_column_is_counted_per_source_in_the_meter() -> None:
+    reader = InMemoryMetricReader()
+    meter = MeterProvider(metric_readers=[reader]).get_meter("test")
+    delivery = RawDelivery(
+        source_id="ust",
+        request_url=URL_2025,
+        response_status=200,
+        fetched_at=datetime(2026, 10, 23, tzinfo=UTC),
+        last_modified=None,
+        etag=None,
+        payload=ust_payload(UST_NEW_COLUMN_2025),
+    )
+
+    parse_delivery(delivery, meter)
+    parse_delivery(delivery, meter)
+
+    metrics = reader.get_metrics_data()
+    assert metrics is not None
+    points = [
+        point
+        for resource in metrics.resource_metrics
+        for scope in resource.scope_metrics
+        for metric in scope.metrics
+        if metric.name == "ingestion_compatible_schema_changes_total"
+        for point in metric.data.data_points
+        if isinstance(point, NumberDataPoint)
+    ]
+    assert [
+        (point.value, {str(k): v for k, v in (point.attributes or {}).items()}) for point in points
+    ] == [(2, {"source_id": "ust"})]
+    attributes = [dict(point.attributes or {}) for point in points]
+    assert [point.value for point in points] == [2]
+    assert attributes == [{"source_id": "ust"}]
