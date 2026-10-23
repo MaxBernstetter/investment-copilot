@@ -176,6 +176,8 @@ test.describe('screens §7', () => {
     await waitForKeyFigures(page)
     await expect(page.getByRole('note')).toContainText('These curves are not directly comparable')
     await expect(page.getByRole('note')).toContainText('rate types differ (par, spot) and compounding differs (semi-annual, continuous)')
+    await expect(page.getByText('No value on ECB euro area AAA spot · 2026-10-15: 1M.')).toBeVisible()
+    await expect(page.getByText('No value on US Treasury par · 2026-10-16: 15Y.')).toBeVisible()
     await expect(
       page.getByRole('listitem').filter({ hasText: 'Source: ECB statistics (ECB euro area AAA spot)' }),
     ).toBeVisible()
@@ -187,6 +189,7 @@ test.describe('screens §7', () => {
     await expect(pills.getByRole('listitem')).toHaveCount(1)
     await expect(pills.getByRole('button', { name: 'Remove US Treasury par · 2026-10-16 from overlay' })).toBeFocused()
     await expect(page.getByRole('note')).toHaveCount(0)
+    await expect(page.getByText(/^No value on /)).toHaveCount(0)
   })
 
   test('S3d overlay full: five entries and the disabled add button', async ({ page }) => {
