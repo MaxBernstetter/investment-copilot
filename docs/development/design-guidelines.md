@@ -33,11 +33,12 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 ## Layout
 - L1 AppShell: header 56 px; no desktop sidebar (≤5 views). Below `sm` (legacy, not required): Burger opens AppShell.Navbar
   (NavLinks + curve choice); header keeps logo, Burger and the as-of status. The curve choice is a `Select` (`aria-label="Curve"`, size xs, w 280) right of the view tabs, grouped "Published" then "Simulated", with options in catalogue order showing the catalogue label. An unknown `?curve=` falls back to the default curve, never to a simulated one.
-- L2 Body: `Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg"`. Each page = PageHeader + sections in Cards.
+- L2 Body: `Container fluid px={{ base: 'md', sm: 'lg' }} py="lg"` (full screen width, no 1200 px cap). Each page = PageHeader + sections in Cards; related cards sit side by side from `lg` (Curve: chart and Values table) and stack below.
 - L3 PageHeader: Title order 1 + one-line dimmed subtitle (what, which unit) + actions right .
 - L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): attribution left, from the curve catalogue: `{attribution}, {label}.` plus the publisher's reuse-terms link where the source has reuse terms; simulated curves: `{attribution}. Scenario data, not published by {publisher}.`; empty until the catalogue has loaded. Overlays list each distinct attribution under the chart; the footer keeps the shown curve's line and terms link. Right: API docs, Methodology, GitHub, version · commit. Not fixed.
 - L5 Key figures as a 4-col (desktop) SimpleGrid of StatCards above the chart. Max 4.
-- L6 No horizontal page scroll at 1280 px; wide tables scroll inside `Table.ScrollContainer`.
+- L6 No horizontal page scroll at 1280 px; wide tables scroll inside the table scroll container.
+- L7 Every table is a `DataTable` (`src/components/DataTable.tsx`): a Columns menu to show or hide columns, a filter input per column (`filterText`), and resizable columns (drag the header separator, or focus it and use the arrow keys; 8 px a step). Columns keep their headers as `columnheader`s; the filter row uses plain cells.
 
 ## Data display
 - D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric columns `ta="right"`, header too.

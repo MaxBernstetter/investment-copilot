@@ -11,19 +11,20 @@ import {
   SimpleGrid,
   Skeleton,
   Stack,
-  Table,
   Text,
   TextInput,
   Title,
   VisuallyHidden,
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
+import DataTable from '../components/DataTable'
 import { fetchMeasures, type MeasuresResult } from '../curve/fetchMeasures'
 import { MEASURE_LABEL, type MeasureKey } from '../curve/measuresData'
 import StatCard from '../components/StatCard'
 import { EMPTY, formatBp, formatUtc, formatYield } from '../format'
 import PageHeader from '../layout/PageHeader'
 import UncheckedNote from '../quality/UncheckedNote'
+import { STATUS_LABEL } from '../quality/qualityData'
 import ValueQualityCell from '../quality/ValueQualityCell'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import MeasureCard from './MeasureCard'
@@ -242,28 +243,31 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
                 )}
               </>
             ) : (
-              <Table.ScrollContainer minWidth={560}>
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th scope="col">Valid date</Table.Th>
-                      <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
-                      <Table.Th scope="col">Quality</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {yieldPoints.map((point) => (
-                      <Table.Tr key={point.valid_date}>
-                        <Table.Td>{point.valid_date}</Table.Td>
-                        <Table.Td ta="right">{formatYield(point.value)}</Table.Td>
-                        <Table.Td>
-                          <ValueQualityCell quality={point.quality} maturity={current.maturity} />
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
+              <DataTable
+                columns={[
+                  {
+                    id: 'valid-date',
+                    header: 'Valid date',
+                    cell: (point) => point.valid_date,
+                    filterText: (point) => point.valid_date,
+                  },
+                  {
+                    id: 'yield',
+                    header: 'Yield (%)',
+                    align: 'right',
+                    cell: (point) => formatYield(point.value),
+                    filterText: (point) => formatYield(point.value),
+                  },
+                  {
+                    id: 'quality',
+                    header: 'Quality',
+                    cell: (point) => <ValueQualityCell quality={point.quality} maturity={current.maturity} />,
+                    filterText: (point) => STATUS_LABEL[point.quality.status],
+                  },
+                ]}
+                rows={yieldPoints}
+                rowKey={(point) => point.valid_date}
+              />
             )}
             {display === 'table' && hasUnchecked && <UncheckedNote />}
           </Card>

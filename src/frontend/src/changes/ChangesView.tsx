@@ -8,13 +8,13 @@ import {
   Input,
   Skeleton,
   Stack,
-  Table,
   TextInput,
   Tooltip,
   VisuallyHidden,
 } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { localInputToUtc } from '../asOf'
+import DataTable from '../components/DataTable'
 import PageHeader from '../layout/PageHeader'
 import { reasonBadgeProps } from '../theme'
 import { defaultRange } from '../series/seriesData'
@@ -115,40 +115,26 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
       )}
       {since !== undefined && result?.kind === 'ok' && result.changes.data.changes.length > 0 && (
         <Card>
-          <Table.ScrollContainer minWidth={900}>
-            <Table striped>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th scope="col">Valid date</Table.Th>
-                  <Table.Th scope="col">Maturity</Table.Th>
-                  <Table.Th scope="col" ta="right">Old (%)</Table.Th>
-                  <Table.Th scope="col" ta="right">New (%)</Table.Th>
-                  <Table.Th scope="col" ta="right">Change (bp)</Table.Th>
-                  <Table.Th scope="col">Reason</Table.Th>
-                  <Table.Th scope="col">Source</Table.Th>
-                  <Table.Th scope="col">Known from</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {toChangeRows(result.changes.data.changes).map((row) => (
-                  <Table.Tr key={row.key}>
-                    <Table.Td>{row.validDate}</Table.Td>
-                    <Table.Td>{row.maturity}</Table.Td>
-                    <Table.Td ta="right">{row.oldValue}</Table.Td>
-                    <Table.Td ta="right">{row.newValue}</Table.Td>
-                    <Table.Td ta="right">{row.delta}</Table.Td>
-                    <Table.Td>
-                      <Badge {...reasonBadgeProps(row.reason)}>
-                        {row.reason}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{row.source}</Table.Td>
-                    <Table.Td>{row.knownFrom}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+          <DataTable
+            striped
+            columns={[
+              { id: 'valid-date', header: 'Valid date', cell: (row) => row.validDate, filterText: (row) => row.validDate },
+              { id: 'maturity', header: 'Maturity', cell: (row) => row.maturity, filterText: (row) => row.maturity },
+              { id: 'old', header: 'Old (%)', align: 'right', cell: (row) => row.oldValue, filterText: (row) => row.oldValue },
+              { id: 'new', header: 'New (%)', align: 'right', cell: (row) => row.newValue, filterText: (row) => row.newValue },
+              { id: 'delta', header: 'Change (bp)', align: 'right', cell: (row) => row.delta, filterText: (row) => row.delta },
+              {
+                id: 'reason',
+                header: 'Reason',
+                cell: (row) => <Badge {...reasonBadgeProps(row.reason)}>{row.reason}</Badge>,
+                filterText: (row) => row.reason,
+              },
+              { id: 'source', header: 'Source', cell: (row) => row.source, filterText: (row) => row.source },
+              { id: 'known-from', header: 'Known from', cell: (row) => row.knownFrom, filterText: (row) => row.knownFrom },
+            ]}
+            rows={toChangeRows(result.changes.data.changes)}
+            rowKey={(row) => row.key}
+          />
         </Card>
       )}
       {since !== undefined && result?.kind === 'offline' && (

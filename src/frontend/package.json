@@ -15,9 +15,9 @@
   },
   "size-limit": [
     {
-      "name": "initial JS (raised 2026-10-23 for the curve catalogue and measures UI)",
+      "name": "initial JS (raised 2026-10-23 for the curve catalogue and measures UI, and for the shared DataTable)",
       "path": "dist/assets/index-*.js",
-      "limit": "180 kB",
+      "limit": "185 kB",
       "gzip": true
     },
     {
