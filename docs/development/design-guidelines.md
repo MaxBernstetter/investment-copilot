@@ -66,7 +66,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   "Known as of" uses dimmed helper text in the header as-of popover (see C3), not a tooltip on the label.
   The Time series measure card title carries the same info icon and definition (`MEASURE_HELP`) as the curve-view card.
 - Q6 Overlay entries: a pill row (`ul aria-label="Overlaid curves"`, each entry a colour swatch + `{label} · {date}`, with a remove button `Remove {label} · {date} from overlay`). At most 5 overlays plus the shown curve. When the limit is reached, a disabled add control shows the reason as dimmed hint text (not a tooltip). Removing an entry moves focus to the neighbouring remove button.
-- Q7 Notes under a chart (shared with #258): the order directly below the chart is (1) one `Alert variant="light" color="blue" role="note"` convention note, (2) dimmed sm gap lines, (3) an h3 "Attribution" list of `{catalogue attribution} ({labels})`. Notes never sit above the chart and are not a banner.
+- Q7 Notes under a chart (shared with #258): the order directly below the chart is (1) one `Alert variant="light" color="blue" role="note"` convention note, (2) one dimmed sm line per drawn curve that lacks tenors other drawn curves publish ("No value on {label}: 1.5M, 20Y.", or "for {n} maturities" above 8), (3) an h3 "Attribution" list of `{catalogue attribution} ({labels})`. Notes never sit above the chart and are not a banner.
 
 ## Copy
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).

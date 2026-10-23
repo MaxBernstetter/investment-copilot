@@ -309,7 +309,7 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
               {announcement}
             </VisuallyHidden>
             <CurveChart curves={curves} />
-            {entries.length > 0 && <OverlayNotes curves={drawnCurves} />}
+            {entries.length > 0 && <OverlayNotes curves={drawnCurves} drawn={curves} />}
             {(missing.length > 0 || flagged.length > 0) && (
               <Stack gap={4} mt="sm">
                 {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}
