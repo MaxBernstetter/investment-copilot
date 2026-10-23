@@ -43,7 +43,7 @@ Issue, merge request and worktree relate 1:1:1. An issue split into stacked merg
 
 ## Subagents and models
 Agentic work is split by model to save tokens (`docs/development/03-agent-harness.md`):
-- Grooming, planning and validation run on Opus: `groomer`, `planner`, `validator`.
+- Grooming, planning, validation and design review run on Sonnet 5.5 at medium effort: `groomer`, `planner`, `validator`, `designer`.
 - All execution runs on Haiku: implementation, exploration and chores such as rebases, checks, board and PR bookkeeping go to `worker`.
 - The main session orchestrates and delegates. Keep it from reading or editing code itself beyond what a decision needs.
 - Hand `worker` concrete work units from a plan, never open design questions. A `validator` failure goes back to `worker` as its next work unit.
