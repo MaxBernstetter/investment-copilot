@@ -1,6 +1,9 @@
+import type { MeasuresResult } from '../curve/fetchMeasures'
+import { fetchMeasures } from '../curve/fetchMeasures'
+import type { MeasurePoint } from '../curve/measuresData'
 import { formatYield } from '../format'
 import type { ValueQuality } from '../quality/qualityData'
-import { cleanup, fireEvent, render, screen } from '../test/render'
+import { cleanup, fireEvent, render, screen, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesView from './SeriesView'
@@ -13,7 +16,12 @@ vi.mock('./fetchSeries', () => ({
   fetchSeries: vi.fn(),
 }))
 
+vi.mock('../curve/fetchMeasures', () => ({
+  fetchMeasures: vi.fn(),
+}))
+
 const mockedFetch = vi.mocked(fetchSeries)
+const mockedMeasures = vi.mocked(fetchMeasures)
 
 const okResult: SeriesResult = {
   kind: 'ok',
@@ -56,10 +64,48 @@ function withQualities(qualities: ValueQuality[]): SeriesResult {
   return { kind: 'ok', series: { ...okResult.series, data: { ...okResult.series.data, points } } }
 }
 
+/** A measures answer with one point per row; overrides change that day's point. */
+function measuresResult(points: Partial<MeasurePoint>[]): MeasuresResult {
+  return {
+    kind: 'ok',
+    measures: {
+      data: {
+        curve_id: 'ecb-aaa-spot',
+        valid_from: '2026-10-01',
+        valid_to: '2026-10-05',
+        points: points.map((overrides) => ({
+          valid_date: '2026-10-01',
+          spread_2y_10y: null,
+          spread_3m_10y: null,
+          curvature_2y_5y_10y: null,
+          inverted: null,
+          inputs: [],
+          missing: [],
+          quality: { status: 'passed', flagged: [] },
+          ...overrides,
+        })),
+      },
+      meta: { as_of: '2026-10-19T10:00:00Z', method_version: '1', source_attribution: 'Source: ECB statistics' },
+    },
+  }
+}
+
+/** Three days: a value, a day without the 2Y input, and a day with the 10Y input flagged. */
+const spreadDays = measuresResult([
+  { valid_date: '2026-10-01', spread_2y_10y: -15 },
+  { valid_date: '2026-10-02', spread_2y_10y: null, missing: ['2Y'] },
+  {
+    valid_date: '2026-10-05',
+    spread_2y_10y: 9,
+    quality: { status: 'warn', flagged: ['10Y'] },
+  },
+])
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-19T12:00:00Z'))
   mockedFetch.mockResolvedValue(okResult)
+  mockedMeasures.mockResolvedValue(spreadDays)
 })
 
 afterEach(() => {
@@ -73,7 +119,7 @@ describe('SeriesView', () => {
   it('shows the 10Y series of the last year on open', async () => {
     render(<SeriesView curveId="ecb-aaa-spot" />)
 
-    expect(await screen.findByLabelText('Maturity')).toHaveValue('10Y')
+    expect(await screen.findByLabelText('Series')).toHaveValue('yield:10Y')
     expect(screen.getByLabelText('From')).toHaveValue('2025-10-19')
     expect(screen.getByLabelText('To')).toHaveValue('2026-10-19')
     expect(mockedFetch).toHaveBeenCalledWith({
@@ -85,11 +131,11 @@ describe('SeriesView', () => {
     })
   })
 
-  it('refetches when the maturity changes', async () => {
+  it('refetches when the yield maturity changes', async () => {
     render(<SeriesView curveId="ecb-aaa-spot" />)
-    const select = await screen.findByLabelText('Maturity')
+    const select = await screen.findByLabelText('Series')
 
-    fireEvent.change(select, { target: { value: '2Y' } })
+    fireEvent.change(select, { target: { value: 'yield:2Y' } })
 
     expect(mockedFetch).toHaveBeenLastCalledWith({
       curveId: 'ecb-aaa-spot',
@@ -116,15 +162,15 @@ describe('SeriesView', () => {
   it('passes asOf to the fetch', async () => {
     render(<SeriesView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
 
-    expect(await screen.findByLabelText('Maturity')).toHaveValue('10Y')
+    expect(await screen.findByLabelText('Series')).toHaveValue('yield:10Y')
     expect(mockedFetch).toHaveBeenCalledWith(expect.objectContaining({ asOf: '2026-10-01T12:00:00Z' }))
   })
 
   it('shows stat cards from the loaded points', async () => {
     render(<SeriesView curveId="ecb-aaa-spot" />)
 
-    expect(await screen.findByText('Last')).toBeInTheDocument()
-    expect(screen.getByText('2.500 %')).toBeInTheDocument()
+    expect(await screen.findByText('2.500 %')).toBeInTheDocument()
+    expect(screen.getByText('Last')).toBeInTheDocument()
     expect(screen.getByText('Change over range')).toBeInTheDocument()
     expect(screen.getByText('+10.0 bp')).toBeInTheDocument()
   })
@@ -261,5 +307,158 @@ describe('SeriesView', () => {
 
     fireEvent.click(await screen.findByRole('radio', { name: 'Table' }))
     expect(screen.queryByText(/Unchecked means/)).not.toBeInTheDocument()
+  })
+
+  it('groups the selector into Yields and Measures, with 10Y by default', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    const select = await screen.findByLabelText('Series')
+    const groups = Array.from(select.querySelectorAll('optgroup'))
+    expect(groups.map((group) => group.label)).toEqual(['Yields', 'Measures'])
+    expect(groups[0].querySelectorAll('option')).toHaveLength(11)
+    expect(within(groups[1] as HTMLElement).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      '2Y–10Y spread',
+      '3M–10Y spread',
+      '2Y–5Y–10Y curvature',
+    ])
+  })
+
+  it('fetches the measure with the shared range and as-of when a measure is chosen', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" asOf="2026-10-01T12:00:00Z" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    expect(await screen.findByRole('heading', { name: '2Y–10Y spread (bp)' })).toBeInTheDocument()
+    expect(mockedMeasures).toHaveBeenLastCalledWith({
+      curveId: 'ecb-aaa-spot',
+      from: '2025-10-19',
+      to: '2026-10-19',
+      asOf: '2026-10-01T12:00:00Z',
+    })
+    expect(screen.getByText('2Y–10Y spread over valid dates (bp)')).toBeInTheDocument()
+  })
+
+  it('shows signed bp key figures, the change and an info icon for a measure', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    // Last and Max are both +9.0 bp here.
+    expect(await screen.findByText('−15.0 bp')).toBeInTheDocument()
+    expect(screen.getAllByText('+9.0 bp')).toHaveLength(2)
+    expect(screen.getByText('+24.0 bp')).toBeInTheDocument()
+    expect(screen.queryByText(/^On 2026/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'About 2Y–10Y spread' })).toBeInTheDocument()
+  })
+
+  it('dates the last value and asks for two values when the last day has none', async () => {
+    mockedMeasures.mockResolvedValue(
+      measuresResult([
+        { valid_date: '2026-10-01', spread_2y_10y: 4 },
+        { valid_date: '2026-10-02', spread_2y_10y: null, missing: ['2Y'] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    expect(await screen.findByText('On 2026-10-01')).toBeInTheDocument()
+    expect(screen.getByText('Needs two values')).toBeInTheDocument()
+  })
+
+  it('shows measure captions for the gap and the flagged day', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    expect(await screen.findByText('No value on 1 day; shown as gaps.')).toBeInTheDocument()
+    expect(screen.getByText('Flagged: 1 value. Choose Table to see why.')).toBeInTheDocument()
+  })
+
+  it('table shows Value (bp) with plain signed cells and the Quality hints', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+    fireEvent.click(await screen.findByRole('radio', { name: 'Table' }))
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent)
+    expect(headers).toEqual(['Valid date', 'Value (bp)', 'Quality'])
+    expect(screen.getByRole('cell', { name: '−15.0' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '+9.0' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '–' })).toBeInTheDocument()
+    expect(screen.getByText('No 2Y value')).toBeInTheDocument()
+    expect(screen.getByText('Input flagged: 10Y')).toBeInTheDocument()
+  })
+
+  it('shows the measure empty state with a way back to the 10Y yield', async () => {
+    mockedMeasures.mockResolvedValue(
+      measuresResult([
+        { valid_date: '2026-10-01', spread_2y_10y: null, missing: ['2Y', '10Y'] },
+        { valid_date: '2026-10-02', spread_2y_10y: null, missing: ['2Y', '10Y'] },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    expect(await screen.findByText('No values in this range')).toBeInTheDocument()
+    expect(screen.getByText(/2Y–10Y spread needs 2Y and 10Y values/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '2Y–10Y spread (bp)' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show 10Y yield' }))
+    expect(await screen.findByRole('heading', { name: '10Y yield (%)' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Series')).toHaveValue('yield:10Y')
+  })
+
+  it('shows no old series while a newer selection is loading', async () => {
+    mockedMeasures.mockReturnValue(new Promise(() => {}))
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByRole('heading', { name: '10Y yield (%)' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Series'), { target: { value: 'measure:spread_3m_10y' } })
+
+    expect(screen.queryByRole('heading', { name: '10Y yield (%)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '3M–10Y spread (bp)' })).not.toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('switching back to a yield restores the yield copy', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+    expect(await screen.findByRole('heading', { name: '2Y–10Y spread (bp)' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Series'), { target: { value: 'yield:10Y' } })
+
+    expect(await screen.findByRole('heading', { name: '10Y yield (%)' })).toBeInTheDocument()
+    expect(screen.getByText('10Y yield over valid dates (%)')).toBeInTheDocument()
+  })
+
+  it('shows a titled offline alert with Try again that refetches', async () => {
+    mockedFetch.mockResolvedValueOnce({ kind: 'offline' })
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Backend offline')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByTestId('series-chart')).toBeInTheDocument()
+    expect(mockedFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows a titled error alert with the detail and Try again', async () => {
+    mockedFetch.mockResolvedValueOnce({ kind: 'error', detail: 'Something broke.' })
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load 10Y yield')
+    expect(alert).toHaveTextContent('Something broke.')
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('shows the not-found state without an as-of time', async () => {
+    mockedFetch.mockResolvedValue({ kind: 'not-found', detail: 'none' })
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    expect(await screen.findByText('No data known for this selection')).toBeInTheDocument()
+    expect(screen.getByText('YieldLens has no values for 10Y yield on this curve yet.')).toBeInTheDocument()
   })
 })

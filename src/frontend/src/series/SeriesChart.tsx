@@ -1,31 +1,44 @@
 import { lazy, Suspense } from 'react'
 import { Skeleton } from '@mantine/core'
 import { CHART_COLORS } from '../theme'
-import { seriesChart, type SeriesPoint } from './seriesData'
 
 const LineChart = lazy(() => import('@mantine/charts').then((m) => ({ default: m.LineChart })))
 
+export type ChartRow = { valid_date: string; value: number | null }
+
 type SeriesChartProps = {
-  points: SeriesPoint[]
+  /** Valid-date order; a null value leaves a gap in the line. */
+  rows: ChartRow[]
+  /** The series name in the tooltip. */
+  label: string
+  /** Decimals for the tooltip and, for bp measures, the axis ticks. */
+  decimals: 1 | 3
 }
 
-export default function SeriesChart({ points }: SeriesChartProps) {
+const formatFixed = (decimals: number) => (value: number) => value.toFixed(decimals)
+
+export default function SeriesChart({ rows, label, decimals }: SeriesChartProps) {
+  // Yield axes keep Mantine's default ticks; bp measures show ticks at one decimal, like the tooltip.
+  const yAxisProps = {
+    domain: ['auto', 'auto'] as ['auto', 'auto'],
+    ...(decimals === 1 ? { tickFormatter: formatFixed(1) } : {}),
+  }
   return (
     <Suspense fallback={<Skeleton h={320} />}>
       <LineChart
         h={320}
-        data={seriesChart(points)}
+        data={rows}
         dataKey="valid_date"
-        series={[{ name: 'value', label: 'Yield', color: CHART_COLORS[0] }]}
+        series={[{ name: 'value', label, color: CHART_COLORS[0] }]}
         curveType="linear"
         strokeWidth={2}
         gridAxis="y"
-        yAxisProps={{ domain: ['auto', 'auto'] }}
+        yAxisProps={yAxisProps}
         connectNulls={false}
-        withDots={points.length <= 15}
+        withDots={rows.length <= 15}
         withBrush
         withLegend={false}
-        valueFormatter={(value) => value.toFixed(3)}
+        valueFormatter={formatFixed(decimals)}
         tooltipAnimationDuration={0}
         lineProps={{ isAnimationActive: false }}
         xAxisProps={{ minTickGap: 32 }}

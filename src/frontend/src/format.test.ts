@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COMPOUNDING, RATE_TYPE, formatBp, formatUtc, formatYield, unitSymbol } from './format'
+import { COMPOUNDING, RATE_TYPE, formatBp, formatBpPlain, formatUtc, formatYield, unitSymbol } from './format'
 
 describe('formatUtc', () => {
   it('formats an instant in UTC with seconds', () => {
@@ -34,6 +34,14 @@ describe('formatBp', () => {
 
   it('groups thousands in large values', () => {
     expect(formatBp(1234567.8)).toBe('+1,234,567.8 bp')
+  })
+})
+
+describe('formatBpPlain', () => {
+  it('signs values like formatBp but leaves out the unit', () => {
+    expect(formatBpPlain(9)).toBe('+9.0')
+    expect(formatBpPlain(-2376)).toBe('−2,376.0')
+    expect(formatBpPlain(-0.04)).toBe('0.0')
   })
 })
 

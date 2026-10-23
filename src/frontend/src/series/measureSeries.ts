@@ -72,3 +72,26 @@ export function measureFlagged(point: MeasurePoint, key: MeasureKey): string[] {
   const inputs = MEASURE_INPUTS[key]
   return point.quality.flagged.filter((maturity) => inputs.includes(maturity))
 }
+
+/** Days with no value for the measure: the chart shows these as gaps. */
+export function gapDays(points: MeasurePoint[], key: MeasureKey): number {
+  return points.filter((point) => point[key] === null || point[key] === undefined).length
+}
+
+/** Days whose measure has a flagged input. */
+export function flaggedMeasureDays(points: MeasurePoint[], key: MeasureKey): number {
+  return points.filter((point) => measureFlagged(point, key).length > 0).length
+}
+
+/** The valid date of the last day with a value, or undefined when no day has one. */
+export function lastValueDate(points: MeasurePoint[], key: MeasureKey): string | undefined {
+  const withValue = points.filter((point) => point[key] !== null && point[key] !== undefined)
+  return withValue[withValue.length - 1]?.valid_date
+}
+
+/** "2Y and 10Y values", "2Y, 5Y and 10Y values": the inputs a measure needs, for the empty state. */
+export function measureInputsText(key: MeasureKey): string {
+  const inputs = MEASURE_INPUTS[key]
+  const head = inputs.slice(0, -1).join(', ')
+  return `${head ? `${head} and ` : ''}${inputs[inputs.length - 1]} values`
+}

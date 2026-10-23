@@ -223,6 +223,36 @@ test.describe('visual snapshots §7', () => {
     await captureSnapshots(page, 'S17', ['light', 'dark'])
   })
 
+  test('S33 time series measure empty', async ({ page }) => {
+    await routeMeasures(
+      page,
+      200,
+      measuresBody(
+        'ecb-aaa-spot',
+        {
+          ...measuresGrid,
+          point: {
+            ...measuresGrid.point,
+            spread_2y_10y: null,
+            inverted: null,
+            inputs: [],
+            missing: ['2Y', '10Y'],
+          },
+        },
+        '2025-10-19',
+      ),
+    )
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByRole('tab', { name: 'Time series' }).click()
+    const panel = page.getByRole('tabpanel', { name: 'Time series' })
+    await page.getByLabel('Series', { exact: true }).selectOption({ label: '2Y–10Y spread' })
+    await expect(panel.getByText('No values in this range')).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Show 10Y yield' })).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S33', ['light'])
+  })
+
   test('S6 changes with three rows', async ({ page }) => {
     await page.goto('/')
     await waitForCurveLoaded(page)
