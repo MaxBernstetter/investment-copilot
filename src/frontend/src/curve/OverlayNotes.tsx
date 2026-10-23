@@ -1,7 +1,14 @@
-import { Alert, List, Stack, Title } from '@mantine/core'
+import { Alert, List, Stack, Text, Title } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { COMPOUNDING, RATE_TYPE } from '../format'
-import { comparabilityIssue, type ComparabilityIssue } from './curveData'
+import {
+  comparabilityIssue,
+  monthsLabel,
+  tenorGaps,
+  type ComparabilityIssue,
+  type LabelledCurve,
+  type TenorGap,
+} from './curveData'
 import type { CurveInfo } from './fetchCurves'
 
 const unique = (values: string[]) => [...new Set(values)]
@@ -31,13 +38,24 @@ function attributionLines(curves: CurveInfo[]): { text: string; labels: string[]
   return [...groups].map(([text, labels]) => ({ text, labels }))
 }
 
+/** The missing-value line for one drawn curve; more than 8 tenors are counted, not listed. */
+function gapText({ label, months }: TenorGap): string {
+  if (months.length > 8) return `No value on ${label} for ${months.length} maturities.`
+  return `No value on ${label}: ${months.map(monthsLabel).join(', ')}.`
+}
+
 type OverlayNotesProps = {
   /** The distinct curves drawn in the chart, the shown one included. */
   curves: CurveInfo[]
+  /** The drawn curves in the chart, to find the tenors each one lacks. */
+  drawn?: LabelledCurve[]
 }
 
-/** Notes under an overlay chart: the comparability note when conventions differ, then one attribution per source. */
-export default function OverlayNotes({ curves }: OverlayNotesProps) {
+/**
+ * Notes under an overlay chart, in this order: the comparability note when conventions differ,
+ * one missing-value line per curve with gaps, then one attribution per source.
+ */
+export default function OverlayNotes({ curves, drawn = [] }: OverlayNotesProps) {
   const issue = comparabilityIssue(curves)
   return (
     <Stack gap="sm" mt="sm">
@@ -46,6 +64,11 @@ export default function OverlayNotes({ curves }: OverlayNotesProps) {
           {comparabilityText(issue, curves)}
         </Alert>
       )}
+      {tenorGaps(drawn).map((gap) => (
+        <Text key={gap.label} size="sm" c="dimmed">
+          {gapText(gap)}
+        </Text>
+      ))}
       <div>
         <Title order={3} size="h5" mb={4}>
           Attribution

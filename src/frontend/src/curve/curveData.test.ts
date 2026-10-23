@@ -12,6 +12,7 @@ import {
   nextSlot,
   overlayRows,
   overlaySeries,
+  tenorGaps,
   tenYearHint,
   yield10y,
   type CurvePoint,
@@ -29,6 +30,30 @@ describe('curveData', () => {
   it('lists missing maturities', () => {
     expect(missingMaturities(points)).toEqual(['1Y'])
     expect(missingMaturities([points[0]])).toEqual([])
+  })
+
+  it('lists, per drawn curve, the tenors other curves publish and it does not', () => {
+    const short: CurvePoint = {
+      maturity: '1.5M',
+      months: 1.5,
+      value: 2.0,
+      version_id: 1,
+      origin: 'published',
+      quality: passed,
+    }
+    const gaps = tenorGaps([
+      { key: 'a', label: 'AAA · 2026-10-16', points: [...points, short], slot: 0 },
+      { key: 'b', label: 'PAR · 2026-10-16', points: [points[0], points[2]], slot: 1 },
+    ])
+    expect(gaps).toEqual([{ label: 'PAR · 2026-10-16', months: [1.5] }])
+  })
+
+  it('returns no gap when every curve publishes the same tenors', () => {
+    const same = [
+      { key: 'a', label: 'x', points, slot: 0 },
+      { key: 'b', label: 'y', points, slot: 1 },
+    ]
+    expect(tenorGaps(same)).toEqual([])
   })
 
   it('overlay rows are the sorted union of tenors, with nulls as gaps', () => {

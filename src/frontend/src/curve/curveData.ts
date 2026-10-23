@@ -92,6 +92,23 @@ export function tenYearHint(points: CurvePoint[]): string | undefined {
   return undefined
 }
 
+/** A drawn curve that lacks tenors other drawn curves publish, with those tenors in months, ascending. */
+export type TenorGap = { label: string; months: number[] }
+
+/**
+ * Per drawn curve, the tenors with a value on another drawn curve but none on it. Curves with no such tenor are left out.
+ */
+export function tenorGaps(curves: readonly LabelledCurve[]): TenorGap[] {
+  const published = curves.map(
+    ({ points }) => new Set(points.filter((point) => point.value !== null).map((point) => point.months)),
+  )
+  const all = new Set(published.flatMap((months) => [...months]))
+  return curves.flatMap((curve, index) => {
+    const months = [...all].filter((tenor) => !published[index].has(tenor)).sort((a, b) => a - b)
+    return months.length > 0 ? [{ label: curve.label, months }] : []
+  })
+}
+
 /** Why the curves on one chart are not directly comparable, or undefined when their conventions agree. */
 export type ComparabilityIssue = 'rate-type' | 'compounding' | 'both'
 
