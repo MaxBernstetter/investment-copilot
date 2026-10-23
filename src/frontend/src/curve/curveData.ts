@@ -3,29 +3,58 @@ import { CHART_COLORS } from '../theme'
 
 export type CurvePoint = components['schemas']['CurvePoint']
 
-/** A curve on the chart, labelled by its valid date. */
-export type LabelledCurve = { label: string; points: CurvePoint[] }
+/** One curve on the overlay: a catalogue curve at one valid date. */
+export type OverlayEntry = { curveId: string; validDate: string }
+
+/** The stable key of an overlay entry, safe as a chart data key (no dots). */
+export function entryKey(entry: OverlayEntry): string {
+  return `${entry.curveId}|${entry.validDate}`
+}
+
+/**
+ * The x-axis label for a tenor in months: 6 is "6M", 12 is "1Y", 360 is "30Y", 1.5 is "1.5M".
+ */
+export function monthsLabel(months: number): string {
+  return months % 12 === 0 && months >= 12 ? `${months / 12}Y` : `${months}M`
+}
+
+/**
+ * A curve on the chart: its entry key, its legend label, its points and its colour slot.
+ * The shown curve is slot 0; an overlay keeps the slot it was given when added.
+ */
+export type LabelledCurve = { key: string; label: string; points: CurvePoint[]; slot: number }
+
+/** The lowest colour slot not in use. */
+export function nextSlot(used: number[]): number {
+  let slot = 0
+  while (used.includes(slot)) slot++
+  return slot
+}
 
 const PALETTE: readonly string[] = CHART_COLORS
 
 /**
- * One row per maturity in grid order, with one key per curve label.
- * A maturity a curve does not publish is null, so the chart leaves a gap.
+ * One row per tenor in months, sorted ascending, with one key per curve key.
+ * A tenor a curve does not publish is null, so the chart leaves a gap.
  */
 export function overlayRows(curves: LabelledCurve[]): Record<string, string | number | null>[] {
-  const maturities = [...new Set(curves.flatMap(({ points }) => points.map((p) => p.maturity)))]
-  return maturities.map((maturity) => {
-    const row: Record<string, string | number | null> = { maturity }
-    for (const { label, points } of curves) {
-      row[label] = points.find((point) => point.maturity === maturity)?.value ?? null
+  const months = [...new Set(curves.flatMap(({ points }) => points.map((p) => p.months)))].sort((a, b) => a - b)
+  const valuesByCurve = curves.map(({ key, points }) => ({
+    key,
+    values: new Map(points.map((point) => [point.months, point.value])),
+  }))
+  return months.map((tenor) => {
+    const row: Record<string, string | number | null> = { months: tenor }
+    for (const { key, values } of valuesByCurve) {
+      row[key] = values.get(tenor) ?? null
     }
     return row
   })
 }
 
-/** One series per curve, named by its label so the legend shows the valid date. */
-export function overlaySeries(curves: LabelledCurve[]): { name: string; color: string }[] {
-  return curves.map(({ label }, i) => ({ name: label, color: PALETTE[i % PALETTE.length] }))
+/** One series per curve, named by its key and coloured by its slot; the legend shows its label. */
+export function overlaySeries(curves: LabelledCurve[]): { name: string; label: string; color: string }[] {
+  return curves.map(({ key, label, slot }) => ({ name: key, label, color: PALETTE[slot % PALETTE.length] }))
 }
 
 /** Maturities on the grid without a published value as of the answer's knowledge time. */

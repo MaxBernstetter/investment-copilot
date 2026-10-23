@@ -25,7 +25,15 @@ import UncheckedNote from '../quality/UncheckedNote'
 import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
-import { flaggedMaturities, missingMaturities, tenYearHint, yield10y, type LabelledCurve } from './curveData'
+import {
+  entryKey,
+  flaggedMaturities,
+  missingMaturities,
+  nextSlot,
+  tenYearHint,
+  yield10y,
+  type LabelledCurve,
+} from './curveData'
 import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
@@ -50,7 +58,7 @@ type CurveViewProps = {
 export default function CurveView({ curve, asOf }: CurveViewProps) {
   const [validDate, setValidDate] = useState<string | undefined>(undefined)
   const [result, setResult] = useState<CurveResult | undefined>(undefined)
-  const [overlayDates, setOverlayDates] = useState<string[]>([])
+  const [overlays, setOverlays] = useState<{ date: string; slot: number }[]>([])
   const [overlayCurves, setOverlayCurves] = useState<LabelledCurve[]>([])
   const [historyMaturity, setHistoryMaturity] = useState<string | undefined>(undefined)
   const [measures, setMeasures] = useState<{ key: string; result: MeasuresResult } | undefined>(undefined)
@@ -87,12 +95,21 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
 
   useEffect(() => {
     let active = true
-    Promise.all(overlayDates.map((date) => fetchCurve({ curveId: curve.id, validDate: date, asOf }))).then(
+    Promise.all(overlays.map(({ date }) => fetchCurve({ curveId: curve.id, validDate: date, asOf }))).then(
       (results) => {
         if (!active) return
         setOverlayCurves(
           results.flatMap((next, i) =>
-            next.kind === 'ok' ? [{ label: overlayDates[i], points: next.curve.data.points }] : [],
+            next.kind === 'ok'
+              ? [
+                  {
+                    key: entryKey({ curveId: curve.id, validDate: overlays[i].date }),
+                    label: overlays[i].date,
+                    points: next.curve.data.points,
+                    slot: overlays[i].slot,
+                  },
+                ]
+              : [],
           ),
         )
       },
@@ -100,21 +117,28 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
     return () => {
       active = false
     }
-  }, [curve.id, overlayDates, asOf])
+  }, [curve.id, overlays, asOf])
 
   const returnedDate = result?.kind === 'ok' ? result.curve.data.valid_date : ''
   const shownDate = validDate ?? returnedDate
+  const overlayDates = useMemo(() => overlays.map(({ date }) => date), [overlays])
   const canAddOverlay =
-    shownDate !== '' && !overlayDates.includes(shownDate) && overlayDates.length < MAX_OVERLAYS
+    shownDate !== '' && !overlayDates.includes(shownDate) && overlays.length < MAX_OVERLAYS
 
   const curves = useMemo<LabelledCurve[]>(() => {
     if (result?.kind !== 'ok') return []
-    const current = { label: result.curve.data.valid_date, points: result.curve.data.points }
+    const validDate = result.curve.data.valid_date
+    const current = {
+      key: entryKey({ curveId: curve.id, validDate }),
+      label: validDate,
+      points: result.curve.data.points,
+      slot: 0,
+    }
     const overlays = overlayCurves.filter(
-      (curve) => overlayDates.includes(curve.label) && curve.label !== current.label,
+      (overlay) => overlayDates.includes(overlay.label) && overlay.key !== current.key,
     )
     return [current, ...overlays]
-  }, [result, overlayCurves, overlayDates])
+  }, [curve.id, result, overlayCurves, overlayDates])
 
   const points = result?.kind === 'ok' ? result.curve.data.points : []
   const missing = result?.kind === 'ok' ? missingMaturities(points) : []
@@ -146,7 +170,12 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
       <Button
         variant="default"
         disabled={result?.kind !== 'ok' || !canAddOverlay}
-        onClick={() => setOverlayDates((dates) => [...dates, shownDate])}
+        onClick={() =>
+          setOverlays((current) => [
+            ...current,
+            { date: shownDate, slot: nextSlot([0, ...current.map((o) => o.slot)]) },
+          ])
+        }
       >
         Add to overlay
       </Button>
@@ -203,15 +232,15 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
           <Card>
             <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
               <Title order={2}>{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
-              {overlayDates.length > 0 && (
+              {overlays.length > 0 && (
                 <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
-                  {overlayDates.map((date) => (
+                  {overlays.map(({ date }) => (
                     <Pill
                       key={date}
                       component="li"
                       withRemoveButton
                       removeButtonProps={{ 'aria-label': `Remove ${date}`, 'aria-hidden': false, tabIndex: 0 }}
-                      onRemove={() => setOverlayDates((dates) => dates.filter((d) => d !== date))}
+                      onRemove={() => setOverlays((current) => current.filter((o) => o.date !== date))}
                     >
                       {date}
                     </Pill>
