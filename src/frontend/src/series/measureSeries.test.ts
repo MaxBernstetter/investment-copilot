@@ -47,6 +47,7 @@ describe('measureSeries', () => {
     expect(parseChoice('yield:4Y')).toEqual({ kind: 'yield', maturity: '10Y' })
     expect(parseChoice('measure:unknown')).toEqual({ kind: 'yield', maturity: '10Y' })
     expect(parseChoice('10Y')).toEqual({ kind: 'yield', maturity: '10Y' })
+    expect(parseChoice('yield:2Y:unexpected')).toEqual({ kind: 'yield', maturity: '10Y' })
   })
 
   it('marks only the two spreads as spreads', () => {

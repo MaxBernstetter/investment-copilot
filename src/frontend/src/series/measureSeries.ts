@@ -19,7 +19,9 @@ export function choiceValue(choice: SeriesChoice): string {
 
 /** The choice for a select value; anything unknown falls back to the 10Y yield. */
 export function parseChoice(value: string): SeriesChoice {
-  const [kind, id = ''] = value.split(':')
+  const parts = value.split(':')
+  if (parts.length !== 2) return DEFAULT_CHOICE
+  const [kind, id] = parts
   if (kind === 'yield' && (MATURITIES as readonly string[]).includes(id)) {
     return { kind: 'yield', maturity: id }
   }
@@ -28,7 +30,10 @@ export function parseChoice(value: string): SeriesChoice {
   return DEFAULT_CHOICE
 }
 
-export function isSpread(key: MeasureKey): boolean {
+/** The keys that are differences of two yields, so they can go below zero. */
+export type SpreadKey = 'spread_2y_10y' | 'spread_3m_10y'
+
+export function isSpread(key: MeasureKey): key is SpreadKey {
   return key !== 'curvature_2y_5y_10y'
 }
 
@@ -53,7 +58,7 @@ export type InvertedCount = { inverted: number; total: number }
  * Days with a spread value below zero, out of the days with a value. Counts the
  * spread's own value, not the API `inverted` flag, which is the 2Y–10Y slope only.
  */
-export function invertedDays(points: MeasurePoint[], key: MeasureKey): InvertedCount {
+export function invertedDays(points: MeasurePoint[], key: SpreadKey): InvertedCount {
   const values = points.map((point) => point[key] ?? null).filter((value): value is number => value !== null)
   return { inverted: values.filter((value) => value < 0).length, total: values.length }
 }
