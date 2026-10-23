@@ -73,6 +73,7 @@ More in [docs/idea/](docs/idea/) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 - <http://localhost:8000> (or your `ACCESS_PORT`)
 - Example: `curl localhost:8000/v1/curves/ecb-aaa-spot/observations`
+  - Replace `8000` with your `ACCESS_PORT` if you changed it.
 
 **Stop**
 
