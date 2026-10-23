@@ -25,11 +25,11 @@ const point = (valid_date: string, overrides: Partial<MeasurePoint> = {}): Measu
 })
 
 describe('measureSeries', () => {
-  it('labels the three measures as the curve view and the issue name them', () => {
+  it('labels the three measures as the curve view cards do', () => {
     expect(MEASURES.map((measure) => measure.label)).toEqual([
       '2Y–10Y spread',
       '3M–10Y spread',
-      'Curvature 2Y–5Y–10Y',
+      '2Y–5Y–10Y curvature',
     ])
   })
 

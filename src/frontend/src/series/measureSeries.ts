@@ -1,18 +1,11 @@
-import { MEASURE_INPUTS, type MeasureKey, type MeasurePoint } from '../curve/measuresData'
+import { MEASURE_INPUTS, MEASURE_LABEL, type MeasureKey, type MeasurePoint } from '../curve/measuresData'
 import { MATURITIES, statsOf, type SeriesStats } from './seriesData'
-
-/** Labels as the curve view key figures show them (#33). */
-export const MEASURE_LABELS: Record<MeasureKey, string> = {
-  spread_2y_10y: '2Y–10Y spread',
-  spread_3m_10y: '3M–10Y spread',
-  curvature_2y_5y_10y: 'Curvature 2Y–5Y–10Y',
-}
 
 const MEASURE_KEYS: MeasureKey[] = ['spread_2y_10y', 'spread_3m_10y', 'curvature_2y_5y_10y']
 
 export const MEASURES: { key: MeasureKey; label: string }[] = MEASURE_KEYS.map((key) => ({
   key,
-  label: MEASURE_LABELS[key],
+  label: MEASURE_LABEL[key],
 }))
 
 /** What the Time series view shows: one maturity yield, or one measure. */
