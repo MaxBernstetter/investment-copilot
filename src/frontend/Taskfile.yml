@@ -94,5 +94,7 @@ tasks:
   dev:
     desc: Start the Vite dev server
     deps: [generate]
+    env:
+      VITE_ACCESS_URL: '{{.VITE_ACCESS_URL | default (printf "http://localhost:%s" (.ACCESS_PORT | default "8000"))}}'
     cmds:
       - npm run dev
