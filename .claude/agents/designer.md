@@ -2,7 +2,7 @@
 name: designer
 description: Owns visual quality of the frontend. Before UI work, turns an issue into a design spec (components, props, copy, states) per docs/development/design-guidelines.md. After the validator passes on a change under src/frontend/src or theme.ts, runs the visual review against the guidelines and the approved screenshots. Read-only in the repo; browses the running app with Playwright.
 model: claude-sonnet-5-5
-effort: medium
+effort: low
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 

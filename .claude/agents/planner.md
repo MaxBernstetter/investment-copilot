@@ -2,7 +2,7 @@
 name: planner
 description: Turns one groomed issue into an implementation plan, split into merge-request-sized slices, each a work unit for the worker agent. Read-only. Use before any non-trivial implementation.
 model: claude-sonnet-5-5
-effort: medium
+effort: low
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 
