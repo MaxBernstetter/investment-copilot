@@ -30,7 +30,7 @@ export default function StatCard({ label, value, hint, help, badge, loading = fa
     </Text>
   )
   return (
-    <Card>
+    <Card aria-busy={loading || undefined}>
       <Stack gap={4}>
         {help === undefined ? (
           labelText

@@ -56,6 +56,16 @@ describe('StatCard', () => {
     expect(container.querySelector('.mantine-Skeleton-root')).not.toBeNull()
   })
 
+  it('marks the card busy only while loading', () => {
+    const { container, unmount } = render(<StatCard label="Last" value="2.600" loading />)
+
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+    unmount()
+
+    const idle = render(<StatCard label="Last" value="2.600" />)
+    expect(idle.container.querySelector('[aria-busy]')).toBeNull()
+  })
+
   it('marks the value for tabular numerals', () => {
     render(<StatCard label="Last" value={'2.600\u202F%'} />)
 
