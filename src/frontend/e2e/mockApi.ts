@@ -176,7 +176,7 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
       }
 
       if (curveId === 'ust-par') {
-        await fulfillJson(route, 200, curveBody(curveId, curvePar))
+        await fulfillJson(route, 200, curveBody(curveId, curvePar, validDate ?? undefined))
         return
       }
 
@@ -193,7 +193,11 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         return
       }
 
-      await fulfillJson(route, 200, curveBody(curveId, curveId === 'ecb-all-spot' ? curveAllGrid : curveGrid))
+      await fulfillJson(
+        route,
+        200,
+        curveBody(curveId, curveId === 'ecb-all-spot' ? curveAllGrid : curveGrid, validDate ?? undefined),
+      )
       return
     }
 

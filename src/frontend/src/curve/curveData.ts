@@ -33,6 +33,11 @@ export function nextSlot(used: number[]): number {
 
 const PALETTE: readonly string[] = CHART_COLORS
 
+/** The colour of a slot; the palette repeats after six slots, and the cap keeps the slots below that. */
+export function slotColor(slot: number): string {
+  return PALETTE[slot % PALETTE.length]
+}
+
 /**
  * One row per tenor in months, sorted ascending, with one key per curve key.
  * A tenor a curve does not publish is null, so the chart leaves a gap.
@@ -54,7 +59,7 @@ export function overlayRows(curves: LabelledCurve[]): Record<string, string | nu
 
 /** One series per curve, named by its key and coloured by its slot; the legend shows its label. */
 export function overlaySeries(curves: LabelledCurve[]): { name: string; label: string; color: string }[] {
-  return curves.map(({ key, label, slot }) => ({ name: key, label, color: PALETTE[slot % PALETTE.length] }))
+  return curves.map(({ key, label, slot }) => ({ name: key, label, color: slotColor(slot) }))
 }
 
 /** Maturities on the grid without a published value as of the answer's knowledge time. */

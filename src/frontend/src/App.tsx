@@ -12,6 +12,7 @@ import PageHeader from './layout/PageHeader'
 import CurveView from './curve/CurveView'
 import { readCurveId, resolveCurve, writeCurveId } from './curve/curves'
 import { fetchCurves, type CurvesResult } from './curve/fetchCurves'
+import { useOverlay } from './curve/useOverlay'
 import { sourceOf } from './curve/sources'
 import SeriesView from './series/SeriesView'
 import QualityView from './quality/QualityView'
@@ -30,6 +31,7 @@ export default function App() {
   const [navOpened, navHandlers] = useDisclosure(false)
   const curves = catalogue.kind === 'ok' ? catalogue.curves : []
   const curve = resolveCurve(curves, curveId)
+  const overlay = useOverlay(curves)
   const ready = state === 'online' && curve !== undefined
   const simulated = curve?.simulated ?? false
 
@@ -175,7 +177,7 @@ export default function App() {
                   </Alert>
                 )}
                 <Tabs.Panel value="curve">
-                  <CurveView key={curve.id} curve={curve} asOf={asOf} />
+                  <CurveView key={curve.id} curve={curve} catalogue={curves} overlay={overlay} asOf={asOf} />
                 </Tabs.Panel>
                 <Tabs.Panel value="series">
                   <SeriesView key={curve.id} curveId={curve.id} asOf={asOf} />
