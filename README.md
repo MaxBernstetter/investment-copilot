@@ -159,4 +159,8 @@ Related tasks:
 - [Build, tasks and CI](docs/architecture/13-build-and-ci.md) — Taskfiles, workflows, required checks
 - [Agent harness](docs/development/03-agent-harness.md) — which model does what in agentic development
 
+**How changes are reviewed**
+
+Every change goes through a pull request. CI gates the merge and CodeRabbit reviews the diff; its comments are on the PR, for example [#329](https://github.com/MaxBernstetter/yield-lens/pull/329), [#323](https://github.com/MaxBernstetter/yield-lens/pull/323) and [#314](https://github.com/MaxBernstetter/yield-lens/pull/314).
+
 The `docs/` folder is an Obsidian vault; start at [docs/README.md](docs/README.md).
