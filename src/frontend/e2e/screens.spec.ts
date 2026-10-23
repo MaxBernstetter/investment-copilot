@@ -76,9 +76,6 @@ function statCard(page: Page, label: string) {
   return page.locator('.mantine-Card-root', { has: page.getByText(label, { exact: true }) })
 }
 
-/** Help text of the 2Y–10Y spread tooltip, as in CurveView. */
-const HELP_2Y_10Y = '10Y yield minus 2Y yield, in basis points. Also called the slope. Below zero the curve is inverted.'
-
 /** Opens one flag popover at every viewport and scheme, checks it, and closes it again. */
 async function captureFlagPopover(page: Page, flagName: string, id: string) {
   const flag = page.getByRole('button', { name: flagName })
@@ -368,14 +365,17 @@ test.describe('visual snapshots §7', () => {
         await page.keyboard.press('Tab')
         await expect(about).toBeFocused()
         // Wait for the new tooltip by its text, then for it to be the only one: a closing tooltip can linger.
-        await expect(page.getByRole('tooltip').filter({ hasText: HELP_2Y_10Y })).toHaveCount(1)
+        await expect(page.getByRole('tooltip', { name: /Also called the slope/ })).toBeVisible()
         await expect(tooltip).toHaveCount(1)
         await settleAnimations(page)
         await expectOpaque(tooltip)
         if (width === AXE_VIEWPORT.width) {
           await runAxe(page)
         }
-        await expect(page).toHaveScreenshot(screenshotName('S21', width, height, scheme))
+        // The shared stylesheet hides every tooltip; this capture keeps the one under test visible.
+        await expect(page).toHaveScreenshot(screenshotName('S21', width, height, scheme), {
+          stylePath: './e2e/screenshot-show-tooltips.css',
+        })
         await page.keyboard.press('Escape')
         await expect(tooltip).toHaveCount(0)
       }
