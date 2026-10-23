@@ -10,6 +10,8 @@ export const SOURCES: Record<string, Source> = {
   },
   // The only scenario curve simulates the ECB AAA curve, so it names the ECB without a terms link.
   scenario: { publisher: 'the ECB' },
+  // The US Treasury publishes par yields openly, so the publisher has no reuse-terms link.
+  ust: { publisher: 'U.S. Department of the Treasury' },
 }
 
 const UNKNOWN_SOURCE: Source = { publisher: 'the source' }

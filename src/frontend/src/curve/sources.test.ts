@@ -10,15 +10,19 @@ describe('sourceOf', () => {
     })
   })
 
+  it('knows the US Treasury publisher without terms', () => {
+    expect(sourceOf(PAR)).toEqual({ publisher: 'U.S. Department of the Treasury' })
+  })
+
   it('gives a neutral publisher for an unknown source', () => {
-    expect(sourceOf(PAR)).toEqual({ publisher: 'the source' })
+    expect(sourceOf({ ...PAR, sourceId: 'unknown' })).toEqual({ publisher: 'the source' })
   })
 })
 
 describe('validDateHelp', () => {
   it('explains the valid date per curve', () => {
     expect(validDateHelp(AAA)).toBe('The business day the yield applies to, as published by the ECB.')
-    expect(validDateHelp(PAR)).toBe('The business day the yield applies to, as published by the source.')
+    expect(validDateHelp(PAR)).toBe('The business day the yield applies to, as published by U.S. Department of the Treasury.')
     expect(validDateHelp(SIM)).toBe('The business day the yield applies to in this scenario.')
   })
 })

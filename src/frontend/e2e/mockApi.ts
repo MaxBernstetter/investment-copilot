@@ -26,6 +26,7 @@ function loadJson<T>(name: string): T {
 
 export const curveGrid = loadJson<CurveFixture>('curve-grid.json')
 const curveAllGrid = loadJson<CurveFixture>('curve-all-grid.json')
+const curvePar = loadJson<CurveFixture>('curve-par.json')
 const curveOverlay15 = loadJson<CurveFixture>('curve-overlay-2026-10-15.json')
 const curveOverlay14 = loadJson<CurveFixture>('curve-overlay-2026-10-14.json')
 const curveSimSpike = loadJson<CurveFixture>('curve-sim-spike.json')
@@ -154,6 +155,11 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
 
       if (curveId === 'ecb-aaa-spot-sim' && asOf === '2026-10-19T18:49:25Z') {
         await fulfillJson(route, 200, curveBody(curveId, curveSimSpike))
+        return
+      }
+
+      if (curveId === 'ust-par') {
+        await fulfillJson(route, 200, curveBody(curveId, curvePar))
         return
       }
 
