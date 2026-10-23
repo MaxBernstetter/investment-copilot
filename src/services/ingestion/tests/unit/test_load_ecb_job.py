@@ -897,3 +897,19 @@ def test_summary_and_failure_lines_carry_the_root_trace_id(
     failure = json.loads(failed.stderr)
     assert failure["trace_id"] == format_trace_id(span.context.trace_id)
     assert failure["span_id"] == format_span_id(span.context.span_id)
+
+
+def test_the_ecb_job_keeps_its_name_in_span_and_output(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    telemetry, spans, _ = job_telemetry()
+    ecb = StubEcb({("2026-10-01", "2026-10-15"): DAILY})
+
+    result = run(
+        capsys, ["daily", "--valid-date", "2026-10-15"], ecb, StubPersistence(), telemetry=telemetry
+    )
+
+    [span] = spans.get_finished_spans()
+    assert span.name == "ingestion-load-ecb"
+    assert result.summary["source"] == "ecb"
+    assert result.summary["run_id"] == "ecb-daily-2026-10-15"

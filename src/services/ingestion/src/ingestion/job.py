@@ -1,7 +1,8 @@
-"""Composition roots of the jobs: the ECB source, ``ING`` and persistence for the load, and
+"""Composition roots of the jobs: a source, ``ING`` and persistence for the load, and
 persistence alone for a scenario.
 
-Entry points ``ingestion-load-ecb`` (see ``ingestion.facade.jobs.load_ecb``) and
+Entry points are per source and bound to it: ``ingestion-load-ecb`` is
+``load_source("ecb")`` (see ``ingestion.facade.jobs.load`` for its command line), and
 ``ingestion-scenario`` (see ``ingestion.facade.jobs.scenario``). Exit status: ``0`` the
 load, replay, scenario or fail-unfinished finished (also with zero rows), ``1`` it failed,
 ``2`` usage or configuration error.
@@ -10,6 +11,7 @@ telemetry is flushed before the process exits.
 """
 
 import asyncio
+import functools
 import sys
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -31,11 +33,12 @@ from ingestion.application.run_scenario import RunScenario, ScenarioResult
 from ingestion.application.track_run import RunLog, TrackRun
 from ingestion.config import IngestionSettings
 from ingestion.domain.run import Operation
-from ingestion.facade.jobs.load_ecb import (
+from ingestion.facade.jobs.load import (
     FailUnfinishedCommand,
     LoadCommand,
     ReplayCommand,
     failure,
+    job_name,
     parse_command,
     replay_summary,
     root_span_attributes,
@@ -48,13 +51,7 @@ from ingestion.facade.jobs.scenario import (
     scenario_failure,
     scenario_summary,
 )
-from ingestion.infrastructure.ecb import (
-    SOURCE_ID,
-    EcbSpotCurveSource,
-    InvalidPayloadError,
-    parse_delivery,
-)
-from ingestion.infrastructure.ecb import is_no_data as ecb_is_no_data
+from ingestion.infrastructure.ecb import InvalidPayloadError
 from ingestion.infrastructure.http import SourceClient, SourceDisabledError, SourceRequestError
 from ingestion.infrastructure.ing import CorruptDeliveryError, OracleDeliveryStore, OracleRunLog
 from ingestion.infrastructure.persistence import PersistenceClient, PersistenceWriteError
@@ -64,6 +61,7 @@ from ingestion.infrastructure.telemetry import (
     setup_telemetry,
     trace_fields,
 )
+from ingestion.sources import SourceWiring, wiring
 
 LOAD_ERRORS = (
     SourceDisabledError,
@@ -83,7 +81,8 @@ class Deliveries(DeliveryStore, StoredDeliveries, Protocol):
     """The raw delivery store as the job uses it: loads write it, replay reads it."""
 
 
-def main(
+def load_source(
+    source_id: str,
     argv: Sequence[str] | None = None,
     *,
     source_transport: httpx.AsyncBaseTransport | None = None,
@@ -92,12 +91,13 @@ def main(
     run_log: RunLog | None = None,
     telemetry: Telemetry | None = None,
 ) -> int:
-    """Run one ECB load or replay. Tests inject the transports, the delivery store and the
-    telemetry; the defaults are real (the ``ING`` schema in Oracle, the OTLP exporters only
-    when an endpoint is configured)."""
+    """Run one load or replay of ``source_id``. Tests inject the transports, the delivery
+    store and the telemetry; the defaults are real (the ``ING`` schema in Oracle, the OTLP
+    exporters only when an endpoint is configured)."""
     telemetry = telemetry or setup_telemetry()
     try:
-        return _load_ecb(
+        return _load_source(
+            source_id,
             argv,
             source_transport,
             persistence_transport,
@@ -109,7 +109,12 @@ def main(
         telemetry.shutdown()
 
 
-def _load_ecb(
+main = functools.partial(load_source, "ecb")
+"""The entry point ``ingestion-load-ecb`` (pyproject.toml)."""
+
+
+def _load_source(
+    source_id: str,
     argv: Sequence[str] | None,
     source_transport: httpx.AsyncBaseTransport | None,
     persistence_transport: httpx.AsyncBaseTransport | None,
@@ -117,26 +122,32 @@ def _load_ecb(
     run_log: RunLog | None,
     telemetry: Telemetry,
 ) -> int:
+    source = wiring(source_id)
     try:
         settings = IngestionSettings()
     except ValidationError as error:
-        print(failure(None, error, {}), file=sys.stderr)
+        print(failure(source_id, None, error, {}), file=sys.stderr)
         return 2
     command = parse_command(
-        argv, lookback_business_days=settings.sources.ecb.lookback_business_days
+        argv,
+        source_id=source_id,
+        description=source.description,
+        lookback_business_days=settings.sources.for_source(source_id).lookback_business_days,
     )
     with telemetry.tracer.start_as_current_span(
-        "ingestion-load-ecb", attributes=root_span_attributes(command)
+        job_name(source_id), attributes=root_span_attributes(command, source_id)
     ) as span:
         trace = trace_fields()
         try:
             if isinstance(command, FailUnfinishedCommand):
                 failed_count = asyncio.run(_fail_unfinished(command, settings, run_log))
-                print(unfinished_summary(command.run_id, failed_count, trace))
+                print(unfinished_summary(source_id, command.run_id, failed_count, trace))
                 return 0
             if isinstance(command, ReplayCommand):
                 replayed = asyncio.run(
                     _replay(
+                        source_id,
+                        source,
                         command,
                         settings,
                         persistence_transport,
@@ -145,10 +156,12 @@ def _load_ecb(
                         span,
                     )
                 )
-                print(replay_summary(replayed, trace))
+                print(replay_summary(source_id, replayed, trace))
                 return 0
             result = asyncio.run(
                 _load(
+                    source_id,
+                    source,
                     command,
                     settings,
                     source_transport,
@@ -162,13 +175,15 @@ def _load_ecb(
         except LOAD_ERRORS as error:
             span.record_exception(error)
             span.set_status(StatusCode.ERROR)
-            print(failure(command.run_id, error, trace), file=sys.stderr)
+            print(failure(source_id, command.run_id, error, trace), file=sys.stderr)
             return 1
-        print(summary(result, trace))
+        print(summary(source_id, result, trace))
     return 0
 
 
 async def _load(
+    source_id: str,
+    source: SourceWiring,
     command: LoadCommand,
     settings: IngestionSettings,
     source_transport: httpx.AsyncBaseTransport | None,
@@ -182,15 +197,15 @@ async def _load(
         _deliveries(settings, delivery_store) as deliveries,
         _run_log(settings, run_log) as runs,
         SourceClient(
-            SOURCE_ID,
-            settings.sources.ecb,
-            is_no_data=ecb_is_no_data,
+            source_id,
+            settings.sources.for_source(source_id),
+            is_no_data=source.is_no_data,
             transport=source_transport,
             meter=meter,
         ) as source_client,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
-        load = LoadPublishedCurve(EcbSpotCurveSource(source_client), deliveries, store)
+        load = LoadPublishedCurve(source.make_curve_source(source_client), deliveries, store)
         tracked = await TrackRun(AttemptOnSpan(runs, span))(
             command.run_id, command.operation, load(command.windows, command.run_id)
         )
@@ -206,6 +221,8 @@ async def _fail_unfinished(
 
 
 async def _replay(
+    source_id: str,
+    source: SourceWiring,
     command: ReplayCommand,
     settings: IngestionSettings,
     persistence_transport: httpx.AsyncBaseTransport | None,
@@ -219,7 +236,7 @@ async def _replay(
         _run_log(settings, run_log) as runs,
         PersistenceClient(settings.persistence, transport=persistence_transport) as store,
     ):
-        replay = ReplayDeliveries(SOURCE_ID, parse_delivery, deliveries, store)
+        replay = ReplayDeliveries(source_id, source.parse_delivery, deliveries, store)
         tracked = await TrackRun(AttemptOnSpan(runs, span))(
             command.run_id,
             Operation.REPLAY,

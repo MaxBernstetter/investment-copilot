@@ -40,11 +40,19 @@ class SourceSettings(BaseModel):
 
 
 class SourcesSettings(BaseModel):
-    """One entry per supported source. Adding a source adds a field here."""
+    """One entry per supported source. Adding a source adds a field here and an entry in
+    ``ingestion.sources.SOURCES``."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     ecb: SourceSettings = SourceSettings()
+
+    def for_source(self, source_id: str) -> SourceSettings:
+        """The settings slot of ``source_id``; an unknown id is a ``ValueError``."""
+        if source_id not in type(self).model_fields:
+            raise ValueError(f"unknown source {source_id!r}")
+        slot: SourceSettings = getattr(self, source_id)
+        return slot
 
 
 class PersistenceSettings(BaseModel):
