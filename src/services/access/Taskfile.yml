@@ -4,11 +4,11 @@ version: "3"
 
 # Local-only default: the persistence api started by `task persistence:run`.
 env:
-  ACCESS_PERSISTENCE_URL: '{{.ACCESS_PERSISTENCE_URL | default "http://localhost:8001"}}'
-  ACCESS_PROCESSING_URL: '{{.ACCESS_PROCESSING_URL | default "http://localhost:8002"}}'
+  ACCESS_PERSISTENCE_URL: '{{.ACCESS_PERSISTENCE_URL | default (printf "http://localhost:%s" (.PERSISTENCE_PORT | default "8001"))}}'
+  ACCESS_PROCESSING_URL: '{{.ACCESS_PROCESSING_URL | default (printf "http://localhost:%s" (.PROCESSING_PORT | default "8002"))}}'
 
 vars:
-  PORT: '{{.PORT | default "8000"}}'
+  PORT: '{{.PORT | default (.ACCESS_PORT | default "8000")}}'
 
 tasks:
   setup:

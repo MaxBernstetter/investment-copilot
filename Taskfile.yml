@@ -2,6 +2,9 @@
 # Run `task --list` for the menu. See docs/architecture/13-build-and-ci.md.
 version: "3"
 
+# Local port and password overrides; see .env.example. Absent file is fine.
+dotenv: [".env"]
+
 includes:
   toolchain:
     taskfile: ./src/toolchain

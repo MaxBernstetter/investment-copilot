@@ -20,6 +20,7 @@ import csv
 import io
 import itertools
 import json
+import os
 import time
 import urllib.request
 from collections.abc import Iterable, Sequence
@@ -154,7 +155,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Command line options; ``--curve`` defaults to ``ecb-aaa-spot`` and does not apply to ust."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--source", choices=("access", "ecb", "ust"), default="access")
-    parser.add_argument("--access-url", default="http://localhost:8000")
+    parser.add_argument(
+        "--access-url",
+        default=f"http://localhost:{os.environ.get('ACCESS_PORT', '8000')}",
+    )
     parser.add_argument("--curve", default=None)
     args = parser.parse_args(argv)
     if args.source == "ust":

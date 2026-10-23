@@ -13,9 +13,10 @@ set -euo pipefail
 
 telemetrygen=ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.163.0
 network=yieldlens-dev_default
-prometheus=http://127.0.0.1:9090
-tempo=http://127.0.0.1:3200
-grafana=http://127.0.0.1:3300
+prometheus=http://127.0.0.1:${PROMETHEUS_PORT:-9090}
+tempo=http://127.0.0.1:${TEMPO_PORT:-3200}
+grafana_port=${GRAFANA_PORT:-3300}
+grafana=http://127.0.0.1:$grafana_port
 timeout_s=90
 service="yl-obs-smoke-$(date +%s)"
 
@@ -74,8 +75,8 @@ check_jobs() {
 }
 
 check_grafana_port() {
-	[[ "$(docker compose --profile observability port grafana 3000)" == 127.0.0.1:3300 ]] || fail "Grafana is not published on 127.0.0.1:3300"
-	echo "ok: Grafana on 127.0.0.1:3300"
+	[[ "$(docker compose --profile observability port grafana 3000)" == "127.0.0.1:$grafana_port" ]] || fail "Grafana is not published on 127.0.0.1:$grafana_port"
+	echo "ok: Grafana on 127.0.0.1:$grafana_port"
 }
 
 prometheus_ready() {

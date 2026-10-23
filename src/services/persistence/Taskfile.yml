@@ -8,10 +8,10 @@ env:
   PERSISTENCE_DB_ADMIN_PASSWORD: '{{.PERSISTENCE_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
   PERSISTENCE_DB_OWNER_PASSWORD: '{{.PERSISTENCE_DB_OWNER_PASSWORD | default "LocalOwner_1"}}'
   PERSISTENCE_DB_PASSWORD: '{{.PERSISTENCE_DB_PASSWORD | default "LocalApp_1"}}'
-  PERSISTENCE_DB_DSN: '{{.PERSISTENCE_DB_DSN | default "localhost:1521/FREEPDB1"}}'
+  PERSISTENCE_DB_DSN: '{{.PERSISTENCE_DB_DSN | default (printf "localhost:%s/FREEPDB1" (.PERSISTENCE_DB_PORT | default "1521"))}}'
 
 vars:
-  PORT: '{{.PORT | default "8001"}}'
+  PORT: '{{.PORT | default (.PERSISTENCE_PORT | default "8001")}}'
 
 tasks:
   setup:

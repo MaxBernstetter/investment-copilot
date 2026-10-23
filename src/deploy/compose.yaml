@@ -148,7 +148,7 @@ services:
       PROCESSING_DB__PASSWORD: ${PROCESSING_DB__PASSWORD:?set PROCESSING_DB__PASSWORD}
       PROCESSING_PERSISTENCE__URL: http://persistence:8001
     ports:
-      - 127.0.0.1:8002:8002
+      - 127.0.0.1:${PROCESSING_PORT:-8002}:8002
     depends_on:
       oracle:
         condition: service_healthy
@@ -167,7 +167,7 @@ services:
       PERSISTENCE_DB_DSN: oracle:1521/FREEPDB1
       PERSISTENCE_DB_PASSWORD: ${PERSISTENCE_DB_PASSWORD:?set PERSISTENCE_DB_PASSWORD}
     ports:
-      - 127.0.0.1:8001:8001
+      - 127.0.0.1:${PERSISTENCE_PORT:-8001}:8001
     depends_on:
       oracle:
         condition: service_healthy
@@ -185,7 +185,7 @@ services:
       ACCESS_PROCESSING_URL: http://processing:8002
       ACCESS_CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5174}
     ports:
-      - 127.0.0.1:8000:8000
+      - 127.0.0.1:${ACCESS_PORT:-8000}:8000
     depends_on:
       persistence:
         condition: service_healthy
@@ -221,7 +221,7 @@ services:
       INGESTION_DB__DSN: oracle:1521/FREEPDB1
       INGESTION_DB__PASSWORD: ${INGESTION_DB__PASSWORD:?set INGESTION_DB__PASSWORD}
     ports:
-      - 127.0.0.1:8003:8003
+      - 127.0.0.1:${INGESTION_PORT:-8003}:8003
     depends_on:
       oracle:
         condition: service_healthy
@@ -326,7 +326,7 @@ services:
     volumes: *airflow-volumes
     command: api-server
     ports:
-      - 127.0.0.1:8088:8080
+      - 127.0.0.1:${AIRFLOW_PORT:-8088}:8080
     depends_on:
       airflow-postgres:
         condition: service_healthy
@@ -353,7 +353,7 @@ services:
       - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - 127.0.0.1:9090:9090
+      - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
 
   tempo:
     profiles: [observability]
@@ -363,7 +363,7 @@ services:
       - ../observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo-data:/var/tempo
     ports:
-      - 127.0.0.1:3200:3200
+      - 127.0.0.1:${TEMPO_PORT:-3200}:3200
 
   # Copies every service's observability/ folder into the volumes Grafana provisions from; Grafana's
   # alerting provisioning reads one flat directory, so the folders cannot be mounted directly.
@@ -394,8 +394,8 @@ services:
       - grafana-alerting:/etc/grafana/provisioning/alerting:ro
       - grafana-dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      # 3300 on the host: port 3000 is often taken by other local Grafana stacks
-      - 127.0.0.1:3300:3000
+      # 3300 by default: port 3000 is often taken by other local Grafana stacks
+      - 127.0.0.1:${GRAFANA_PORT:-3300}:3000
 
 volumes:
   oracle-data:
