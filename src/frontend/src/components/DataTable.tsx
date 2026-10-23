@@ -39,8 +39,9 @@ export type FilterState = string | [number, number] | { from: string; to: string
 
 /** The filter kind of a column, or undefined when it cannot be filtered. */
 export function kindOf<T>(column: TableColumn<T>): NonNullable<TableColumn<T>['kind']> | undefined {
-  if (column.kind !== undefined) return column.filterValue === undefined ? undefined : column.kind
-  return column.filterText === undefined ? undefined : 'text'
+  const kind = column.kind ?? 'text'
+  if (kind === 'text') return column.filterText === undefined ? undefined : 'text'
+  return column.filterValue === undefined ? undefined : kind
 }
 
 /** An ISO date or date-time as `YYYY-MM-DDTHH:mm`, so dates and picker values compare as strings. */
@@ -294,7 +295,17 @@ export default function DataTable<T>({
 
   const visible = columns.filter((column) => !hiddenIds.includes(column.id))
   const filterable = visible.some((column) => kindOf(column) !== undefined)
-  const shown = rows.filter((row) => matchesFilters(row, visible, filters))
+  // A number range counts only while its slider is shown and narrower than the data, so a stale or full range never hides rows.
+  const activeFilters = Object.fromEntries(
+    Object.entries(filters).filter(([id, state]) => {
+      const column = visible.find((candidate) => candidate.id === id)
+      if (column === undefined || kindOf(column) !== 'number' || !Array.isArray(state)) return true
+      const bounds = numberBounds(column, rows)
+      const [from, to] = state as [number, number]
+      return bounds !== undefined && bounds[0] !== bounds[1] && (from > bounds[0] || to < bounds[1])
+    }),
+  )
+  const shown = rows.filter((row) => matchesFilters(row, visible, activeFilters))
   const widthOf = (column: TableColumn<T>) => widths[column.id] ?? column.width ?? DEFAULT_WIDTH
   const tableWidth = visible.reduce((sum, column) => sum + widthOf(column), 0)
 
