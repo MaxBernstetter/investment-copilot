@@ -4,7 +4,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from contracts.processing import v1
@@ -14,13 +14,14 @@ from fastapi.responses import JSONResponse, Response
 from opentelemetry import trace
 from pydantic import AwareDatetime
 
-from processing.application.check_quality import UnknownCurveError
+from processing.application.check_quality import CheckQuality, UnknownCurveError
 from processing.application.get_measures import GetMeasures
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
-from processing.domain.read import FutureAsOfError, InvalidRangeError
+from processing.domain.read import MAX_DAYS_RANGE, FutureAsOfError, InvalidRangeError
 from processing.facade.mapping import (
     to_measures_response,
+    to_quality_check_response,
     to_quality_days_response,
     to_value_quality_response,
 )
@@ -38,6 +39,7 @@ class Services:
     get_quality_days: GetQualityDays
     get_value_quality: GetValueQuality
     get_measures: GetMeasures
+    check_quality: CheckQuality
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -91,6 +93,30 @@ def _add_routes(app: FastAPI) -> None:
             response,
             cache_control=cache_control(as_of, response.meta.as_of),
         )
+
+    @app.post(
+        v1.QUALITY_CHECKS_PATH,
+        response_model=v1.QualityCheckResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"description": "The curve is unknown"},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "The request is invalid"},
+        },
+    )
+    async def quality_check(
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        body: v1.QualityCheckRequest,
+        services: ServicesDependency,
+    ) -> v1.QualityCheckResponse:
+        """Check the quality of a curve over a valid-date range now and record the result."""
+        if body.valid_to < body.valid_from or body.valid_to - body.valid_from >= MAX_DAYS_RANGE:
+            raise InvalidRangeError(
+                f"valid_from must not be after valid_to, and the range at most "
+                f"{MAX_DAYS_RANGE.days} days"
+            )
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+        run_id = f"ui-check-{curve_id}-{body.valid_from}-{body.valid_to}-{stamp}"
+        result = await services.check_quality(curve_id, body.valid_from, body.valid_to, run_id)
+        return to_quality_check_response(result)
 
     @app.get(
         v1.VALUE_QUALITY_PATH,

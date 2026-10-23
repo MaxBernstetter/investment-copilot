@@ -80,6 +80,13 @@ write_config() {
 	[ "$status" -eq 1 ]
 }
 
+@test "config fails when the public API may start quality checks" {
+	write_config "$(jq -c '.services.access.environment.ACCESS_ALLOW_QUALITY_CHECKS = "true"' <<<"$OK_CONFIG")"
+	run "$script" config
+	[ "$status" -eq 1 ]
+	[[ $output == *"ACCESS_ALLOW_QUALITY_CHECKS"* ]]
+}
+
 @test "compose runs with a clean environment and the VM tag" {
 	PERSISTENCE_DB_PASSWORD=LocalApp_1 run "$script" config
 	[ "$status" -eq 0 ]

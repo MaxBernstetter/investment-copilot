@@ -9,6 +9,7 @@ from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.measures import CurveMeasures
 from access.domain.quality import ValueQuality
+from access.domain.quality_checks import QualityCheckResult
 from access.domain.quality_days import QualityDays
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
@@ -95,4 +96,12 @@ class MeasuresReader(Protocol):
         as_of: datetime | None,
     ) -> CurveMeasures:
         """Measures per valid date; raises when processing rejects the query or cannot answer."""
+        ...
+
+
+class QualityChecker(Protocol):
+    """Starts a quality check in the processing service and waits for its result."""
+
+    async def check(self, curve_id: str, valid_from: date, valid_to: date) -> QualityCheckResult:
+        """Check the range now; raises when processing rejects the request or cannot answer."""
         ...

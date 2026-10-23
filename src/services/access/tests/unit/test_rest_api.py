@@ -38,11 +38,14 @@ from access.domain.quality import (
     Severity,
     ValueQuality,
 )
+from access.domain.quality_checks import QualityCheckResult
 from access.domain.quality_days import QualityDay, QualityDays, QualityFinding, RuleOutcome
 from access.domain.series import Series, SeriesPoint
 from access.domain.versions import ChangeReason, ValueVersion, ValueVersions
 from access.facade.rest.app import Services, create_app
 
+QUALITY_CHECKS_PATH = "/v1/curves/ecb-aaa-spot/quality/checks"
+CHECK_REQUEST = {"valid_from": "2026-03-12", "valid_to": "2026-03-14"}
 FRONTEND_ORIGIN = "http://localhost:5174"
 PASSED_QUALITY = {"status": "passed", "flags": []}
 UNCHECKED_QUALITY = {"status": "unchecked", "flags": []}
@@ -307,8 +310,29 @@ class FakeMeasuresReader:
         return replace(self.result, curve_id=curve_id, valid_from=valid_from, valid_to=valid_to)
 
 
+class FakeQualityChecker:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, date, date]] = []
+        self.error: Exception | None = None
+
+    async def check(self, curve_id: str, valid_from: date, valid_to: date) -> QualityCheckResult:
+        self.calls.append((curve_id, valid_from, valid_to))
+        if self.error is not None:
+            raise self.error
+        return QualityCheckResult(
+            curve_id=curve_id,
+            run_id="ui-check-1",
+            checked_as_of=AS_OF.astimezone(UTC),
+            days=3,
+            values=33,
+            warn_count=1,
+            info_count=2,
+        )
+
+
 class FakeServices:
     def __init__(self) -> None:
+        self.quality_checker: FakeQualityChecker | None = None
         self.ready = True
         self.curves = FakeCurveReader()
         self.quality = FakeQualityReader()
@@ -326,12 +350,20 @@ class FakeServices:
             self.quality,
             CachedCatalogue(self.catalogue_reader, ttl_seconds=60),
             self.measures,
+            self.quality_checker,
         )
 
 
 @pytest.fixture
 def services() -> FakeServices:
     return FakeServices()
+
+
+@pytest.fixture
+def checker(services: FakeServices) -> FakeQualityChecker:
+    """Enables quality checks; request it before ``client``, which opens the services."""
+    services.quality_checker = FakeQualityChecker()
+    return services.quality_checker
 
 
 @pytest.fixture
@@ -370,6 +402,68 @@ def test_cors_allows_the_frontend_origin(client: TestClient) -> None:
     )
 
     assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
+
+
+def test_cors_preflight_allows_posting_json_from_the_frontend(client: TestClient) -> None:
+    response = client.options(
+        QUALITY_CHECKS_PATH,
+        headers={
+            "Origin": FRONTEND_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
+    assert "POST" in response.headers["access-control-allow-methods"]
+
+
+def test_a_quality_check_is_forbidden_unless_the_deployment_enables_it(
+    client: TestClient,
+) -> None:
+    response = client.post(QUALITY_CHECKS_PATH, json=CHECK_REQUEST)
+
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"] == "Quality checks cannot be started here."
+
+
+def test_a_quality_check_runs_through_the_checker(
+    checker: FakeQualityChecker, client: TestClient
+) -> None:
+    response = client.post(QUALITY_CHECKS_PATH, json=CHECK_REQUEST)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "curve_id": "ecb-aaa-spot",
+        "run_id": "ui-check-1",
+        "checked_as_of": "2026-03-13T08:00:00Z",
+        "days": 3,
+        "values": 33,
+        "warn_count": 1,
+        "info_count": 2,
+    }
+    assert checker.calls == [("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14))]
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        (CurveNotFoundError("The curve is unknown"), 404),
+        (InvalidCurveQueryError("Bad range"), 422),
+        (ProcessingUnavailableError(), 503),
+    ],
+)
+def test_a_quality_check_relays_the_processing_errors(
+    checker: FakeQualityChecker, client: TestClient, error: Exception, status: int
+) -> None:
+    checker.error = error
+
+    response = client.post(QUALITY_CHECKS_PATH, json=CHECK_REQUEST)
+
+    assert response.status_code == status
+    assert response.headers["content-type"] == "application/problem+json"
 
 
 def test_cors_ignores_other_origins(client: TestClient) -> None:

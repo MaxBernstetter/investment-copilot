@@ -9,6 +9,10 @@ QUALITY_PATH = "/v1/curves/{curve_id}/quality"
 """``GET`` endpoint that returns the quality status of each valid date of a curve."""
 
 
+QUALITY_CHECKS_PATH = "/v1/curves/{curve_id}/quality/checks"
+"""``POST`` endpoint that checks a curve now; answers 403 where the deployment does not allow it."""
+
+
 class QualityStatus(StrEnum):
     """Outcome of checks: ``unchecked`` means no result is known for the value."""
 
@@ -144,3 +148,30 @@ class QualityDaysResponse(BaseModel):
 
     data: QualityDays
     meta: QualityMeta
+
+
+class QualityCheckRequest(BaseModel):
+    """Body of the quality check request: the valid-date range to check."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    valid_from: date = Field(description="First valid date to check (inclusive)")
+    valid_to: date = Field(
+        description="Last valid date to check (inclusive); at most 366 days after valid_from"
+    )
+
+
+class QualityCheckResponse(BaseModel):
+    """What one finished quality check covered and found."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    curve_id: str = Field(min_length=1, max_length=64, examples=["ecb-aaa-spot"])
+    run_id: str = Field(description="Identifier of the check run; unique per request")
+    checked_as_of: AwareDatetime | None = Field(
+        description="Knowledge time (UTC) the check assessed; null when the curve has no values yet"
+    )
+    days: int = Field(ge=0, description="Business days assessed")
+    values: int = Field(ge=0, description="Published values assessed")
+    warn_count: int = Field(ge=0)
+    info_count: int = Field(ge=0)

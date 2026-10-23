@@ -54,7 +54,7 @@ compose() {
 }
 
 check_config() {
-	local config public builds cors
+	local config public builds cors checks
 	config="$(compose --profile airflow --profile observability --profile tools config --format json)" || fail "docker compose config failed"
 	public="$(jq -r '.services | to_entries[] | .key as $s | (.value.ports // [])[] | select(.host_ip != "127.0.0.1") | "\($s):\(.published)"' <<<"$config" | sort | paste -sd ' ' -)"
 	[[ $public == "caddy:443 caddy:80" ]] || fail "only caddy may publish public ports (80, 443); found: ${public:-none}"
@@ -62,6 +62,8 @@ check_config() {
 	[[ -z $builds ]] || fail "services would build on the VM: $builds"
 	cors="$(jq -r '.services.access.environment.ACCESS_CORS_ORIGINS' <<<"$config")"
 	[[ $cors == "$pages_origin" ]] || fail "ACCESS_CORS_ORIGINS is $cors, expected $pages_origin"
+	checks="$(jq -r '.services.access.environment.ACCESS_ALLOW_QUALITY_CHECKS // "false"' <<<"$config")"
+	[[ $checks == false ]] || fail "ACCESS_ALLOW_QUALITY_CHECKS is $checks: the public API must not start quality checks"
 	docker run --rm --env YIELDLENS_DOMAIN="$(env_value YIELDLENS_DOMAIN)" \
 		--env YIELDLENS_ACME_EMAIL="$(env_value YIELDLENS_ACME_EMAIL)" "$caddy_image:$tag" \
 		caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || fail "the Caddyfile is invalid"

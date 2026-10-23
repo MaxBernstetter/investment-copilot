@@ -8,6 +8,7 @@ from functools import partial
 import pytest
 from contracts.processing.v1 import (
     MEASURES_PATH,
+    QUALITY_CHECKS_PATH,
     QUALITY_DAYS_PATH,
     VALUE_QUALITY_PATH,
     MeasuresResponse,
@@ -20,10 +21,13 @@ from pydantic import SecretStr
 from starlette.types import Receive, Scope, Send
 
 from processing.api import create_app_from_environment, instrument_app, proc_services
+from processing.application.check_quality import CheckQuality
 from processing.application.get_measures import GetMeasures
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
+from processing.application.ports import QualityStore
 from processing.config import ApiSettings, DatabaseSettings, PersistenceSettings
+from processing.domain.assessment import QualityCheck
 from processing.domain.quality import Value
 from processing.facade.rest.app import Services, create_app
 from processing.infrastructure.telemetry import Telemetry
@@ -37,6 +41,14 @@ from tests.unit.fakes import (
 HORIZON = datetime(2026, 10, 9, 8, 0, tzinfo=UTC)
 KNOWN = datetime(2026, 10, 1, 8, 0, tzinfo=UTC)
 MEASURE_DAY = date(2026, 10, 8)
+
+
+class RecordingStore(QualityStore):
+    def __init__(self) -> None:
+        self.checks: list[QualityCheck] = []
+
+    async def record(self, check: QualityCheck) -> None:
+        self.checks.append(check)
 
 
 async def _reachable() -> bool:
@@ -53,6 +65,7 @@ def _client(
     telemetry: Telemetry | None = None,
     observations: FakeObservationReader | None = None,
     measure_quality: FakeMeasureQuality | None = None,
+    recorded: RecordingStore | None = None,
 ) -> TestClient:
     quality_store = store or FakeQualityStore()
     observation_reader = observations or _observations()
@@ -65,6 +78,7 @@ def _client(
             get_quality_days=GetQualityDays(quality_store),
             get_value_quality=GetValueQuality(quality_store),
             get_measures=GetMeasures(observation_reader, quality_reader),
+            check_quality=CheckQuality(observation_reader, recorded or RecordingStore()),
         )
 
     app = create_app(services)
@@ -143,6 +157,53 @@ def test_an_unknown_curve_is_404() -> None:
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Not found"
+
+
+def test_a_quality_check_runs_now_and_records_the_result() -> None:
+    recorded = RecordingStore()
+    with _client(recorded=recorded) as client:
+        response = client.post(
+            QUALITY_CHECKS_PATH.format(curve_id="ecb-aaa-spot"),
+            json={"valid_from": "2026-10-07", "valid_to": "2026-10-09"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["curve_id"] == "ecb-aaa-spot"
+    assert body["run_id"].startswith("ui-check-ecb-aaa-spot-2026-10-07-2026-10-09-")
+    assert body["checked_as_of"] == HORIZON.isoformat().replace("+00:00", "Z")
+    assert body["days"] == 3
+    assert len(recorded.checks) == 1
+    assert recorded.checks[0].run_id == body["run_id"]
+
+
+def test_a_quality_check_of_an_unknown_curve_is_404() -> None:
+    with _client() as client:
+        response = client.post(
+            QUALITY_CHECKS_PATH.format(curve_id="unknown-curve"),
+            json={"valid_from": "2026-10-07", "valid_to": "2026-10-07"},
+        )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+@pytest.mark.parametrize(
+    ("valid_from", "valid_to"),
+    [("2026-10-09", "2026-10-07"), ("2025-01-01", "2026-01-02")],
+)
+def test_a_quality_check_range_must_be_ordered_and_at_most_a_year(
+    valid_from: str, valid_to: str
+) -> None:
+    recorded = RecordingStore()
+    with _client(recorded=recorded) as client:
+        response = client.post(
+            QUALITY_CHECKS_PATH.format(curve_id="ecb-aaa-spot"),
+            json={"valid_from": valid_from, "valid_to": valid_to},
+        )
+
+    assert response.status_code == 422
+    assert recorded.checks == []
 
 
 def test_value_quality_endpoint_is_available() -> None:
@@ -241,6 +302,7 @@ def _app_with_boom() -> FastAPI:
             get_quality_days=GetQualityDays(quality_store),
             get_value_quality=GetValueQuality(quality_store),
             get_measures=GetMeasures(_observations(), FakeMeasureQuality()),
+            check_quality=CheckQuality(_observations(), RecordingStore()),
         )
 
     app = create_app(services)

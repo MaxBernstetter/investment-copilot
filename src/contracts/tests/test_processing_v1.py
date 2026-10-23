@@ -6,6 +6,8 @@ from pydantic import ValidationError
 from contracts.processing.v1 import (
     Finding,
     MeasuresResponse,
+    QualityCheckRequest,
+    QualityCheckResponse,
     QualityDay,
     QualityStatus,
     Rule,
@@ -144,3 +146,31 @@ def test_measure_fields_are_required_but_nullable(field: str) -> None:
 
     with pytest.raises(ValidationError):
         MeasuresResponse.model_validate(body)
+
+
+def test_quality_check_request_is_a_range_and_forbids_extras() -> None:
+    request = QualityCheckRequest.model_validate(
+        {"valid_from": "2026-10-01", "valid_to": "2026-10-07"}
+    )
+
+    assert request.valid_to.isoformat() == "2026-10-07"
+    with pytest.raises(ValidationError):
+        QualityCheckRequest.model_validate(
+            {"valid_from": "2026-10-01", "valid_to": "2026-10-07", "run_id": "x"}
+        )
+
+
+def test_quality_check_response_allows_no_check_time() -> None:
+    response = QualityCheckResponse.model_validate(
+        {
+            "curve_id": "ecb-aaa-spot",
+            "run_id": "ui-check-1",
+            "checked_as_of": None,
+            "days": 0,
+            "values": 0,
+            "warn_count": 0,
+            "info_count": 0,
+        }
+    )
+
+    assert response.checked_as_of is None

@@ -11,6 +11,7 @@ from functools import partial
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from processing.application.check_quality import CheckQuality
 from processing.application.get_measures import GetMeasures
 from processing.application.get_quality_days import GetQualityDays
 from processing.application.get_value_quality import GetValueQuality
@@ -58,6 +59,7 @@ async def proc_services(settings: ApiSettings, telemetry: Telemetry) -> AsyncIte
                 get_quality_days=GetQualityDays(store),
                 get_value_quality=GetValueQuality(store),
                 get_measures=GetMeasures(persistence, store),
+                check_quality=CheckQuality(persistence, store),
             )
     finally:
         await asyncio.to_thread(telemetry.shutdown)

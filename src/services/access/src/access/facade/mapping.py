@@ -10,6 +10,7 @@ from access.domain.changes import CurveChanges
 from access.domain.curve import CurveAsOf
 from access.domain.measures import CurveMeasures, MeasurePoint
 from access.domain.quality import ValueQuality, quality_for
+from access.domain.quality_checks import QualityCheckResult
 from access.domain.quality_days import QualityDays
 from access.domain.series import Series
 from access.domain.versions import ValueVersions
@@ -248,4 +249,16 @@ def _to_contract(quality: ValueQuality) -> v1.ValueQuality:
             )
             for flag in quality.flags
         ],
+    )
+
+
+def to_quality_check_response(result: QualityCheckResult) -> v1.QualityCheckResponse:
+    return v1.QualityCheckResponse(
+        curve_id=result.curve_id,
+        run_id=result.run_id,
+        checked_as_of=result.checked_as_of,
+        days=result.days,
+        values=result.values,
+        warn_count=result.warn_count,
+        info_count=result.info_count,
     )
