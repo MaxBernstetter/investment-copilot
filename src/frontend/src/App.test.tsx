@@ -392,6 +392,19 @@ describe('App', () => {
     expect(document.documentElement).toHaveAttribute('data-mantine-color-scheme', 'light')
   })
 
+  it('keeps both colour-scheme icons mounted so the hovered node is not replaced', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Toggle colour scheme' })
+
+    expect(toggle.querySelectorAll('svg')).toHaveLength(2)
+    fireEvent.click(toggle)
+    expect(toggle.querySelectorAll('svg')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Toggle colour scheme' })).toBe(toggle)
+  })
+
   it('shows Live in the header by default and the past time when one is set', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
 

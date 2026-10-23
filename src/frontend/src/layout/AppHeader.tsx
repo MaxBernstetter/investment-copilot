@@ -57,7 +57,13 @@ function ColorSchemeToggle() {
   return (
     <Tooltip label={next === 'dark' ? 'Dark colours' : 'Light colours'}>
       <ActionIcon variant="default" size="lg" aria-label="Toggle colour scheme" onClick={() => setColorScheme(next)}>
-        {computed === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+        {/* Both icons stay mounted; CSS hides one, so the node under the pointer never swaps. */}
+        <Box component="span" darkHidden display="flex">
+          <IconMoon size={18} />
+        </Box>
+        <Box component="span" lightHidden display="flex">
+          <IconSun size={18} />
+        </Box>
       </ActionIcon>
     </Tooltip>
   )
