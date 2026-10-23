@@ -88,14 +88,24 @@ export function measuresRangeBody(curveId: string) {
   }
 }
 
-export function curveBody(curveId: string, fixture: CurveFixture, validDate?: string) {
+/**
+ * A distinct offset per valid date, so an overlay of dates on the same fixture draws separate lines.
+ * Only for dates the fixtures do not cover: the fixture for a date is the one served.
+ */
+function dateOffset(validDate: string): number {
+  return (Number(validDate.slice(-2)) % 10) * 0.02
+}
+
+export function curveBody(curveId: string, fixture: CurveFixture, validDate?: string, distinct = false) {
   const valid_date = validDate ?? fixture.valid_date ?? '2026-10-16'
+  const offset = distinct && validDate ? dateOffset(validDate) : 0
   return {
     data: {
       curve_id: curveId,
       valid_date,
       points: fixture.points.map((point) => ({
         ...point,
+        value: point.value === null ? null : Number((point.value + offset).toFixed(4)),
         version_id: point.value === null ? null : 1,
         quality: point.quality ?? (point.value === null ? null : { status: 'passed', flags: [] }),
       })),
@@ -196,7 +206,7 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
       await fulfillJson(
         route,
         200,
-        curveBody(curveId, curveId === 'ecb-all-spot' ? curveAllGrid : curveGrid, validDate ?? undefined),
+        curveBody(curveId, curveId === 'ecb-all-spot' ? curveAllGrid : curveGrid, validDate ?? undefined, true),
       )
       return
     }

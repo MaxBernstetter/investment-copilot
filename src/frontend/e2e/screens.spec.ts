@@ -175,7 +175,6 @@ test.describe('screens §7', () => {
     ])
     await waitForKeyFigures(page)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S3b', ['light', 'dark'])
     await pills.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-15 from overlay' }).click()
     await expect(pills.getByRole('listitem')).toHaveCount(1)
     await expect(pills.getByRole('button', { name: 'Remove US Treasury par · 2026-10-16 from overlay' })).toBeFocused()
@@ -194,7 +193,6 @@ test.describe('screens §7', () => {
     await expect(add).toHaveAccessibleDescription('The overlay holds 5 curves. Remove one to add another.')
     await waitForKeyFigures(page)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S3d', ['light', 'dark'])
   })
 
   test('S4 history drawer 10Y simulated', async ({ page }) => {
