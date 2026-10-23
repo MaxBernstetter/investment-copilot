@@ -81,14 +81,60 @@ describe('App', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument()
   })
 
-  it('shows the offline page when the curve list fails', async () => {
+  it('shows the curve list error with a retry', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
     vi.mocked(fetchCurves).mockResolvedValue({ kind: 'error' })
 
     render(<App />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Curves unavailable' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Curve list not loaded')
+    expect(alert).toHaveTextContent('The list of curves could not be loaded. Try again in a moment.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByText('Curve view')).not.toBeInTheDocument()
+  })
+
+  it('retries only the curve list', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.mocked(fetchCurves)
+      .mockResolvedValueOnce({ kind: 'error' })
+      .mockResolvedValue({ kind: 'ok', curves: CATALOGUE })
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    expect(fetchCurves).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the empty state when no curves are loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    vi.mocked(fetchCurves).mockResolvedValue({ kind: 'ok', curves: [] })
+
+    render(<App />)
+
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('No curves yet')
+    expect(status).toHaveTextContent('No curves are loaded yet. Check back after the next daily load.')
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+    expect(screen.queryByText('Curve view')).not.toBeInTheDocument()
+  })
+
+  it('refetches the curve list from the empty state', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+    vi.mocked(fetchCurves).mockResolvedValueOnce({ kind: 'ok', curves: [] })
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    expect(fetchCurves).toHaveBeenCalledTimes(2)
   })
 
   it('shows the connecting page while the curve list loads', async () => {

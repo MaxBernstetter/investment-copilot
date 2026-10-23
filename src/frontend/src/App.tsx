@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AppShell, Alert, Button, Container, Skeleton, Stack, Tabs, Text, VisuallyHidden } from '@mantine/core'
+import { AppShell, Alert, Box, Button, Container, EmptyState, Skeleton, Stack, Tabs, Text, VisuallyHidden } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import { isBackendOnline } from './backend'
@@ -21,6 +21,7 @@ type CatalogueState = { kind: 'loading' } | CurvesResult
 export default function App() {
   const [state, setState] = useState<BackendState>('checking')
   const [attempt, setAttempt] = useState(0)
+  const [catalogueAttempt, setCatalogueAttempt] = useState(0)
   const [view, setView] = useState<string | null>('curve')
   const [catalogue, setCatalogue] = useState<CatalogueState>({ kind: 'loading' })
   const [curveId, setCurveId] = useState(() => readCurveId(window.location.search))
@@ -60,7 +61,7 @@ export default function App() {
     return () => {
       active = false
     }
-  }, [state])
+  }, [state, catalogueAttempt])
 
   useEffect(() => {
     if (curve && curve.id !== readCurveId(window.location.search)) writeCurveId(curve.id)
@@ -70,6 +71,12 @@ export default function App() {
     setState('checking')
     setCatalogue({ kind: 'loading' })
     setAttempt((count) => count + 1)
+  }
+
+  /** Refetches only the curve list; the health check is already passed. */
+  const retryCatalogue = () => {
+    setCatalogue({ kind: 'loading' })
+    setCatalogueAttempt((count) => count + 1)
   }
 
   return (
@@ -119,7 +126,7 @@ export default function App() {
                 <VisuallyHidden>Loading…</VisuallyHidden>
               </Stack>
             )}
-            {(state === 'offline' || (state === 'online' && catalogue.kind !== 'loading' && curve === undefined)) && (
+            {state === 'offline' && (
               <Stack gap="lg">
                 <PageHeader title="Service unavailable" />
                 <Alert color="red" role="alert" title="Backend offline" icon={<IconAlertTriangle size={18} />}>
@@ -131,6 +138,33 @@ export default function App() {
                   </Stack>
                 </Alert>
               </Stack>
+            )}
+            {state === 'online' && catalogue.kind === 'error' && (
+              <Stack gap="lg">
+                <PageHeader title="Curves unavailable" />
+                <Alert color="red" role="alert" title="Curve list not loaded" icon={<IconAlertTriangle size={18} />}>
+                  <Stack gap="xs" align="flex-start">
+                    <Text size="sm">The list of curves could not be loaded. Try again in a moment.</Text>
+                    <Button variant="light" size="xs" onClick={retryCatalogue}>
+                      Try again
+                    </Button>
+                  </Stack>
+                </Alert>
+              </Stack>
+            )}
+            {state === 'online' && catalogue.kind === 'ok' && curves.length === 0 && (
+              <Box role="status">
+                <EmptyState
+                  title="No curves yet"
+                  description="No curves are loaded yet. Check back after the next daily load."
+                >
+                  <EmptyState.Actions>
+                    <Button variant="light" size="xs" onClick={retryCatalogue}>
+                      Try again
+                    </Button>
+                  </EmptyState.Actions>
+                </EmptyState>
+              </Box>
             )}
             {ready && (
               <Stack gap="lg">
