@@ -67,8 +67,8 @@ UST_PAR_EXPLANATIONS = replace(
     ),
     jump_warn=(
         "Moved more than 50 bp since the previous business day. "
-        "This happened on only 24 days since 1990 (1998 to 2009 and 2023), mostly in market "
-        "stress; check the source data."
+        "This happened on only 24 days since 1990 (1998, 2000, 2001, 2006 to 2009 and 2023), "
+        "mostly in market stress; check the source data."
     ),
     missing_date="No value was published for this US bond market business day.",
     missing_maturity=(
