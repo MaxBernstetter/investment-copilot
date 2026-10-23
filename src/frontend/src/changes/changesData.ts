@@ -14,6 +14,10 @@ export type ChangeRow = {
   reason: string
   source: string
   knownFrom: string
+  oldRaw: number | null
+  newRaw: number
+  deltaRaw: number | null
+  knownFromIso: string
 }
 
 const EMPTY = '–'
@@ -31,6 +35,10 @@ export function toChangeRows(changes: ValueChange[]): ChangeRow[] {
     reason: change.change_reason,
     source: change.source_id ?? EMPTY,
     knownFrom: formatUtc(change.known_from),
+    oldRaw: change.old_value,
+    newRaw: change.new_value,
+    deltaRaw: change.old_value === null ? null : (change.new_value - change.old_value) * 100,
+    knownFromIso: change.known_from.slice(0, 16),
   }))
 }
 

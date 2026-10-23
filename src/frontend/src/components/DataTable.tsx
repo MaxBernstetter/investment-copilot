@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
-import { Box, Button, Checkbox, Group, Popover, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Box, Button, Checkbox, Group, MultiSelect, Popover, RangeSlider, Stack, Table, Text, TextInput } from '@mantine/core'
 import { IconColumns } from '@tabler/icons-react'
 
 export type TableColumn<T> = {
@@ -11,6 +11,14 @@ export type TableColumn<T> = {
   cell: (row: T) => ReactNode
   /** Plain text the column filter matches, case-insensitively. Omit to make the column unfilterable. */
   filterText?: (row: T) => string
+  /**
+   * How the column filters. `text` (the default when `filterText` is set) is a substring match;
+   * `number` is a range slider, `datetime` a from/to picker and `category` a multiselect. The last
+   * three read `filterValue`: a number, an ISO date or UTC date-time string, or a category.
+   */
+  kind?: 'text' | 'number' | 'datetime' | 'category'
+  /** The raw value behind the `number`, `datetime` and `category` filters; null rows never match an active filter. */
+  filterValue?: (row: T) => number | string | null
   align?: 'left' | 'right'
   /** Renders the cell as the row header (`th scope="row"`). */
   rowHeader?: boolean
@@ -27,13 +35,58 @@ export function clampWidth(width: number): number {
   return Math.max(MIN_WIDTH, Math.round(width))
 }
 
-/** True when the row matches every non-empty filter on a column that has filter text. */
-export function matchesFilters<T>(row: T, columns: TableColumn<T>[], filters: Record<string, string>): boolean {
-  return columns.every((column) => {
-    const query = (filters[column.id] ?? '').trim().toLowerCase()
-    if (query === '' || column.filterText === undefined) return true
-    return column.filterText(row).toLowerCase().includes(query)
-  })
+export type FilterState = string | [number, number] | { from: string; to: string } | string[]
+
+/** The filter kind of a column, or undefined when it cannot be filtered. */
+export function kindOf<T>(column: TableColumn<T>): NonNullable<TableColumn<T>['kind']> | undefined {
+  if (column.kind !== undefined) return column.filterValue === undefined ? undefined : column.kind
+  return column.filterText === undefined ? undefined : 'text'
+}
+
+/** An ISO date or date-time as `YYYY-MM-DDTHH:mm`, so dates and picker values compare as strings. */
+function toMinute(value: string): string {
+  return value.length <= 10 ? `${value}T00:00` : value.slice(0, 16)
+}
+
+/** True when the row passes the column's filter; an empty or untouched filter always passes. */
+function matchesFilter<T>(row: T, column: TableColumn<T>, state: FilterState | undefined): boolean {
+  const kind = kindOf(column)
+  if (kind === undefined || state === undefined) return true
+  if (kind === 'text') {
+    const query = typeof state === 'string' ? state.trim().toLowerCase() : ''
+    return query === '' || (column.filterText?.(row) ?? '').toLowerCase().includes(query)
+  }
+  const value = column.filterValue?.(row) ?? null
+  if (kind === 'number') {
+    if (!Array.isArray(state) || typeof state[0] !== 'number') return true
+    return typeof value === 'number' && value >= state[0] && value <= (state[1] as number)
+  }
+  if (kind === 'datetime') {
+    if (typeof state !== 'object' || Array.isArray(state)) return true
+    if (state.from === '' && state.to === '') return true
+    if (typeof value !== 'string') return false
+    const minute = toMinute(value)
+    return (state.from === '' || minute >= state.from) && (state.to === '' || minute <= state.to)
+  }
+  if (!Array.isArray(state) || state.length === 0) return true
+  return typeof value === 'string' && (state as string[]).includes(value)
+}
+
+/** True when the row matches the filter of every column. */
+export function matchesFilters<T>(row: T, columns: TableColumn<T>[], filters: Record<string, FilterState>): boolean {
+  return columns.every((column) => matchesFilter(row, column, filters[column.id]))
+}
+
+/** The smallest and largest finite values of a number column, or undefined when there are none. */
+function numberBounds<T>(column: TableColumn<T>, rows: T[]): [number, number] | undefined {
+  const values = rows.map((row) => column.filterValue?.(row)).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  return values.length === 0 ? undefined : [Math.min(...values), Math.max(...values)]
+}
+
+/** The distinct, sorted values of a category column. */
+function categories<T>(column: TableColumn<T>, rows: T[]): string[] {
+  const values = rows.map((row) => column.filterValue?.(row)).filter((v): v is string => typeof v === 'string' && v !== '')
+  return [...new Set(values)].sort()
 }
 
 type ResizeHandleProps = {
@@ -108,7 +161,7 @@ function ColumnHeader<T>({ column, width, onResize }: ColumnHeaderProps<T>) {
     <Table.Th
       scope="col"
       aria-labelledby={labelId}
-      ta={column.align === 'right' ? 'right' : undefined}
+      ta="left"
       style={{ width, position: 'relative' }}
     >
       <span id={labelId}>{column.header}</span>
@@ -126,6 +179,98 @@ type DataTableProps<T> = {
   striped?: boolean
   /** Shown in place of the rows when the filters hide every row. */
   emptyText?: string
+  /** Height in pixels above which the body scrolls under a sticky header. */
+  maxHeight?: number
+}
+
+type FilterControlProps<T> = {
+  column: TableColumn<T>
+  rows: T[]
+  state: FilterState | undefined
+  onChange: (state: FilterState) => void
+}
+
+/** The filter input that fits the column's kind. */
+function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<T>) {
+  const label = `Filter ${column.header || column.id}`
+  const kind = kindOf(column)
+  if (kind === 'number') {
+    const bounds = numberBounds(column, rows)
+    if (bounds === undefined || bounds[0] === bounds[1]) return null
+    const [min, max] = bounds
+    const value = Array.isArray(state) && typeof state[0] === 'number' ? state : [min, max]
+    return (
+      <RangeSlider
+        size="xs"
+        min={min}
+        max={max}
+        step={(max - min) / 100}
+        minRange={0}
+        label={(v) => v.toFixed(2)}
+        value={value as [number, number]}
+        onChange={onChange}
+        aria-label={label}
+        thumbFromLabel={`${label} from`}
+        thumbToLabel={`${label} to`}
+        mb="xs"
+      />
+    )
+  }
+  if (kind === 'datetime') {
+    const range = typeof state === 'object' && !Array.isArray(state) ? state : { from: '', to: '' }
+    const dateOnly = rows.every((row) => {
+      const v = column.filterValue?.(row)
+      return typeof v !== 'string' || v.length <= 10
+    })
+    const type = dateOnly ? 'date' : 'datetime-local'
+    return (
+      <Stack gap={2}>
+        <TextInput
+          size="xs"
+          type={type}
+          aria-label={`${label} from`}
+          value={range.from === '' ? '' : dateOnly ? range.from.slice(0, 10) : range.from}
+          onChange={(event) => {
+            const v = event.currentTarget.value
+            onChange({ ...range, from: v === '' ? '' : toMinute(v) })
+          }}
+        />
+        <TextInput
+          size="xs"
+          type={type}
+          aria-label={`${label} to`}
+          value={range.to === '' ? '' : dateOnly ? range.to.slice(0, 10) : range.to}
+          onChange={(event) => {
+            const v = event.currentTarget.value
+            onChange({ ...range, to: v === '' ? '' : dateOnly ? `${v}T23:59` : toMinute(v) })
+          }}
+        />
+      </Stack>
+    )
+  }
+  if (kind === 'category') {
+    return (
+      <MultiSelect
+        size="xs"
+        aria-label={label}
+        placeholder={Array.isArray(state) && state.length > 0 ? undefined : 'All'}
+        data={categories(column, rows)}
+        value={Array.isArray(state) ? (state as string[]) : []}
+        onChange={onChange}
+        clearable
+        comboboxProps={{ withinPortal: true }}
+      />
+    )
+  }
+  return (
+    <TextInput
+      size="xs"
+      aria-label={label}
+      placeholder="Filter"
+      value={typeof state === 'string' ? state : ''}
+      onChange={(event) => onChange(event.currentTarget.value)}
+    />
+  )
 }
 
 /**
@@ -141,13 +286,14 @@ export default function DataTable<T>({
   rowKey,
   striped = false,
   emptyText = 'No rows match the filters.',
+  maxHeight = 520,
 }: DataTableProps<T>) {
   const [hiddenIds, setHiddenIds] = useState<string[]>([])
   const [widths, setWidths] = useState<Record<string, number>>({})
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filters, setFilters] = useState<Record<string, FilterState>>({})
 
   const visible = columns.filter((column) => !hiddenIds.includes(column.id))
-  const filterable = visible.some((column) => column.filterText !== undefined)
+  const filterable = visible.some((column) => kindOf(column) !== undefined)
   const shown = rows.filter((row) => matchesFilters(row, visible, filters))
   const widthOf = (column: TableColumn<T>) => widths[column.id] ?? column.width ?? DEFAULT_WIDTH
   const tableWidth = visible.reduce((sum, column) => sum + widthOf(column), 0)
@@ -158,7 +304,7 @@ export default function DataTable<T>({
   const setWidth = (id: string, width: number) => {
     setWidths((current) => ({ ...current, [id]: width }))
   }
-  const setFilter = (id: string, query: string) => {
+  const setFilter = (id: string, query: FilterState) => {
     setFilters((current) => ({ ...current, [id]: query }))
   }
 
@@ -191,8 +337,8 @@ export default function DataTable<T>({
           </Popover>
         </Group>
       )}
-      <Table.ScrollContainer minWidth={0} scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}>
-        <Table striped={striped} style={{ tableLayout: 'fixed', width: '100%', minWidth: tableWidth }}>
+      <Table.ScrollContainer minWidth={0} maxHeight={maxHeight} scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}>
+        <Table striped={striped} stickyHeader style={{ tableLayout: 'fixed', width: '100%', minWidth: tableWidth }}>
           {caption && <Table.Caption>{caption}</Table.Caption>}
           <Table.Thead>
             <Table.Tr>
@@ -209,13 +355,12 @@ export default function DataTable<T>({
               <Table.Tr>
                 {visible.map((column) => (
                   <Table.Td key={column.id} style={{ width: widthOf(column) }}>
-                    {column.filterText && (
-                      <TextInput
-                        size="xs"
-                        aria-label={`Filter ${column.header || column.id}`}
-                        placeholder="Filter"
-                        value={filters[column.id] ?? ''}
-                        onChange={(event) => setFilter(column.id, event.currentTarget.value)}
+                    {kindOf(column) !== undefined && (
+                      <FilterControl
+                        column={column}
+                        rows={rows}
+                        state={filters[column.id]}
+                        onChange={(state) => setFilter(column.id, state)}
                       />
                     )}
                   </Table.Td>

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '../test/render'
+import { cleanup, fireEvent, render, screen, within } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
 import { localInputToUtc, utcToLocalInput } from '../asOf'
@@ -115,7 +115,7 @@ describe('ChangesView', () => {
     expect(await screen.findByRole('cell', { name: formatYield(2.61) })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: formatYield(2.7) })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '+9.0 bp' })).toBeInTheDocument()
-    const correctionBadge = screen.getByText('correction')
+    const correctionBadge = within(screen.getAllByRole('rowgroup')[1] as HTMLElement).getByText('correction')
     expect(correctionBadge).toBeInTheDocument()
     expect(correctionBadge.closest('[data-variant]')).toHaveAttribute('data-variant', 'filled')
   })

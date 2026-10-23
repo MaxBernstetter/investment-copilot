@@ -33,10 +33,8 @@ export default function OverlayTable({ curves }: OverlayTableProps) {
           const value = valueOf(row)
           return value === null || value === undefined ? <VisuallyHidden>No value</VisuallyHidden> : value.toFixed(3)
         },
-        filterText: (row) => {
-          const value = valueOf(row)
-          return value === null || value === undefined ? '' : value.toFixed(3)
-        },
+        kind: 'number',
+        filterValue: (row) => valueOf(row) ?? null,
       }
     }),
   ]

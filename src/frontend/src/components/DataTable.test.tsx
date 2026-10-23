@@ -113,3 +113,37 @@ describe('DataTable helpers', () => {
     expect(matchesFilters(row, columns, { note: 'anything' })).toBe(true)
   })
 })
+
+describe('typed filters', () => {
+  type Typed = { id: string; day: string; value: number | null; group: string }
+  const typed: Typed[] = [
+    { id: 'a', day: '2024-01-01', value: 1, group: 'x' },
+    { id: 'b', day: '2024-01-05', value: 5, group: 'y' },
+    { id: 'c', day: '2024-01-09', value: null, group: 'x' },
+  ]
+  const typedColumns: TableColumn<Typed>[] = [
+    { id: 'day', header: 'Day', cell: (r) => r.day, kind: 'datetime', filterValue: (r) => r.day },
+    { id: 'value', header: 'Value', cell: (r) => String(r.value), kind: 'number', filterValue: (r) => r.value },
+    { id: 'group', header: 'Group', cell: (r) => r.group, kind: 'category', filterValue: (r) => r.group },
+  ]
+
+  it('matches a number range, a date range and selected categories', () => {
+    const [a, b, c] = typed as [Typed, Typed, Typed]
+    expect(matchesFilters(a, typedColumns, { value: [2, 6] })).toBe(false)
+    expect(matchesFilters(b, typedColumns, { value: [2, 6] })).toBe(true)
+    expect(matchesFilters(c, typedColumns, { value: [0, 6] })).toBe(false)
+    expect(matchesFilters(b, typedColumns, { day: { from: '2024-01-03T00:00', to: '2024-01-05T23:59' } })).toBe(true)
+    expect(matchesFilters(c, typedColumns, { day: { from: '', to: '2024-01-05T23:59' } })).toBe(false)
+    expect(matchesFilters(a, typedColumns, { group: ['y'] })).toBe(false)
+    expect(matchesFilters(a, typedColumns, { group: [] })).toBe(true)
+  })
+
+  it('renders a slider, date pickers and a multiselect, and left-aligns every header', () => {
+    render(<DataTable columns={typedColumns} rows={typed} rowKey={(r) => r.id} />)
+    expect(screen.getByLabelText('Filter Day from')).toHaveAttribute('type', 'date')
+    expect(screen.getByLabelText('Filter Day to')).toBeInTheDocument()
+    expect(screen.getAllByRole('slider', { name: /Filter Value/ })).toHaveLength(2)
+    expect(screen.getAllByLabelText('Filter Group').length).toBeGreaterThan(0)
+    for (const header of screen.getAllByRole('columnheader')) expect(header).toHaveStyle({ textAlign: 'left' })
+  })
+})

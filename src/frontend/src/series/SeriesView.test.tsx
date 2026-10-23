@@ -437,8 +437,8 @@ describe('SeriesView', () => {
     expect(screen.getByRole('cell', { name: '−15.0' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '+9.0' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '–' })).toBeInTheDocument()
-    expect(screen.getByText('No 2Y value')).toBeInTheDocument()
-    expect(screen.getByText('Input flagged: 10Y')).toBeInTheDocument()
+    expect(within(screen.getAllByRole('rowgroup')[1] as HTMLElement).getByText('No 2Y value')).toBeInTheDocument()
+    expect(within(screen.getAllByRole('rowgroup')[1] as HTMLElement).getByText('Input flagged: 10Y')).toBeInTheDocument()
   })
 
   it('shows the measure empty state with a way back to the 10Y yield', async () => {

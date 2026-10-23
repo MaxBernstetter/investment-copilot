@@ -118,19 +118,20 @@ export default function ChangesView({ curveId, asOf }: ChangesViewProps) {
           <DataTable
             striped
             columns={[
-              { id: 'valid-date', header: 'Valid date', cell: (row) => row.validDate, filterText: (row) => row.validDate },
-              { id: 'maturity', header: 'Maturity', cell: (row) => row.maturity, filterText: (row) => row.maturity },
-              { id: 'old', header: 'Old (%)', align: 'right', cell: (row) => row.oldValue, filterText: (row) => row.oldValue },
-              { id: 'new', header: 'New (%)', align: 'right', cell: (row) => row.newValue, filterText: (row) => row.newValue },
-              { id: 'delta', header: 'Change (bp)', align: 'right', cell: (row) => row.delta, filterText: (row) => row.delta },
+              { id: 'valid-date', header: 'Valid date', cell: (row) => row.validDate, kind: 'datetime', filterValue: (row) => row.validDate },
+              { id: 'maturity', header: 'Maturity', cell: (row) => row.maturity, kind: 'category', filterValue: (row) => row.maturity },
+              { id: 'old', header: 'Old (%)', align: 'right', cell: (row) => row.oldValue, kind: 'number', filterValue: (row) => row.oldRaw },
+              { id: 'new', header: 'New (%)', align: 'right', cell: (row) => row.newValue, kind: 'number', filterValue: (row) => row.newRaw },
+              { id: 'delta', header: 'Change (bp)', align: 'right', cell: (row) => row.delta, kind: 'number', filterValue: (row) => row.deltaRaw },
               {
                 id: 'reason',
                 header: 'Reason',
                 cell: (row) => <Badge {...reasonBadgeProps(row.reason)}>{row.reason}</Badge>,
-                filterText: (row) => row.reason,
+                kind: 'category',
+                filterValue: (row) => row.reason,
               },
-              { id: 'source', header: 'Source', cell: (row) => row.source, filterText: (row) => row.source },
-              { id: 'known-from', header: 'Known from', cell: (row) => row.knownFrom, filterText: (row) => row.knownFrom },
+              { id: 'source', header: 'Source', cell: (row) => row.source, kind: 'category', filterValue: (row) => row.source },
+              { id: 'known-from', header: 'Known from', cell: (row) => row.knownFrom, kind: 'datetime', filterValue: (row) => row.knownFromIso },
             ]}
             rows={toChangeRows(result.changes.data.changes)}
             rowKey={(row) => row.key}
