@@ -1,3 +1,5 @@
+import type { CurveInfo } from './curve/fetchCurves'
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MINUS = '−'
 const NARROW_NBSP = '\u202F'
@@ -36,4 +38,17 @@ export function formatBp(bp: number): string {
 /** A yield in percent with three decimals and a narrow no-break space (\u202F) before the unit: `2.871 %`. */
 export function formatYield(percent: number): string {
   return `${percent.toFixed(3)}${NARROW_NBSP}%`
+}
+
+export const RATE_TYPE: Record<CurveInfo['rateType'], string> = { spot: 'Spot', par: 'Par', forward: 'Forward' }
+
+export const COMPOUNDING: Record<CurveInfo['compounding'], string> = {
+  continuous: 'continuous',
+  annual: 'annual',
+  'semi-annual': 'semi-annual',
+}
+
+/** `percent` or `%` gives `%`; any other unit is shown as given. */
+export function unitSymbol(unit: string): string {
+  return unit === 'percent' || unit === '%' ? '%' : unit
 }

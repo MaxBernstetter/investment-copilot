@@ -19,7 +19,7 @@ import {
 } from '@mantine/core'
 import { IconArrowsDownUp, IconInfoCircle } from '@tabler/icons-react'
 import StatCard from '../components/StatCard'
-import { EMPTY, formatUtc, formatYield } from '../format'
+import { COMPOUNDING, EMPTY, RATE_TYPE, formatUtc, formatYield, unitSymbol } from '../format'
 import PageHeader from '../layout/PageHeader'
 import UncheckedNote from '../quality/UncheckedNote'
 import ValueQualityCell from '../quality/ValueQualityCell'
@@ -30,9 +30,9 @@ import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
 import { measureHint, measureValue, type MeasurePoint } from './measuresData'
+import { validDateHelp } from './sources'
 
 const MAX_OVERLAYS = 5
-const VALID_DATE_HELP = 'The business day the yield applies to, as published by the ECB.'
 const HELP_10Y = 'Spot rate for a 10-year maturity on this valid date, in percent.'
 const HELP_2Y_10Y =
   '10Y yield minus 2Y yield, in basis points. Also called the slope. Below zero the curve is inverted.'
@@ -73,9 +73,7 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
     }
   }, [curve.id, result])
 
-  const subtitle = curve.simulated
-    ? 'Simulated scenario based on ECB AAA spot'
-    : `${curve.label}, spot rates by maturity`
+  const subtitle = `${curve.label} · ${RATE_TYPE[curve.rateType].toLowerCase()} rates, ${COMPOUNDING[curve.compounding]} compounding`
 
   useEffect(() => {
     let active = true
@@ -139,7 +137,7 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
           value={validDate ?? returnedDate}
           onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
         />
-        <Tooltip label={VALID_DATE_HELP}>
+        <Tooltip label={validDateHelp(curve)}>
           <ActionIcon variant="subtle" size="sm" aria-label="About valid date">
             <IconInfoCircle size={16} />
           </ActionIcon>
@@ -204,7 +202,7 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
           </SimpleGrid>
           <Card>
             <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
-              <Title order={2}>Spot curve (%)</Title>
+              <Title order={2}>{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
               {overlayDates.length > 0 && (
                 <Group component="ul" aria-label="Overlaid valid dates" gap="xs" m={0} p={0}>
                   {overlayDates.map((date) => (

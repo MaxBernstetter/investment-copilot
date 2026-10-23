@@ -26,7 +26,7 @@ The views are built from Mantine components: `Title` for headings, `TextInput` a
 
 ## Curve view
 
-The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or its simulated twin, see Curve choice below) after the health check passes. The layout follows the calm editorial pattern: `PageHeader` with title "Yield curve", a one-line subtitle that depends on the curve (real vs simulated), valid date and overlay actions, a row of `StatCard` key figures, a chart card and a values table card.
+The page shows the curve chosen in Curve choice below (default `ecb-aaa-spot`) once the health check and the curve list have loaded. The layout follows the calm editorial pattern: `PageHeader` with title "Yield curve", a one-line subtitle "{label} · {rate type} rates, {compounding} compounding", valid date and overlay actions, a row of `StatCard` key figures, a chart card and a values table card.
 
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
 - **Valid date:** in the page header, with an info tooltip (ECB business day). Picking a date refetches for that date. Clearing the input returns to the latest curve.
@@ -34,14 +34,14 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 - **Gaps and flags:** maturities without a published value (`value: null`) are plotted as gaps, not zeros. Dimmed captions under the chart list them ("No value for: …") and the maturities with an info or warn flag ("Flagged: …", `flaggedMaturities`), in grid order. The chart has no quality marks. Points keep the API's grid order.
 - **Values table:** every grid maturity with yield to three decimals, its quality and a subtle "History" row action (`aria-label` "History {maturity}"), in a `Table.ScrollContainer` with a minimum width of 560 px. The Quality column (`ValueQualityCell`) shows one flag badge per flag (Q1, warnings first, `aria-label` "{rule} · {severity}, {maturity}"). Its popover shows the API's explanation and evidence and links to the methodology note. Info or warn without flags shows a static status badge, an unchecked value a static "Unchecked" badge, a passed value only a visually hidden "Passed", and a missing value nothing. When a value is unchecked, `UncheckedNote` under the table explains it and links "How we check this". The history drawer shows no quality; the key figures show flagged inputs as hints.
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
-- **Attribution:** the source is in the footer (see [Layout](#layout)).
+- **Attribution:** the source is in the footer (see [Layout](#layout)), built from the catalogue entry of the shown curve.
 
 ### Overlay
 
 "Add to overlay" (header, default button) pins the valid date currently shown, so the chart compares several dates of the same curve.
 
 - **Pinning:** up to 5 dates; the button is disabled at 5, for a date already pinned, and when no curve is shown. Each pinned date appears as a `Pill` in the chart card header (`aria-label` "Overlaid valid dates") with "Remove <date>".
-- **Chart:** card title "Spot curve (%)", linear axes with `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
+- **Chart:** card title "{Rate type} curve ({unit symbol})", for example "Spot curve (%)" or "Par curve (%)", linear axes with `domain: ['auto','auto']`, legend only when two or more series, tooltips at 3 dp. The shown curve is drawn first, then each pinned date as its own line, named by its valid date in the legend. A pinned date equal to the shown one is not drawn twice.
 - **Data:** each pinned date is fetched with the current `as_of` (from `App`), and all are refetched when `as_of` changes. A pinned date with no data at the chosen time is left out of the chart.
 - **Scope:** overlays compare valid dates only; countries are not overlaid.
 
@@ -51,6 +51,7 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 | `src/curve/CurveView.tsx` | Curve page: header actions, stat cards, chart and values cards |
 | `src/curve/CurveChart.tsx` | Mantine line chart, one line per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
+| `src/curve/sources.ts` | Publisher and reuse-terms link per source id; valid date help |
 | `src/curve/curveData.ts` | Chart series, missing and flagged maturities, `yield10y`, `tenYearHint` |
 | `src/curve/fetchMeasures.ts` | Measures API call and mapping to `MeasuresResult` |
 | `src/curve/measuresData.ts` | Measure values and hints |
@@ -175,7 +176,7 @@ The "Known as of" time shows every view as it was known at a chosen time (the AP
 The curves come from `GET /v1/curves` (the curve catalogue), fetched once after the health check. The choice applies to the curve and time series views.
 
 - **Control:** a `Select` labelled "Curve" in the header from `sm` up (w 280), and full width in the navbar below `sm`. Options are grouped "Published" then "Simulated", in catalogue order, showing the catalogue label. The default is `ecb-aaa-spot`.
-- **Simulated:** choosing a simulated curve shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not an ECB publication.", `role="note"`). The footer then says the data is scenario data, not an ECB source.
+- **Simulated:** choosing a simulated curve shows one orange "Simulated" badge in the header and one note above the views ("Simulated scenario data, not published by {publisher}.", `role="note"`, the publisher from `sources.ts`). The footer then says the data is scenario data, not published by that publisher.
 - **URL:** the choice is kept in the `curve` query parameter (`?curve=ecb-aaa-spot-sim`), written with `history.replaceState` like `as_of`. An unknown id falls back to `ecb-aaa-spot`, else the first published curve, else the first curve, and the URL is rewritten to the curve used. A simulated curve is never chosen as a fallback while a published one exists.
 - **Views:** switching the curve resets the view state (pinned overlays, open history). The curve view title stays "Yield curve"; its subtitle and the simulated badge and note identify the curve.
 
@@ -200,7 +201,7 @@ The page is a Mantine `AppShell` with a 56 px header, the body and an in-flow fo
 - **Header:** the Burger (below `sm`), the name "YieldLens", the view tabs (a `nav` labelled "Views", from `sm`) and the curve choice (from `sm`), the Simulated badge when the simulated curve is shown, the "Known as of" status (see Time travel), and the colour-scheme toggle, an `ActionIcon` with `aria-label` "Toggle colour scheme".
 - **Navbar (below `sm`):** a `nav` labelled "Views" with one Mantine `NavLink` per view (the active one has `aria-current="page"`) and the curve choice, opened by the Burger and closed after a choice.
 - **Body:** `Container` at 1200 px; the page title is its `h1` (`PageHeader`); sections are cards. The background comes from the theme.
-- **Footer:** below the body, not fixed. Left: the ECB source and copyright notice (or, for the simulated curve, that the data is scenario data). Right: API docs, Methodology (the plausibility note on GitHub), GitHub and `v{version} · {commit}`.
+- **Footer:** below the body, not fixed. Left, four cases: no curve shown (loading or unavailable) gives no text; a simulated curve gives "{attribution}. Scenario data, not published by {publisher}."; a published curve with a terms link gives "{attribution}, {label}. Reuse with attribution, see the ECB copyright notice." (the link is the ECB terms); a published curve without one gives "{attribution}, {label}." Right: API docs, Methodology (the plausibility note on GitHub), GitHub and `v{version} · {commit}`.
 - **Theme:** all styling lives in `src/theme.ts` (see ADR 0018). No CSS files and no `style` props.
 
 | Path | Content |
@@ -239,7 +240,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25, S28–S29), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25–S29), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

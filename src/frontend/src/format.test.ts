@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBp, formatUtc, formatYield } from './format'
+import { COMPOUNDING, RATE_TYPE, formatBp, formatUtc, formatYield, unitSymbol } from './format'
 
 describe('formatUtc', () => {
   it('formats an instant in UTC with seconds', () => {
@@ -46,5 +46,18 @@ describe('formatYield', () => {
   it('rounds to three decimals', () => {
     expect(formatYield(3.4444646497)).toBe('3.444 %')
     expect(formatYield(2.871)).toContain('\u202F%')
+  })
+})
+
+describe('curve convention labels', () => {
+  it('names rate types and compounding', () => {
+    expect(RATE_TYPE.par).toBe('Par')
+    expect(COMPOUNDING['semi-annual']).toBe('semi-annual')
+  })
+
+  it('gives the unit symbol', () => {
+    expect(unitSymbol('percent')).toBe('%')
+    expect(unitSymbol('%')).toBe('%')
+    expect(unitSymbol('bp')).toBe('bp')
   })
 })

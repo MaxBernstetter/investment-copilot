@@ -460,6 +460,27 @@ test.describe('visual snapshots §7', () => {
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S29', ['light'])
   })
+
+  test('S26 all-issuer curve', async ({ page }) => {
+    await page.goto('/?curve=ecb-all-spot')
+    await waitForCurveLoaded(page)
+    await expect(page.getByText('ECB euro area all-issuer spot · spot rates, continuous compounding')).toBeVisible()
+    await expect(page.getByRole('contentinfo')).toContainText('Source: ECB statistics, ECB euro area all-issuer spot.')
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S26', ['light', 'dark'])
+  })
+
+  test('S27 par curve', async ({ page }) => {
+    await page.unroute('http://localhost:8000/**')
+    await installApiMocks(page, 'par')
+    await page.goto('/?curve=ust-par')
+    await waitForCurveLoaded(page)
+    await expect(page.getByRole('heading', { name: 'Par curve (%)' })).toBeVisible()
+    await expect(page.getByText('US Treasury par · par rates, semi-annual compounding')).toBeVisible()
+    await expect(page.getByRole('contentinfo')).toContainText('Source: U.S. Department of the Treasury, US Treasury par.')
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S27', ['light'])
+  })
 })
 
 test.describe('curve catalogue', () => {

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '../test/render'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { localInputToUtc } from '../asOf'
 import { formatUtc } from '../format'
@@ -7,7 +8,7 @@ import CurveView from './CurveView'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchVersions } from '../versions/fetchVersions'
 import type { ValueQuality } from '../quality/qualityData'
-import { AAA, SIM } from '../test/catalogue'
+import { AAA, PAR, SIM } from '../test/catalogue'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
 import type { MeasurePoint } from './measuresData'
 
@@ -183,20 +184,31 @@ describe('CurveView', () => {
     expect(screen.getByRole('heading', { name: 'Spot curve (%)' })).toBeInTheDocument()
   })
 
-  it('names the curve in the real-curve subtitle', async () => {
+  it('shows the label and convention in the subtitle', async () => {
     render(<CurveView curve={AAA} />)
+    expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
+    expect(screen.getByText('ECB euro area AAA spot · spot rates, continuous compounding')).toBeInTheDocument()
+  })
 
+  it('shows the simulated label in the subtitle', async () => {
+    render(<CurveView curve={SIM} />)
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
     expect(
-      screen.getByText('ECB euro area AAA spot, spot rates by maturity'),
+      screen.getByText('ECB euro area AAA spot (scenario data) · spot rates, continuous compounding'),
     ).toBeInTheDocument()
   })
 
-  it('shows the simulated-curve subtitle', async () => {
-    render(<CurveView curve={SIM} />)
-
+  it('names the chart card after the rate type', async () => {
+    render(<CurveView curve={PAR} />)
     expect(await screen.findByLabelText(/Valid date/)).toHaveValue('2026-10-16')
-    expect(screen.getByText('Simulated scenario based on ECB AAA spot')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Par curve (%)' })).toBeInTheDocument()
+    expect(screen.getByText('US Treasury par · par rates, semi-annual compounding')).toBeInTheDocument()
+  })
+
+  it('explains the valid date with the publisher', async () => {
+    await renderLoaded()
+    await userEvent.setup().hover(screen.getByRole('button', { name: 'About valid date' }))
+    expect(await screen.findByText('The business day the yield applies to, as published by the ECB.')).toBeInTheDocument()
   })
 
   it('shows the four key figures', async () => {

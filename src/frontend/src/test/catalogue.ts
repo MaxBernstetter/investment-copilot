@@ -51,4 +51,18 @@ export const ALL: CurveInfo = {
   attribution: 'Source: ECB statistics',
 }
 
+export const PAR: CurveInfo = {
+  id: 'ust-par',
+  label: 'US Treasury par',
+  sourceId: 'ust',
+  area: 'United States',
+  rateType: 'par',
+  compounding: 'semi-annual',
+  unit: 'percent',
+  sourceModel: null,
+  simulated: false,
+  attribution: 'Source: U.S. Department of the Treasury',
+  maturities: GRID,
+}
+
 export const CATALOGUE: CurveInfo[] = [AAA, SIM, ALL]
