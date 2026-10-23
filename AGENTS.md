@@ -24,7 +24,7 @@ Trivial changes (typos, docs wording) skip steps 2 and 4.
 
 ## GitLab issues
 - When opening a merge request for a GitLab issue, prefix the MR title with the issue ID from the issue title, e.g. `[00.10] Load published curve for one country`.
-- After opening the merge request, wait until CodeRabbit has finished its review, then assess its comments and resolve them (use the `mr-threads` skill).
+- After opening the merge request, do not wait for CodeRabbit or CI. The orchestrator assesses the CodeRabbit threads (use the `mr-threads` skill) and checks CI before merging.
 
 ## Merge request size
 Every merge request must be reviewable by a human in one sitting.
@@ -48,6 +48,15 @@ Agentic work is split by model to save tokens (`docs/development/03-agent-harnes
 - The main session orchestrates and delegates. Keep it from reading or editing code itself beyond what a decision needs.
 - Hand `worker` concrete work units from a plan, never open design questions. A `validator` failure goes back to `worker` as its next work unit.
 - Skip the harness for trivial changes.
+- **No duplicate checks.** The worker runs lint, typecheck, unit tests and build for the services it changed. It runs integration tests only when the change touches migrations, SQL/PL-SQL, or persistence and adapter code that the integration tests cover. It runs e2e only when the change touches `src/frontend/e2e/**` or the e2e config. CI runs everything and gates every merge. A red CI goes back to a `worker` as its next work unit.
+- **Validator reviews, CI tests.** The validator reviews the diff against the plan, the acceptance criteria and the Definition of done. It reads the PR's CI result (`gh pr checks`) instead of rerunning the suites. It may run a single targeted test to confirm a suspicion.
+- **Skip the validator** for docs-only and config-only changes, pure rebases, review-comment fixes, and changes under about 100 lines with no behaviour change. Those merge on green CI.
+- **Acceptance checklist in every brief.** The orchestrator puts the issue's acceptance criteria (or the plan's, for that merge request) in the worker brief as a checklist. The worker ticks each item off in its report before pushing, and stops instead of guessing when one cannot be met.
+- **No stacked merge requests on unmerged branches by default.** Start the next merge request of an issue once the previous one has merged, and run other independent work in parallel meanwhile. Stack only when blocking would idle all work, and then rebase onto main right after the base merges, since rebases rewrite commits.
+- **Quiet output.** Workers and validators run tests quietly (`pytest -q`, Playwright's `--reporter=line`, vitest's default) and read only the tail or the failures, for example `… 2>&1 | tail -n 40`. Never read full logs into context.
+- **Planner only for multi-MR issues.** S-size issues (one merge request) skip the planner. The orchestrator briefs the worker from the groomed acceptance criteria.
+- **Agents do not wait or poll** for CodeRabbit or CI. The orchestrator checks the CodeRabbit threads and CI before merging.
+- **Orchestrator session hygiene.** Start a fresh main session per batch of work, since state lives on the board, in PRs and in memory. Stop finished agents. Use one merge run per batch. See `docs/development/03-agent-harness.md`.
 
 ## Agent skills
 - Shared project skills are stored in `.agents/skills/`.
