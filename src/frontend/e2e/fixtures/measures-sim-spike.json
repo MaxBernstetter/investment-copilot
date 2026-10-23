@@ -1,0 +1,17 @@
+{
+  "meta": { "as_of": "2026-10-19T18:49:25Z", "method_version": "1", "source_attribution": "Simulated scenario data" },
+  "point": {
+    "spread_2y_10y": 2405.0,
+    "spread_3m_10y": 2430.0,
+    "curvature_2y_5y_10y": -2365.0,
+    "inverted": false,
+    "inputs": [
+      { "maturity": "3M", "value": 2.1, "version_id": 1, "status": "passed" },
+      { "maturity": "2Y", "value": 2.35, "version_id": 1, "status": "passed" },
+      { "maturity": "5Y", "value": 2.55, "version_id": 1, "status": "passed" },
+      { "maturity": "10Y", "value": 26.4, "version_id": 1, "status": "warn" }
+    ],
+    "missing": [],
+    "quality": { "status": "warn", "flagged": ["10Y"] }
+  }
+}

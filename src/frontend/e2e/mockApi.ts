@@ -24,15 +24,23 @@ function loadJson<T>(name: string): T {
   return JSON.parse(readFileSync(join(FIXTURES, name), 'utf8')) as T
 }
 
-const curveGrid = loadJson<CurveFixture>('curve-grid.json')
+export const curveGrid = loadJson<CurveFixture>('curve-grid.json')
 const curveOverlay15 = loadJson<CurveFixture>('curve-overlay-2026-10-15.json')
 const curveOverlay14 = loadJson<CurveFixture>('curve-overlay-2026-10-14.json')
 const curveSimSpike = loadJson<CurveFixture>('curve-sim-spike.json')
+const curveInverted = loadJson<CurveFixture>('curve-inverted.json')
 export const catalogue = loadJson<{ data: { curve_id: string; simulated: boolean }[] }>('catalogue.json')
 type SeriesFixture = {
   meta: { as_of: string; source_attribution: string }
   points: { valid_date: string; value: number; quality?: { status: string; flags: unknown[] } }[]
 }
+export type MeasuresFixture = {
+  meta: { as_of: string; method_version: string; source_attribution: string }
+  point: Record<string, unknown>
+}
+export const measuresGrid = loadJson<MeasuresFixture>('measures-grid.json')
+const measuresSimSpike = loadJson<MeasuresFixture>('measures-sim-spike.json')
+const measuresInverted = loadJson<MeasuresFixture>('measures-inverted.json')
 const series10y = loadJson<SeriesFixture>('series-10y.json')
 const series10ySimSpike = loadJson<SeriesFixture>('series-10y-sim-spike.json')
 const changesThree = loadJson<{
@@ -48,7 +56,19 @@ const versionsSim = loadJson<{
   versions: unknown[]
 }>('versions-sim-correction.json')
 
-function curveBody(curveId: string, fixture: CurveFixture, validDate?: string) {
+export function measuresBody(curveId: string, fixture: MeasuresFixture, validDate: string) {
+  return {
+    data: {
+      curve_id: curveId,
+      valid_from: validDate,
+      valid_to: validDate,
+      points: [{ valid_date: validDate, ...fixture.point }],
+    },
+    meta: fixture.meta,
+  }
+}
+
+export function curveBody(curveId: string, fixture: CurveFixture, validDate?: string) {
   const valid_date = validDate ?? fixture.valid_date ?? '2026-10-16'
   return {
     data: {
@@ -123,6 +143,10 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         return
       }
 
+      if (validDate === '2026-10-13') {
+        await fulfillJson(route, 200, curveBody(curveId, curveInverted, '2026-10-13'))
+        return
+      }
       if (validDate === '2026-10-15') {
         await fulfillJson(route, 200, curveBody(curveId, curveOverlay15, '2026-10-15'))
         return
@@ -204,6 +228,26 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         },
         meta: qualityMixed.meta,
       })
+      return
+    }
+
+    if (path.match(/^\/v1\/curves\/[^/]+\/measures$/)) {
+      const curveId = path.split('/')[3]
+      const from = url.searchParams.get('from') ?? '2026-10-16'
+      const asOf = url.searchParams.get('as_of')
+      if (mode === 'not-found') {
+        await fulfillJson(route, 404, { detail: 'No data known for this date.' })
+        return
+      }
+      if (from === '2026-10-13') {
+        await fulfillJson(route, 200, measuresBody(curveId, measuresInverted, from))
+        return
+      }
+      if (curveId === 'ecb-aaa-spot-sim' && asOf === '2026-10-19T18:49:25Z') {
+        await fulfillJson(route, 200, measuresBody(curveId, measuresSimSpike, from))
+        return
+      }
+      await fulfillJson(route, 200, measuresBody(curveId, measuresGrid, from))
       return
     }
 

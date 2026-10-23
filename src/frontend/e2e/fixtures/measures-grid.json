@@ -1,0 +1,17 @@
+{
+  "meta": { "as_of": "2026-10-19T10:00:00Z", "method_version": "1", "source_attribution": "Source: ECB statistics" },
+  "point": {
+    "spread_2y_10y": 52.1,
+    "spread_3m_10y": 77.1,
+    "curvature_2y_5y_10y": -12.1,
+    "inverted": false,
+    "inputs": [
+      { "maturity": "3M", "value": 2.1, "version_id": 1, "status": "passed" },
+      { "maturity": "2Y", "value": 2.35, "version_id": 1, "status": "passed" },
+      { "maturity": "5Y", "value": 2.55, "version_id": 1, "status": "passed" },
+      { "maturity": "10Y", "value": 2.871, "version_id": 1, "status": "passed" }
+    ],
+    "missing": [],
+    "quality": { "status": "passed", "flagged": [] }
+  }
+}

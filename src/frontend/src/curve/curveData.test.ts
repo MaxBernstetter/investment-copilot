@@ -4,7 +4,6 @@ import {
   missingMaturities,
   overlayRows,
   overlaySeries,
-  spread2s10s,
   tenYearHint,
   yield10y,
   type CurvePoint,
@@ -37,15 +36,19 @@ describe('curveData', () => {
     ])
   })
 
-  it('reads 10Y yield and 2s10s spread in bp', () => {
+  it('reads 10Y yield', () => {
     expect(yield10y(points)).toBe(2.6)
-    expect(spread2s10s(points)).toBeUndefined()
-    const with2y: CurvePoint[] = [
-      { maturity: '2Y', months: 24, value: 2.5, version_id: 1, origin: 'published', quality: passed },
-      { maturity: '10Y', months: 120, value: 2.6, version_id: 2, origin: 'published', quality: passed },
+    expect(yield10y([points[0]])).toBeUndefined()
+  })
+
+  it('hints the 10Y yield when missing or flagged', () => {
+    const flagged = (status: 'info' | 'warn'): CurvePoint[] => [
+      { ...points[2], quality: { status, flags: [] } },
     ]
-    expect(spread2s10s(with2y)).toBeCloseTo(10)
-    expect(spread2s10s([with2y[0], { ...with2y[1], value: 2.4 }])).toBeCloseTo(-10)
+    expect(tenYearHint([points[0]])).toBe('Not available')
+    expect(tenYearHint(flagged('warn'))).toBe('Value flagged')
+    expect(tenYearHint(flagged('info'))).toBe('Value flagged')
+    expect(tenYearHint([points[2]])).toBeUndefined()
   })
 
   it('flaggedMaturities lists info and warn maturities in grid order', () => {

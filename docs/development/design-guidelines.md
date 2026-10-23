@@ -17,6 +17,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - T4 Colour roles: primary blue.8 (links, primary buttons, active nav). Text: default / `c="dimmed"` only.
   Status (only badges/alerts, always with icon + label): ok green, info blue, warn yellow (filled, autoContrast),
   error red. Simulated: orange (one badge in header + one subtle Alert). Reason: initial gray, revision blue, correction orange.
+  Market state is not quality: the 'Inverted' badge is `Badge color="gray" variant="light" size="sm"` with `IconArrowsDownUp` and the word, never a status colour.
 - T5 Chart palette (fixed order, never cycled, same in light and dark; validated with dataviz validate_palette.js,
   light #fff and dark #242424 surfaces): blue.8 #1971c2, orange.8 #e8590c, teal.8 #099268, grape.8 #9c36b5,
   pink.8 #c2255c, lime.9 #5c940d. Light: all checks pass, worst CVD ΔE 9.5. Dark: pass, contrast WARN for
@@ -55,8 +56,8 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - Q2 Empty state: `EmptyState` (Mantine 9) with title + one-sentence description + action, wrapped `role="status"`.
 - Q3 Loading: `Skeleton` with the final element's size (chart 320, table 5 rows × 36) + VisuallyHidden "Loading…".
 - Q4 Error: `Alert color="red" title="…"` + `Button variant="light" size="xs"` "Try again".
-- Q5 Explanations: `Tooltip` (multiline, w 280) on an info `ActionIcon` next to a label, for "Valid date"
-  and "Compare from". "Known as of" uses dimmed helper text in the header as-of popover (see C3), not a tooltip on the label.
+- Q5 Explanations: `Tooltip` (multiline, w 280) on an info `ActionIcon` next to a label, for "Valid date", "Compare from" and each key-figure label in the Yield curve view. Tooltips open on hover and keyboard focus (theme `events` focus: true) and close with Esc.
+  "Known as of" uses dimmed helper text in the header as-of popover (see C3), not a tooltip on the label.
 
 ## Copy
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).
@@ -66,6 +67,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Now to see the latest
   knowledge."
 - C4 Errors say what happened and what to do; no stack traces, no HTTP codes in the headline.
+- C5 Unavailable values show `–` and a dimmed hint saying why: 'No 5Y value', 'No 2Y or 10Y value' or 'Not available'. A present value with a flagged input adds 'Input flagged: 10Y' / 'Inputs flagged: 2Y, 10Y'.
 
 ## Accessibility
 - A1 WCAG 2.1 AA contrast (text 4.5:1, UI and chart marks 3:1 or table relief). axe: zero violations.

@@ -47,6 +47,8 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
 
   await page.keyboard.press('Enter')
   await expect(page.getByLabel(/Known as of/)).toBeVisible()
+  // The popover traps focus once it opens; Escape pressed before that is lost.
+  await expect(page.getByLabel(/Known as of/)).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByLabel(/Known as of/)).not.toBeVisible()
   await expect(live).toBeFocused()
@@ -118,4 +120,36 @@ test('curve flag badge opens its explanation from the keyboard', async ({ page }
   await page.keyboard.press('Escape')
   await expect(link).toBeHidden()
   await expect(flag).toBeFocused()
+})
+
+test('key figure explanations open on focus and close with Escape', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/')
+  await waitForCurveLoaded(page)
+
+  const add = page.getByRole('button', { name: 'Add to overlay' })
+  await add.focus()
+  await expect(add).toBeFocused()
+  // Each tooltip is found by its own text: the previous one leaves the DOM after its close transition.
+  const explanations: [string, string][] = [
+    ['10Y yield', 'Spot rate for a 10-year maturity on this valid date, in percent.'],
+    ['2Y–10Y spread', '10Y yield minus 2Y yield, in basis points. Also called the slope. Below zero the curve is inverted.'],
+    [
+      '3M–10Y spread',
+      '10Y yield minus 3M yield, in basis points. Compares the long end with the money-market end of the curve.',
+    ],
+    [
+      '2Y–5Y–10Y curvature',
+      '2 × 5Y \u2212 2Y \u2212 10Y, in basis points. Positive means a humped belly: 5Y is above the average of 2Y and 10Y. Negative means a sagging belly.',
+    ],
+  ]
+  for (const [label, help] of explanations) {
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: `About ${label}` })).toBeFocused()
+    await expect(page.getByRole('tooltip').filter({ hasText: help })).toBeVisible()
+  }
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'About 2Y–5Y–10Y curvature' })).toBeFocused()
 })
