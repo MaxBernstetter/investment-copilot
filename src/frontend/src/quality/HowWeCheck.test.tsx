@@ -11,7 +11,9 @@ describe('HowWeCheck', () => {
     const user = userEvent.setup()
     render(<HowWeCheck />)
 
-    expect(screen.getByRole('heading', { name: 'How we check' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'How we check' }))
+    expect(await screen.findByRole('dialog', { name: 'How we check' })).toBeInTheDocument()
     const controls = ['Range', 'Jump', 'Missing date', 'Missing maturity'].map((label) =>
       screen.getByRole('button', { name: label }),
     )

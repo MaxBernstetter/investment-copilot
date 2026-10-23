@@ -123,7 +123,13 @@ export default function App() {
             )}
           </AppShell.Navbar>
         )}
-        <AppShell.Main>
+        {/* The page itself never scrolls: Main is exactly the viewport below the header, the content
+            scrolls inside it and the footer stays in view underneath. */}
+        <AppShell.Main
+          h="100dvh"
+          style={{ display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box', overflow: 'hidden' }}
+        >
+          <Box component="div" flex={1} mih={0} style={{ overflowY: 'auto' }}>
           <Container fluid px={{ base: 'md', sm: 'lg' }} py="lg">
             {(state === 'checking' || (state === 'online' && catalogue.kind === 'loading')) && (
               <Stack gap="lg">
@@ -194,8 +200,9 @@ export default function App() {
               </Stack>
             )}
           </Container>
+          </Box>
+          <AppFooter curve={ready ? curve : undefined} />
         </AppShell.Main>
-        <AppFooter curve={ready ? curve : undefined} />
       </AppShell>
     </Tabs>
   )

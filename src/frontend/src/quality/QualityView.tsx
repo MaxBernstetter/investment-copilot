@@ -117,6 +117,7 @@ export default function QualityView({ curve, asOf }: QualityViewProps) {
     <Stack component="section" gap="lg">
       <PageHeader
         title="Data quality"
+        titleAddon={<HowWeCheck />}
         subtitle={`Plausibility and completeness checks per business day, ${curve.label}`}
         actions={headerActions}
       />
@@ -183,7 +184,6 @@ export default function QualityView({ curve, asOf }: QualityViewProps) {
           </Stack>
         </Alert>
       )}
-      <HowWeCheck />
     </Stack>
   )
 }

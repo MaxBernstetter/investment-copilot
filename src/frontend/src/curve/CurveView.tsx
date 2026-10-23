@@ -353,9 +353,20 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
             </Card>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 5 }}>
-            <Card>
+            {/* From lg up the card is taken out of the flow and fills the row, so the chart sets the shared height. */}
+            <Box pos="relative" h="100%">
+            <Card
+              pos={{ base: 'static', lg: 'absolute' }}
+              top={0}
+              bottom={0}
+              left={0}
+              right={0}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
               <Title order={2} mb="md">Values</Title>
+              <Box flex={{ base: 'none', lg: 1 }} h={{ base: 420, lg: 'auto' }} mih={0}>
               <DataTable
+                fill
                 columns={[
                   {
                     id: 'maturity',
@@ -398,8 +409,10 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
                 rows={points}
                 rowKey={(point) => point.maturity}
               />
+              </Box>
               {hasUnchecked && <UncheckedNote />}
             </Card>
+            </Box>
             </Grid.Col>
           </Grid>
           <VersionHistory
