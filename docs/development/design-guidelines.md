@@ -29,8 +29,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   (NavLinks + curve choice); header keeps logo, Burger and the as-of status. The curve choice is a `Select` (`aria-label="Curve"`, size xs, w 280) right of the view tabs, grouped "Published" then "Simulated", with options in catalogue order showing the catalogue label. An unknown `?curve=` falls back to the default curve, never to a simulated one.
 - L2 Body: `Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg"`. Each page = PageHeader + sections in Cards.
 - L3 PageHeader: Title order 1 + one-line dimmed subtitle (what, which unit) + actions right .
-- L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): source + licence
-  left; API docs, Methodology, GitHub, version · commit right. Not fixed.
+- L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): attribution left, from the curve catalogue: `{attribution}, {label}.` plus the publisher's reuse-terms link; simulated curves: `{attribution}. Scenario data, not published by {publisher}.`; empty until the catalogue has loaded. Right: API docs, Methodology, GitHub, version · commit. Not fixed.
 - L5 Key figures as a 4-col (desktop) SimpleGrid of StatCards above the chart. Max 4.
 - L6 No horizontal page scroll at 1280 px; wide tables scroll inside `Table.ScrollContainer`.
 
@@ -62,12 +61,13 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 ## Copy
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).
 - C2 Page titles: "Yield curve", "Time series", "Changes", "Data quality", "Runs and alerts".
-- C3 Valid date tooltip: "The business day the yield applies to, as published by the ECB."
+- C3 Valid date tooltip: "The business day the yield applies to, as published by {publisher}." (simulated: "The business day the yield applies to in this scenario.")
   Known as of helper text (dimmed text in the header as-of popover, not a label tooltip): "See the data
   exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Now to see the latest
   knowledge."
 - C4 Errors say what happened and what to do; no stack traces, no HTTP codes in the headline.
 - C5 Unavailable values show `–` and a dimmed hint saying why: 'No 5Y value', 'No 2Y or 10Y value' or 'Not available'. A present value with a flagged input adds 'Input flagged: 10Y' / 'Inputs flagged: 2Y, 10Y'.
+- C6 Curve convention in text, never a badge: curve view subtitle `{label} · {rate type} rates, {compounding} compounding`; curve card title `{Rate type} curve ({unit})`.
 
 ## Accessibility
 - A1 WCAG 2.1 AA contrast (text 4.5:1, UI and chart marks 3:1 or table relief). axe: zero violations.
