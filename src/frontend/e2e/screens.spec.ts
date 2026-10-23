@@ -178,6 +178,9 @@ test.describe('screens §7', () => {
     await expect(page.getByRole('note')).toContainText('rate types differ (par, spot) and compounding differs (semi-annual, continuous)')
     await expect(page.getByText('No value on ECB euro area AAA spot · 2026-10-15: 1M.')).toBeVisible()
     await expect(page.getByText('No value on US Treasury par · 2026-10-16: 15Y.')).toBeVisible()
+    const overlayTable = page.getByRole('table', { name: /^Overlaid curves:/ })
+    await expect(overlayTable.getByRole('rowheader')).toHaveText(['ECB euro area AAA spot · 2026-10-15', 'US Treasury par · 2026-10-16'])
+    await expect(overlayTable.getByText('No value')).toHaveCount(2)
     await expect(
       page.getByRole('listitem').filter({ hasText: 'Source: ECB statistics (ECB euro area AAA spot)' }),
     ).toBeVisible()
