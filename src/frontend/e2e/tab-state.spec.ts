@@ -16,10 +16,11 @@ test('a chosen Time series layout survives a tab round trip, and the hidden view
   await page.getByRole('tab', { name: 'Time series' }).click()
   await page.locator('.mantine-SegmentedControl-label').filter({ hasText: 'Table' }).click()
   await expect(page.getByRole('columnheader', { name: 'Valid date' })).toBeVisible()
+  // The hidden Curve view stays in the DOM; a DOM locator sees it, role queries skip it.
+  await expect(page.locator('h1', { hasText: 'Yield curve' })).toHaveCount(1)
 
   await page.getByRole('tab', { name: 'Curve' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Yield curve' })).toBeVisible()
-  await expect(page.getByRole('heading', { level: 1, name: 'Yield curve' })).toHaveCount(1)
 
   await page.getByRole('tab', { name: 'Time series' }).click()
   await expect(page.getByRole('radio', { name: 'Table' })).toBeChecked()
