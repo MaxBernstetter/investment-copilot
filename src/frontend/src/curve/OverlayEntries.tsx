@@ -22,8 +22,8 @@ export default function OverlayEntries({ entries, labelOf, listRef, onRemove }: 
       ref={listRef}
       aria-label="Overlaid curves"
       display="flex"
+      mt={0}
       mb="md"
-      m={0}
       p={0}
       style={{ flexWrap: 'wrap', gap: 'var(--mantine-spacing-xs)', listStyle: 'none' }}
     >
