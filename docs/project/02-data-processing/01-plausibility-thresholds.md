@@ -87,7 +87,9 @@ Why the same values as the AAA curve:
 
 ## US Treasury par yield curve
 
-Derived for `ust-par` (the US Treasury daily par yield curve, grid 2) from the Treasury's yearly CSV files: 14 tenors (1M to 30Y), 9,208 published days from 1990-01-02 to 2026-10-22, 99,866 daily changes. Values in percent, as published. The thresholds are **provisional** (`UST_PAR` in `rule_config.py`): the derivation below was done by hand with the method of the ECB section, and `plausibility_thresholds.py --source ust` is a follow-up (MR3b).
+Derived for `ust-par` (the US Treasury daily par yield curve, grid 2) with `plausibility_thresholds.py --source ust` from the Treasury's yearly CSV files, 1990 to 2026: 14 tenors (1M to 30Y), 9,208 published days from 1990-01-02 to 2026-10-22, 99,866 daily changes. Values in percent, as published.
+
+**Status of the figures:** a live run of the script on 2026-10-23 got no response from the Treasury site (the connection stayed open for about nine minutes; the run was stopped without output). The tables below are the script's output on the 37 yearly files fetched earlier the same day with the same URL pattern (one request per year, HTTP 200 each). They reproduce the counts of the hand-made derivation of the same day. The thresholds of `UST_PAR` in `rule_config.py` therefore stay **provisional** until a live run completes.
 
 | Tenor | Min % | Max % | P50 bp | P99 bp | P99.9 bp | Max bp |
 |---|---|---|---|---|---|---|
@@ -118,7 +120,7 @@ Derived for `ust-par` (the US Treasury daily par yield curve, grid 2) from the T
 Why these thresholds:
 
 - **Range −0.50 % … 10.00 %:** the history spans 0.00 % to 9.18 %, so no value is flagged. The band leaves 0.5 pp below zero and about 0.8 pp above the highest value.
-- **Jump > 25 bp as `info`:** 130 days in about 37 years, about 3.5 a year, slightly above the "about three a year" revisit rule. 162 of the 278 values are from the 2000s and 69 are the 1M bill (2007 to 2008 and 2023 among them). The rule is kept provisional until the script derivation exists.
+- **Jump > 25 bp as `info`:** 130 days in about 37 years, about 3.5 a year, slightly above the "about three a year" revisit rule. 162 of the 278 values are from the 2000s and 69 are the 1M bill (2007 to 2008 and 2023 among them). The script reproduces the counts; the rule stays provisional until a live run completes.
 - **Jump > 50 bp as `warn`:** 24 days, all in stress periods (1998, 2000, 2001, 2006 to 2009, 2023), except one artefact: 30Y on 2006-02-09 (+86 bp), the first value after the 2002-02-19 to 2006-02-08 gap, compared with 2002-02-15. The backfill will show this one `warn`; it is a known false positive of the gap, not a data error.
 - **Calendar and maturities:** the bond market closures (Good Friday, unscheduled closures) and the column introductions are in the calendar and the expected maturities, not the thresholds (see [[03-quality-checks]]).
 
@@ -140,12 +142,19 @@ For the all-issuer curve `ecb-all-spot`:
 
 The missing-date and missing-maturity texts are the same as for the AAA curve.
 
+For the US Treasury curve `ust-par`:
+
+- **Range (warn):** "Outside the plausible range of −0.50 % to 10.00 %. US Treasury par yields stayed between 0.00 % and 9.18 % since 1990."
+- **Jump (info):** "Moved more than 25 bp since the previous business day. This happened on 130 days since 1990, many of them in stress periods."
+- **Jump (warn):** "Moved more than 50 bp since the previous business day. This happened on only 24 days since 1990 (1998, 2000, 2001, 2006 to 2009 and 2023), mostly in market stress; check the source data."
+
 The quality dashboard links to this note for the full method. The rule configuration in the processing service names this note in a comment next to each threshold.
 
 ## Re-deriving
 
 1. Load the full history into a local stack: `task dev:up`, then `task dev:seed START=2004-09-06` (about 23 polite requests to the ECB). Or skip the stack and add `--source ecb` in step 2 (one request to the ECB, for `ecb-aaa-spot` or `ecb-all-spot`).
 2. Run `python3 src/scripts/plausibility_thresholds.py` (standard library only; `--access-url` and `--curve` are optional; `--source ecb` reads the history from the ECB data API instead of the access API).
-3. Compare with the tables above. Revisit the thresholds when a new curve is added, when the range comes within half a percentage point of a bound, or when `info` flags appear on more than about three days a year. A new curve gets its own thresholds, calendar, expected maturities and explanation texts in `RULES_BY_CURVE`.
+3. For the US Treasury curve run `python3 src/scripts/plausibility_thresholds.py --source ust` instead (one request per year from 1990, 3 s apart, about two minutes when the site answers; no stack needed).
+4. Compare with the tables above. Revisit the thresholds when a new curve is added, when the range comes within half a percentage point of a bound, or when `info` flags appear on more than about three days a year. A new curve gets its own thresholds, calendar, expected maturities and explanation texts in `RULES_BY_CURVE`.
 
 Related: [[README|Data processing]], [#31](https://github.com/MaxBernstetter/yield-lens/issues/31), [#38](https://github.com/MaxBernstetter/yield-lens/issues/38), [#65](https://github.com/MaxBernstetter/yield-lens/issues/65)

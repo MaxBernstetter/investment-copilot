@@ -90,9 +90,9 @@ ECB_ALL_SPOT_RULES = CurveRules(
     explanations=ECB_ALL_SPOT_EXPLANATIONS,
 )
 
-# PROVISIONAL: derived by hand from the Treasury history 1990 to 2026 (no value below 0.00 % or
+# PROVISIONAL until a live run of `plausibility_thresholds.py --source ust` completes: the script
+# output on the cached 1990 to 2026 Treasury files matches these values (no value below 0.00 % or
 # above 9.18 %; see docs/project/02-data-processing/01-plausibility-thresholds.md, "US Treasury").
-# The --source ust derivation in the script is a follow-up (MR3b), so these stay provisional.
 UST_PAR = PlausibilityThresholds(
     range_min=Decimal("-0.50"),
     range_max=Decimal("10.00"),
