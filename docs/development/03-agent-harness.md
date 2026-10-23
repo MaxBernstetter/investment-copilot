@@ -1,6 +1,6 @@
 # Agent Harness
 
-Agentic development splits work by model to keep token use down. **Opus 5.5** is used where judgement matters: grooming, planning and validating. **Haiku 5.5** is the workhorse and does everything else. The main session orchestrates: it delegates, passes results on, and talks to the user. It does not do the work itself.
+Agentic development splits work by model to keep token use down. **Sonnet 5.5** at medium effort is used where judgement matters: grooming, planning and validating. **Haiku 5.5** is the workhorse and does everything else. The main session orchestrates: it delegates, passes results on, and talks to the user. It does not do the work itself.
 
 ## Agents
 
@@ -8,19 +8,19 @@ The project subagents live in `.claude/agents/` and are committed to the reposit
 
 | Agent | Model | Tools | Job |
 |---|---|---|---|
-| `groomer` | Opus 5.5 | no file edits | Gets issues to Ready: acceptance criteria, dependencies, size, splits ([[01-task-management]]) |
-| `planner` | Opus 5.5 | read-only | Turns one issue into merge-request-sized slices and concrete work units |
+| `groomer` | Sonnet 5.5 (medium) | no file edits | Gets issues to Ready: acceptance criteria, dependencies, size, splits ([[01-task-management]]) |
+| `planner` | Sonnet 5.5 (medium) | read-only | Turns one issue into merge-request-sized slices and concrete work units |
 | `worker` | Haiku 5.5 | all but spawning agents | Implements one work unit, or does one chore: rebase, checks, board and PR bookkeeping, broad search |
-| `validator` | Opus 5.5 | read-only, runs checks | Checks a change against plan, acceptance criteria and the [[principles/README#Definition of done\|Definition of done]]; pass or fail |
-| `designer` | Opus 5.5 | read-only, browses the running app | Specifies UI issues before planning, and runs the visual review of UI changes against [[design-guidelines]]; pass or fail |
+| `validator` | Sonnet 5.5 (medium) | read-only, runs checks | Checks a change against plan, acceptance criteria and the [[principles/README#Definition of done\|Definition of done]]; pass or fail |
+| `designer` | Sonnet 5.5 (medium) | read-only, browses the running app | Specifies UI issues before planning, and runs the visual review of UI changes against [[design-guidelines]]; pass or fail |
 
 ## Flow
 
 ```mermaid
 flowchart LR
-  G[groomer<br/>Opus] --> P[planner<br/>Opus] --> W[worker<br/>Haiku] --> V[validator<br/>Opus]
+  G[groomer<br/>Sonnet] --> P[planner<br/>Sonnet] --> W[worker<br/>Haiku] --> V[validator<br/>Sonnet]
   V -- fail: fix list --> W
-  V -- pass, UI diff --> D[designer<br/>Opus]
+  V -- pass, UI diff --> D[designer<br/>Sonnet]
   V -- pass, other --> PR[pull request]
   D -- FAIL: fix list --> W
   D -- PASS --> PR
@@ -38,7 +38,7 @@ Trivial changes (typos, a one-line fix) skip the harness.
 ## Why this split
 
 - Most tokens go into reading files, running commands and writing code. A cheaper model does that well once the decisions are made.
-- Opus only reads what it needs to judge, and returns a short result: a plan, a verdict or proposed issue text.
+- Sonnet only reads what it needs to judge, and returns a short result: a plan, a verdict or proposed issue text.
 - The main session's context stays small, because subagents return summaries instead of file contents and logs.
 
 ## Built-in subagents

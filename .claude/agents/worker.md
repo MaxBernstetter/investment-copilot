@@ -1,6 +1,6 @@
 ---
 name: worker
-description: Workhorse. Implements one agreed work unit from a plan, or does one mechanical chore (rebase, run checks, board and pull request bookkeeping, broad code search). Use for all execution; planning, grooming and validation go to the Opus agents.
+description: Workhorse. Implements one agreed work unit from a plan, or does one mechanical chore (rebase, run checks, board and pull request bookkeeping, broad code search). Use for all execution; planning, grooming and validation go to the Sonnet agents.
 model: claude-haiku-5-5
 disallowedTools: Agent
 ---

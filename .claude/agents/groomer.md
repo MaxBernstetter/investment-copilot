@@ -1,7 +1,8 @@
 ---
 name: groomer
 description: Grooms GitHub issues so they are Ready - problem, acceptance criteria, dependencies, size, labels - and proposes splits for issues too large for one merge request. Use when creating, refining or prioritizing issues.
-model: claude-opus-5-5
+model: claude-sonnet-5-5
+effort: medium
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 
