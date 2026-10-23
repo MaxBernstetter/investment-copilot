@@ -1,0 +1,45 @@
+{
+  "_comment": "US Treasury daily par yield curve CSVs, recorded on 2026-10-23 with curl (User-Agent YieldLens/0.1.0, 3 s between requests). Request per year: GET https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{YYYY}/all?type=daily_treasury_yield_curve&field_tdr_date_value={YYYY}&page&_format=csv. The year_*_head files are the recorded year files cut to the header and a few rows (the rows, not the header, are trimmed; bytes unchanged). The full 1989, 1990, 1993, 2001, 2002, 2004, 2006, 2018, 2022, 2025 and 2027 files were used to check the tenor introduction dates, and are not committed. *_2025 and new/missing/malformed files are crafted from year_2025_head.csv, not recorded. empty_2027.csv is the recorded 2027 body (0 bytes, HTTP 200): a year without data.",
+  "year_1990_head.csv": {
+    "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/1990/all?type=daily_treasury_yield_curve&field_tdr_date_value=1990&page&_format=csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Recorded head of the 1990 file: 9 columns, no 20 Yr. Cut to the header and first 5 rows."
+  },
+  "year_2004_head.csv": {
+    "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2004/all?type=daily_treasury_yield_curve&field_tdr_date_value=2004&page&_format=csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Recorded head of the 2004 file: no 30 Yr column. Cut to the header and first 5 rows."
+  },
+  "year_2025_head.csv": {
+    "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all?type=daily_treasury_yield_curve&field_tdr_date_value=2025&page&_format=csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Recorded rows of the 2025 file for 12/31/2025, 02/18/2025 (first 1.5 Month value), 01/03/2025 and 01/02/2025 (empty 1.5 Month cells). Header and these rows only."
+  },
+  "empty_2027.csv": {
+    "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2027/all?type=daily_treasury_yield_curve&field_tdr_date_value=2027&page&_format=csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Recorded: HTTP 200 with an empty body for a year without data (1989 and 2027 answered the same way)."
+  },
+  "new_column_2025.csv": {
+    "crafted_from": "year_2025_head.csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Crafted: adds an unknown column \"9 Mo\" (value 3.11) at the end, to test schema drift that is compatible."
+  },
+  "missing_column_2025.csv": {
+    "crafted_from": "year_2025_head.csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Crafted: drops the required column \"6 Mo\"."
+  },
+  "malformed_2025.csv": {
+    "crafted_from": "year_2025_head.csv",
+    "status": 200,
+    "content_type": "text/csv; charset=UTF-8",
+    "comment": "Crafted: one date in ISO form (2025-12-31) and one value n/a (3 Mo of 02/18/2025)."
+  }
+}
