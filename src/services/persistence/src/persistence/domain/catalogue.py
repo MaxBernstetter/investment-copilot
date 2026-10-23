@@ -10,7 +10,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class GridMaturity:
     maturity: str
-    months: int
+    months: float
 
 
 @dataclass(frozen=True, slots=True)

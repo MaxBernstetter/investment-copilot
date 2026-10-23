@@ -22,7 +22,10 @@ class CurvePoint(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     maturity: str = Field(description="Tenor code, e.g. 3M, 10Y", examples=["10Y"])
-    months: int = Field(gt=0, description="Length of the tenor in months, for ordering")
+    months: float = Field(
+        gt=0,
+        description="Tenor length in months, for ordering; fractional for short tenors",
+    )
     value: float | None = Field(
         allow_inf_nan=False,
         description="Yield in percent; null if no published value was known as of meta.as_of",

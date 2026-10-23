@@ -46,7 +46,10 @@ class GridMaturity(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     maturity: str = Field(min_length=1, max_length=16, examples=["10Y"])
-    months: int = Field(gt=0, description="Length of the tenor in months, for ordering")
+    months: float = Field(
+        gt=0,
+        description="Tenor length in months, for ordering; fractional for short tenors",
+    )
 
 
 class CurveDefinition(BaseModel):

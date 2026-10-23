@@ -9,7 +9,7 @@ class CurvePoint:
     """One maturity; ``value`` is None when no published value was known as of the read."""
 
     maturity: str
-    months: int
+    months: float
     value: float | None
     version_id: int | None
 

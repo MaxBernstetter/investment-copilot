@@ -34,6 +34,10 @@ databaseChangeLog:
   - include:
       file: 24_curve_ecb_all_spot.sql
       relativeToChangelogFile: true
+  # Grid version 2 with the short bill tenors (#265); months widened to number(5,2) before the package reads it.
+  - include:
+      file: 25_grid_v2.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

@@ -36,6 +36,47 @@ def test_seeds_the_common_maturity_grid_as_version_1(oracle: OracleDatabase) -> 
         ]  # fmt: skip
 
 
+def test_seeds_grid_version_2_as_grid_1_plus_the_short_tenors(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute("select maturity from grid_maturity where grid_version = 2 order by months")
+        assert [maturity for (maturity,) in cursor] == [
+            "1M", "1.5M", "2M", "3M", "4M", "6M", "1Y", "2Y", "3Y", "5Y",
+            "7Y", "10Y", "15Y", "20Y", "30Y",
+        ]  # fmt: skip
+
+
+def test_stores_months_as_number_5_2(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select data_precision, data_scale from user_tab_columns"
+            " where table_name = 'GRID_MATURITY' and column_name = 'MONTHS'"
+        )
+        assert cursor.fetchall() == [(5, 2)]
+        cursor.execute(
+            "select months from grid_maturity where grid_version = 2 and maturity = '1.5M'"
+        )
+        assert cursor.fetchall() == [(1.5,)]
+
+
+def test_grid_version_1_is_unchanged_by_grid_2(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select maturity, months from grid_maturity where grid_version = 1 order by months"
+        )
+        assert cursor.fetchall() == [
+            ("3M", 3), ("6M", 6), ("1Y", 12), ("2Y", 24), ("3Y", 36), ("5Y", 60),
+            ("7Y", 84), ("10Y", 120), ("15Y", 180), ("20Y", 240), ("30Y", 360),
+        ]  # fmt: skip
+        cursor.execute(
+            "select curve_id, grid_version from curve"
+            " where curve_id in ('ecb-aaa-spot', 'ecb-aaa-spot-sim', 'ecb-all-spot')"
+            " order by curve_id"
+        )
+        assert cursor.fetchall() == [
+            ("ecb-aaa-spot", 1), ("ecb-aaa-spot-sim", 1), ("ecb-all-spot", 1),
+        ]  # fmt: skip
+
+
 def test_records_the_ecb_curve_conventions_as_published(oracle: OracleDatabase) -> None:
     with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
         cursor.execute(

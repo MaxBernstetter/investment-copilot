@@ -13,6 +13,7 @@ from contracts.persistence.v1 import (
     CurveDefinition,
     CurveObservationsResponse,
     CurvePoint,
+    GridMaturity,
     ObservationVersion,
     Origin,
     RateType,
@@ -75,12 +76,12 @@ def test_derived_observation_with_method_version_is_valid() -> None:
     assert observation.method_version == "nss-1"
 
 
-@pytest.mark.parametrize("maturity", ["3M", "10Y", "1Y6M", "1W"])
+@pytest.mark.parametrize("maturity", ["3M", "10Y", "1Y6M", "1W", "1.5M"])
 def test_accepts_tenor_codes(maturity: str) -> None:
     assert ObservationVersion.model_validate(published(maturity=maturity)).maturity == maturity
 
 
-@pytest.mark.parametrize("maturity", ["", "10", "Y", "0Y", "10y", "10 Y"])
+@pytest.mark.parametrize("maturity", ["", "10", "Y", "0Y", "10y", "10 Y", "1.5", "0.5M", "1.M"])
 def test_rejects_malformed_maturities(maturity: str) -> None:
     with pytest.raises(ValidationError, match="maturity"):
         ObservationVersion.model_validate(published(maturity=maturity))
@@ -373,3 +374,35 @@ def test_curve_definition_rejects_an_unknown_rate_type() -> None:
 def test_curve_definition_requires_an_attribution() -> None:
     with pytest.raises(ValidationError):
         CurveDefinition.model_validate(definition(attribution=""))
+
+
+def test_curve_definition_accepts_increasing_fractional_months() -> None:
+    maturities = [
+        {"maturity": "1M", "months": 1},
+        {"maturity": "1.5M", "months": 1.5},
+        {"maturity": "2M", "months": 2},
+    ]
+
+    curve = CurveDefinition.model_validate(definition(maturities=maturities))
+
+    assert [maturity.months for maturity in curve.maturities] == [1, 1.5, 2]
+
+
+def test_curve_definition_rejects_equal_months() -> None:
+    maturities = [{"maturity": "1M", "months": 1}, {"maturity": "1.5M", "months": 1}]
+
+    with pytest.raises(ValidationError, match="ordered by months"):
+        CurveDefinition.model_validate(definition(maturities=maturities))
+
+
+def test_grid_maturity_accepts_fractional_months() -> None:
+    assert GridMaturity(maturity="1.5M", months=1.5).months == 1.5
+
+    with pytest.raises(ValidationError):
+        GridMaturity(maturity="1M", months=0)
+
+
+def test_curve_point_accepts_fractional_months() -> None:
+    point = CurvePoint(maturity="1.5M", months=1.5, value=4.3, version_id=1)
+
+    assert point.months == 1.5

@@ -56,9 +56,9 @@ class ObservationVersion(BaseModel):
 
     curve_id: str = Field(min_length=1, max_length=64, examples=["ecb-aaa-spot"])
     maturity: str = Field(
-        pattern=r"^([1-9][0-9]*[DWMY])+$",
+        pattern=r"^([1-9][0-9]*(\.[0-9]+)?[DWMY])+$",
         max_length=16,
-        description="Tenor code, e.g. 3M, 10Y or 1Y6M",
+        description="Tenor code, e.g. 3M, 10Y, 1.5M or 1Y6M",
         examples=["10Y"],
     )
     valid_date: date = Field(description="Valid time: the business date the value applies to")

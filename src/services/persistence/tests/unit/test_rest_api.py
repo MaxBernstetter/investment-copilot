@@ -1,6 +1,7 @@
 import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -24,7 +25,7 @@ from persistence.application.get_curve_changes import GetCurveChanges
 from persistence.application.get_series_as_of import GetSeriesAsOf
 from persistence.application.get_value_versions import GetValueVersions
 from persistence.application.record_versions import RecordVersions
-from persistence.domain.catalogue import CurveDefinition
+from persistence.domain.catalogue import CurveDefinition, GridMaturity
 from persistence.domain.changes import ValueChange
 from persistence.domain.observation import (
     ChangeReason,
@@ -659,6 +660,21 @@ def test_lists_the_curve_catalogue_in_the_envelope(client: TestClient) -> None:
             }
         ]
     }
+
+
+def test_a_short_tenor_keeps_its_fractional_months(
+    client: TestClient, backend: FakeBackend
+) -> None:
+    backend.catalogue = [
+        replace(ECB_AAA_SPOT, maturities=(GridMaturity("1M", 1), GridMaturity("1.5M", 1.5)))
+    ]
+
+    response = client.get(CURVES_PATH)
+
+    assert response.json()["data"][0]["maturities"] == [
+        {"maturity": "1M", "months": 1},
+        {"maturity": "1.5M", "months": 1.5},
+    ]
 
 
 def test_an_empty_catalogue_is_an_empty_list(client: TestClient, backend: FakeBackend) -> None:
