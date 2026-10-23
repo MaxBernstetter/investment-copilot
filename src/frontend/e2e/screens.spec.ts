@@ -357,6 +357,8 @@ test.describe('screens §7', () => {
     await page.goto('/')
     await waitForCurveLoaded(page)
     await page.getByRole('tab', { name: 'Changes' }).click()
+    // The field is prefilled with a week back; clearing it brings the prompt.
+    await page.getByLabel('Compare from (known as of)').fill('')
     await expect(page.getByRole('status').filter({ hasText: 'Pick a starting point' })).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
     await checkLayout(page, ['light'])
