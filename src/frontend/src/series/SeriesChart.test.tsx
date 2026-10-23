@@ -49,4 +49,27 @@ describe('SeriesChart', () => {
     expect(props.connectNulls).toBe(false)
     expect(props.withDots).toBe(true)
   })
+
+  it('draws a dashed, dimmed 0 bp line only when asked for, with the y domain still automatic', async () => {
+    render(<SeriesChart rows={rows} label="2Y–10Y spread" decimals={1} zeroLine />)
+
+    await waitFor(() => expect(mockedLineChart).toHaveBeenCalled())
+    const props = mockedLineChart.mock.calls[0][0]
+    expect(props.referenceLines).toEqual([
+      expect.objectContaining({
+        y: 0,
+        color: 'var(--mantine-color-dimmed)',
+        strokeDasharray: '4 4',
+        label: '0 bp',
+      }),
+    ])
+    expect(props.yAxisProps?.domain).toEqual(['auto', 'auto'])
+  })
+
+  it('has no reference line for yields or curvature', async () => {
+    render(<SeriesChart rows={rows} label="2Y–5Y–10Y curvature" decimals={1} />)
+
+    await waitFor(() => expect(mockedLineChart).toHaveBeenCalled())
+    expect(mockedLineChart.mock.calls[0][0].referenceLines).toBeUndefined()
+  })
 })

@@ -42,13 +42,14 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric columns `ta="right"`, header too.
 - D2 Yields: 3 decimals, unit in the column header or after the value with a narrow no-break space (U+202F): `2.871 %`.
   Spreads and changes: basis points, 1 decimal, always signed with true minus: `+9.0 bp`, `−2,376.0 bp`.
-  Thousands separator in bp. Missing: `–`.
+  Thousands separator in bp. Missing: `–`. In a table the unit may sit in the column header (`Value (bp)`) with bare signed cells (`+9.0`, `−12.4`).
 - D3 Dates: valid dates ISO `2026-10-16`. Knowledge times: `19 Oct 2026, 18:49:25 UTC` (one helper `formatUtc`).
   Inputs that take local time say so in their description ("Your local time, shown in UTC elsewhere").
 - D4 Charts: one y-axis; y domain `['auto','auto']` (not forced to 0); `gridAxis="y"`; `curveType="linear"` (never
   smoothed); stroke 2; dots only when ≤ 15 points; `connectNulls={false}` (gaps stay gaps); tooltip 3 dp;
   `tooltipAnimationDuration={0}` and no line animation (snappy); legend only for ≥ 2 series; single series is
   named by the card title; axis labels in dimmed xs; card title states measure + unit.
+  Spreads (2Y–10Y, 3M–10Y) add a dashed, dimmed reference line at 0 bp labelled "0 bp" (stroke 1, `var(--mantine-color-dimmed)`) and the caption "Inverted on {n} of {m} days"; curvature has no 0 line. The y domain stays auto, so the line shows only where 0 is in range. Measure charts (bp) use 1 decimal in the tooltip and ticks; yield charts keep 3 decimals.
 - D5 Every chart has a table equivalent (values table or Chart|Table toggle).
 - D6 Status/quality is never colour alone: Badge with icon + word, explanation on demand (pattern Q1).
 
@@ -57,11 +58,12 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   `Badge component="button" color={severity} leftSection={<Icon/>}>{rule} · {severity}</Badge>`;
   dropdown: Text fw 600 rule name, Text sm the explanation from the API (as written in the plausibility note),
   `Anchor size="sm" href={METHODOLOGY_URL}` "How we check this". Popover (click/Enter) not HoverCard (keyboard).
-- Q2 Empty state: `EmptyState` (Mantine 9) with title + one-sentence description + action, wrapped `role="status"`.
+- Q2 Empty state: `EmptyState` (Mantine 9) with title + one-sentence description + action, wrapped `role="status"`. The Time series view's empty states (yield or measure) follow it.
 - Q3 Loading: `Skeleton` with the final element's size (chart 320, table 5 rows × 36) + VisuallyHidden "Loading…".
-- Q4 Error: `Alert color="red" title="…"` + `Button variant="light" size="xs"` "Try again".
+- Q4 Error: `Alert color="red" title="…"` + `Button variant="light" size="xs"` "Try again". The Time series view's offline and error answers follow it.
 - Q5 Explanations: `Tooltip` (multiline, w 280) on an info `ActionIcon` next to a label, for "Valid date", "Compare from" and each key-figure label in the Yield curve view. Tooltips open on hover and keyboard focus (theme `events` focus: true) and close with Esc.
   "Known as of" uses dimmed helper text in the header as-of popover (see C3), not a tooltip on the label.
+  The Time series measure card title carries the same info icon and definition (`MEASURE_HELP`) as the curve-view card.
 
 ## Copy
 - C1 Sentence case everywhere (titles, buttons, badges). No ALL CAPS except StatCard labels (xs).
@@ -71,7 +73,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   exactly as YieldLens knew it at that moment. Later corrections are hidden. Choose Now to see the latest
   knowledge."
 - C4 Errors say what happened and what to do; no stack traces, no HTTP codes in the headline.
-- C5 Unavailable values show `–` and a dimmed hint saying why: 'No 5Y value', 'No 2Y or 10Y value' or 'Not available'. A present value with a flagged input adds 'Input flagged: 10Y' / 'Inputs flagged: 2Y, 10Y'.
+- C5 Unavailable values show `–` and a dimmed hint saying why: 'No 5Y value', 'No 2Y or 10Y value' or 'Not available'. A present value with a flagged input adds 'Input flagged: 10Y' / 'Inputs flagged: 2Y, 10Y'. The Time series table's Quality column carries these hints for null or flagged days.
 - C6 Curve convention in text, never a badge: curve view subtitle `{label} · {rate type} rates, {compounding} compounding`; curve card title `{Rate type} curve ({unit})`.
 
 ## Accessibility

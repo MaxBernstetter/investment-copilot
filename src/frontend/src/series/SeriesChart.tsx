@@ -13,11 +13,24 @@ type SeriesChartProps = {
   label: string
   /** Decimals for the tooltip and, for bp measures, the axis ticks. */
   decimals: 1 | 3
+  /** A dashed, dimmed line at 0 bp (spreads only, #258 MR3). The y domain stays auto. */
+  zeroLine?: boolean
 }
+
+const ZERO_LINE = [
+  {
+    y: 0,
+    color: 'var(--mantine-color-dimmed)',
+    strokeDasharray: '4 4',
+    strokeWidth: 1,
+    label: '0 bp',
+    labelPosition: 'insideBottomRight' as const,
+  },
+]
 
 const formatFixed = (decimals: number) => (value: number) => value.toFixed(decimals)
 
-export default function SeriesChart({ rows, label, decimals }: SeriesChartProps) {
+export default function SeriesChart({ rows, label, decimals, zeroLine = false }: SeriesChartProps) {
   // Yield axes keep Mantine's default ticks; bp measures show ticks at one decimal, like the tooltip.
   const yAxisProps = {
     domain: ['auto', 'auto'] as ['auto', 'auto'],
@@ -34,6 +47,7 @@ export default function SeriesChart({ rows, label, decimals }: SeriesChartProps)
         strokeWidth={2}
         gridAxis="y"
         yAxisProps={yAxisProps}
+        referenceLines={zeroLine ? ZERO_LINE : undefined}
         connectNulls={false}
         withDots={rows.length <= 15}
         withBrush

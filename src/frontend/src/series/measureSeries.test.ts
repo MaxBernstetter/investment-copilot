@@ -92,6 +92,13 @@ describe('measureSeries', () => {
     expect(invertedHint(invertedDays(points, 'spread_2y_10y'))).toBe('Inverted on 1 of 3 days')
   })
 
+  it('words the hint for one day in the singular and for more days in the plural', () => {
+    expect(invertedHint({ inverted: 1, total: 1 })).toBe('Inverted on 1 of 1 day')
+    expect(invertedHint({ inverted: 0, total: 1 })).toBe('Inverted on 0 of 1 day')
+    expect(invertedHint({ inverted: 0, total: 42 })).toBe('Inverted on 0 of 42 days')
+    expect(invertedHint({ inverted: 2, total: 5 })).toBe('Inverted on 2 of 5 days')
+  })
+
   it('uses the 3M–10Y value, not the API inverted flag, for the 3M–10Y spread', () => {
     const points = [
       point('2026-10-01', { spread_3m_10y: -2, inverted: false }),

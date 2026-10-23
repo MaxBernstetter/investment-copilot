@@ -9,7 +9,9 @@ import { fetchSeries, type SeriesResult } from './fetchSeries'
 import SeriesView from './SeriesView'
 
 vi.mock('./SeriesChart', () => ({
-  default: () => <div data-testid="series-chart" />,
+  default: ({ zeroLine }: { zeroLine?: boolean }) => (
+    <div data-testid="series-chart" data-zero-line={String(zeroLine === true)} />
+  ),
 }))
 
 vi.mock('./fetchSeries', () => ({
@@ -373,6 +375,55 @@ describe('SeriesView', () => {
 
     expect(await screen.findByText('No value on 1 day; shown as gaps.')).toBeInTheDocument()
     expect(screen.getByText('Flagged: 1 value. Choose Table to see why.')).toBeInTheDocument()
+  })
+
+  it('captions a spread with the inverted days first, then the gaps and the flags', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    const captions = ['Inverted on 1 of 2 days', 'No value on 1 day; shown as gaps.', 'Flagged: 1 value. Choose Table to see why.']
+    const nodes = await Promise.all(captions.map((text) => screen.findByText(text)))
+    for (let i = 0; i < nodes.length - 1; i++) {
+      expect(nodes[i].compareDocumentPosition(nodes[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(screen.getByTestId('series-chart')).toHaveAttribute('data-zero-line', 'true')
+  })
+
+  it('shows the same captions in the table view', async () => {
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+    await screen.findByText('Inverted on 1 of 2 days')
+    fireEvent.click(screen.getByRole('radio', { name: 'Table' }))
+
+    expect(screen.getByText('Inverted on 1 of 2 days')).toBeInTheDocument()
+    expect(screen.getByText('No value on 1 day; shown as gaps.')).toBeInTheDocument()
+    expect(screen.getByText('Flagged: 1 value. Choose Table to see why.')).toBeInTheDocument()
+  })
+
+  it('words a single day in the singular', async () => {
+    mockedMeasures.mockResolvedValue(measuresResult([{ valid_date: '2026-10-01', spread_2y_10y: -4 }]))
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:spread_2y_10y' } })
+
+    expect(await screen.findByText('Inverted on 1 of 1 day')).toBeInTheDocument()
+  })
+
+  it('has no inverted caption and no 0 bp line for curvature', async () => {
+    mockedMeasures.mockResolvedValue(
+      measuresResult([
+        { valid_date: '2026-10-01', curvature_2y_5y_10y: -12 },
+        { valid_date: '2026-10-02', curvature_2y_5y_10y: -3 },
+      ]),
+    )
+    render(<SeriesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(await screen.findByLabelText('Series'), { target: { value: 'measure:curvature_2y_5y_10y' } })
+
+    expect(await screen.findByTestId('series-chart')).toHaveAttribute('data-zero-line', 'false')
+    expect(screen.queryByText(/^Inverted on/)).not.toBeInTheDocument()
   })
 
   it('table shows Value (bp) with plain signed cells and the Quality hints', async () => {
