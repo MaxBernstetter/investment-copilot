@@ -38,6 +38,10 @@ databaseChangeLog:
   - include:
       file: 25_grid_v2.sql
       relativeToChangelogFile: true
+  # The US Treasury par curve (#266) on grid 2, defined before ingestion writes it.
+  - include:
+      file: 26_curve_ust_par.sql
+      relativeToChangelogFile: true
   - include:
       file: core_observation.sql
       relativeToChangelogFile: true

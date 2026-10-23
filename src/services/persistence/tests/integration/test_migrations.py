@@ -168,3 +168,41 @@ def test_seeds_the_knowledge_clock_with_one_row(oracle: OracleDatabase) -> None:
     with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
         cursor.execute("select clock_id from knowledge_clock")
         assert [clock_id for (clock_id,) in cursor] == [1]
+
+
+def test_defines_the_us_treasury_par_curve_on_grid_2(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select grid_version, rate_type, compounding, unit, source_model, simulated"
+            " from curve where curve_id = 'ust-par'"
+        )
+        assert cursor.fetchall() == [(2, "par", "semi-annual", "percent", None, "N")]
+
+
+def test_records_the_catalogue_entry_of_the_us_treasury_par_curve(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select label, source_id, area, attribution from curve where curve_id = 'ust-par'"
+        )
+        assert cursor.fetchall() == [
+            (
+                "US Treasury par",
+                "ust",
+                "United States",
+                "Source: U.S. Department of the Treasury",
+            )
+        ]
+
+
+def test_the_existing_curves_keep_their_grid_and_conventions(oracle: OracleDatabase) -> None:
+    with oracle.connect_as_owner() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select curve_id, grid_version, rate_type, compounding from curve"
+            " where curve_id in ('ecb-aaa-spot', 'ecb-aaa-spot-sim', 'ecb-all-spot')"
+            " order by curve_id"
+        )
+        assert cursor.fetchall() == [
+            ("ecb-aaa-spot", 1, "spot", "continuous"),
+            ("ecb-aaa-spot-sim", 1, "spot", "continuous"),
+            ("ecb-all-spot", 1, "spot", "continuous"),
+        ]
