@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test'
 import {
   assertNoHorizontalScroll,
   runAxe,
-  screenshotName,
   expectChartsInsideCards,
   expectOpaque,
   settleAnimations,
@@ -15,12 +14,8 @@ import { catalogue, curveBody, curveGrid, freezeClock, installApiMocks, measures
 
 const AXE_VIEWPORT = { width: 1440, height: 900 }
 
-async function captureSnapshots(
-  page: Page,
-  id: string,
-  schemes: ('light' | 'dark')[],
-  fullPage = true,
-) {
+/** Checks the layout at every viewport and scheme: no horizontal scroll at 1280 px, and charts inside their cards. */
+async function checkLayout(page: Page, schemes: ('light' | 'dark')[]) {
   for (const { width, height } of VIEWPORTS) {
     for (const scheme of schemes) {
       await page.setViewportSize({ width, height })
@@ -31,7 +26,6 @@ async function captureSnapshots(
       await page.mouse.move(0, 0)
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       await expectChartsInsideCards(page)
-      await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme), { fullPage })
     }
   }
 }
@@ -77,7 +71,7 @@ function statCard(page: Page, label: string) {
 }
 
 /** Opens one flag popover at every viewport and scheme, checks it, and closes it again. */
-async function captureFlagPopover(page: Page, flagName: string, id: string) {
+async function checkFlagPopover(page: Page, flagName: string) {
   const flag = page.getByRole('button', { name: flagName })
   const link = page.getByRole('link', { name: 'How we check this' })
   for (const { width, height } of VIEWPORTS) {
@@ -94,7 +88,6 @@ async function captureFlagPopover(page: Page, flagName: string, id: string) {
         await runAxe(page)
       }
       await expect(link).toBeVisible()
-      await expect(page).toHaveScreenshot(screenshotName(id, width, height, scheme))
       await page.keyboard.press('Escape')
       await expect(link).toBeHidden()
     }
@@ -120,7 +113,7 @@ test.beforeEach(async ({ page, context }) => {
   await installApiMocks(page, 'online')
 })
 
-test.describe('visual snapshots §7', () => {
+test.describe('screens §7', () => {
   test('S1 curve, real, live', async ({ page }) => {
     await page.goto('/')
     await waitForCurveLoaded(page)
@@ -129,7 +122,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('\u221212.1 bp')).toBeVisible()
     await expect(statCard(page, '10Y yield')).toContainText('2.871')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S1', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S2 curve, simulated, as-of spike', async ({ page }) => {
@@ -144,7 +137,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('+2,430.0 bp')).toBeVisible()
     await expect(page.getByText('\u22122,365.0 bp')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S2', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S3 curve with two overlays', async ({ page }) => {
@@ -157,7 +150,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByLabel('Overlaid valid dates')).toBeVisible()
     await waitForKeyFigures(page)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S3', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S4 history drawer 10Y simulated', async ({ page }) => {
@@ -183,7 +176,7 @@ test.describe('visual snapshots §7', () => {
     await expect(drawerHeading).toBeVisible()
     await settleAnimations(page)
     await expectOpaque(drawer)
-    await captureSnapshots(page, 'S4', ['light'], false)
+    await checkLayout(page, ['light'])
   })
 
   test('S5 time series chart', async ({ page }) => {
@@ -194,7 +187,7 @@ test.describe('visual snapshots §7', () => {
     // Inactive views stay in the DOM with their own skeletons, so count only this panel's.
     await expect(page.getByRole('tabpanel', { name: 'Time series' }).locator('.mantine-Skeleton-root')).toHaveCount(0)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S5', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S5t time series table', async ({ page }) => {
@@ -206,7 +199,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('columnheader', { name: 'Valid date' })).toBeVisible()
     await expect(page.getByText('Unchecked means the quality checks have not run on the value yet.')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S5t', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S17 time series table, simulated, flagged', async ({ page }) => {
@@ -220,7 +213,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByRole('columnheader', { name: 'Quality' })).toBeVisible()
     await expect(panel.getByRole('button', { name: 'Range · warn, 10Y' })).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S17', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S33 time series measure empty', async ({ page }) => {
@@ -250,7 +243,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByText('No values in this range')).toBeVisible()
     await expect(panel.getByRole('button', { name: 'Show 10Y yield' })).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S33', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S30 time series spread chart', async ({ page }) => {
@@ -262,7 +255,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByText('Inverted on 3 of 7 days')).toBeVisible()
     await expect(panel.locator('.recharts-wrapper')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S30', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S31 time series spread table', async ({ page }) => {
@@ -276,7 +269,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByText('No 2Y value')).toBeVisible()
     await expect(panel.getByText('Input flagged: 10Y')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S31', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S32 time series curvature chart', async ({ page }) => {
@@ -289,7 +282,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByText(/^Inverted on/)).toHaveCount(0)
     await expect(panel.locator('.recharts-wrapper')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S32', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S6 changes with three rows', async ({ page }) => {
@@ -299,7 +292,7 @@ test.describe('visual snapshots §7', () => {
     await page.getByLabel('Compare from (known as of)').fill('2026-10-17T08:00')
     await expect(page.getByRole('cell', { name: 'correction' })).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S6', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S7 changes empty state', async ({ page }) => {
@@ -308,7 +301,7 @@ test.describe('visual snapshots §7', () => {
     await page.getByRole('tab', { name: 'Changes' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Pick a starting point' })).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S7', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S8 offline', async ({ page }) => {
@@ -317,7 +310,7 @@ test.describe('visual snapshots §7', () => {
     await page.goto('/')
     await expect(page.getByRole('alert')).toContainText('Backend offline')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S8', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S9 loading', async ({ page }) => {
@@ -328,7 +321,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.locator('.mantine-Skeleton-root')).toHaveCount(1)
     await expect(page.locator('.mantine-Loader-root')).toHaveCount(0)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S9', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S10 no data 404', async ({ page }) => {
@@ -337,24 +330,24 @@ test.describe('visual snapshots §7', () => {
     await page.goto('/')
     await expect(page.getByText('No data known for this date.')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S10', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S11 data quality view', async ({ page }) => {
     await openQuality(page)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S11', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S12 quality flag popover', async ({ page }) => {
     await openQuality(page)
-    await captureFlagPopover(page, 'Jump · warn, 10Y', 'S12')
+    await checkFlagPopover(page, 'Jump · warn, 10Y')
   })
 
   test('S16 curve flag popover', async ({ page }) => {
     await page.goto('/?curve=ecb-aaa-spot-sim&as_of=2026-10-19T18%3A49%3A25Z')
     await waitForCurveLoaded(page)
-    await captureFlagPopover(page, 'Range · warn, 10Y', 'S16')
+    await checkFlagPopover(page, 'Range · warn, 10Y')
   })
 
   test('S18 curve inverted', async ({ page }) => {
@@ -366,7 +359,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('Inverted')).toBeVisible()
     await expect(page.getByText('\u221215.0 bp')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S18', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S19 curvature without 5Y', async ({ page }) => {
@@ -404,7 +397,7 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await expect(page.getByText('No 5Y value')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S19', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S20 measures unavailable', async ({ page }) => {
@@ -415,7 +408,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S20', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('Values History link keeps blue.9 with contrast on a hovered row (light)', async ({ page }) => {
@@ -466,10 +459,6 @@ test.describe('visual snapshots §7', () => {
         if (width === AXE_VIEWPORT.width) {
           await runAxe(page)
         }
-        // The shared stylesheet hides every tooltip; this capture keeps the one under test visible.
-        await expect(page).toHaveScreenshot(screenshotName('S21', width, height, scheme), {
-          stylePath: './e2e/screenshot-show-tooltips.css',
-        })
         await page.keyboard.press('Escape')
         await expect(tooltip).toHaveCount(0)
       }
@@ -484,7 +473,7 @@ test.describe('visual snapshots §7', () => {
     await openQualityTab(page)
     await expect(page.getByText('No business days in this range')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S13', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S14 quality loading', async ({ page }) => {
@@ -494,7 +483,7 @@ test.describe('visual snapshots §7', () => {
     await expect(panel.getByText('Loading…')).toBeAttached()
     await expect(panel.locator('.mantine-Skeleton-root')).toHaveCount(5)
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S14', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S15 quality backend offline', async ({ page }) => {
@@ -502,7 +491,7 @@ test.describe('visual snapshots §7', () => {
     await openQualityTab(page)
     await expect(page.getByRole('alert')).toContainText('Backend offline')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S15', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S25 curve select open', async ({ page }) => {
@@ -529,7 +518,6 @@ test.describe('visual snapshots §7', () => {
         ])
         await expect(listbox.getByText('Published')).toBeVisible()
         await expect(listbox.getByText('Simulated')).toBeVisible()
-        await expect(page).toHaveScreenshot(screenshotName('S25', width, height, scheme))
         await page.keyboard.press('Escape')
         await expect(listbox).toBeHidden()
       }
@@ -543,7 +531,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Curves unavailable' })).toBeVisible()
     await expect(page.getByRole('alert')).toContainText('Curve list not loaded')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S28', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S29 curve list empty', async ({ page }) => {
@@ -552,7 +540,7 @@ test.describe('visual snapshots §7', () => {
     await page.goto('/')
     await expect(page.getByRole('status')).toContainText('No curves yet')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S29', ['light'])
+    await checkLayout(page, ['light'])
   })
 
   test('S26 all-issuer curve', async ({ page }) => {
@@ -561,7 +549,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('ECB euro area all-issuer spot · spot rates, continuous compounding')).toBeVisible()
     await expect(page.getByRole('contentinfo')).toContainText('Source: ECB statistics, ECB euro area all-issuer spot.')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S26', ['light', 'dark'])
+    await checkLayout(page, ['light', 'dark'])
   })
 
   test('S27 par curve', async ({ page }) => {
@@ -573,7 +561,7 @@ test.describe('visual snapshots §7', () => {
     await expect(page.getByText('US Treasury par · par rates, semi-annual compounding')).toBeVisible()
     await expect(page.getByRole('contentinfo')).toContainText('Source: U.S. Department of the Treasury, US Treasury par.')
     await assertAxeAt(page, ['light', 'dark'])
-    await captureSnapshots(page, 'S27', ['light'])
+    await checkLayout(page, ['light'])
   })
 })
 

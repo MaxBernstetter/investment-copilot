@@ -245,8 +245,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25–S29, including S26 all-issuer and S27 par), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
-| `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: screen scenarios (S1–S21, S5t, S25–S33, including S26 all-issuer and S27 par) with behaviour assertions and axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard. No screenshots: the user reviews the look |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 
 CI runs `setup`, `audit`, `lint`, `typecheck`, `test:unit`, `build` and `size` in `.github/workflows/frontend.yml`; a separate job runs `frontend:e2e` after `build` in the pinned `mcr.microsoft.com/playwright` image. Each task that lints, type-checks, tests or builds generates the API types first, so CI needs no separate step.

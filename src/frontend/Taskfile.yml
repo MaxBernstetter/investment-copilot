@@ -82,7 +82,7 @@ tasks:
       - npm run size
 
   e2e:
-    desc: Playwright visual, accessibility, layout and keyboard checks
+    desc: Playwright behaviour, accessibility, layout and keyboard checks
     deps: [generate]
     env:
       VITE_COMMIT: dev
@@ -90,16 +90,6 @@ tasks:
       - npm run build
       - npx playwright install chromium
       - npm run e2e
-
-  e2e:update:
-    desc: Re-baseline Playwright screenshots (designer approval required)
-    deps: [generate]
-    env:
-      VITE_COMMIT: dev
-    cmds:
-      - npm run build
-      - npx playwright install chromium
-      - npm run e2e:update
 
   dev:
     desc: Start the Vite dev server

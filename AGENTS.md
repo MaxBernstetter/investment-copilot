@@ -3,7 +3,7 @@
 ## Project documentation
 - `docs/` is the Obsidian vault. Entry points: `ARCHITECTURE.md`, `docs/architecture/README.md`, `docs/development/README.md`.
 - Keep documentation consistent with the implementation.
-- Frontend work follows `docs/development/design-guidelines.md` (Direction A); the `designer` agent specifies and reviews UI changes against it.
+- Frontend work follows `docs/development/design-guidelines.md` (Direction A). The `designer` agent writes the text spec of a UI issue against it before planning. Frontend changes are validated by code only (unit tests, e2e behaviour and axe). Nothing reads or compares screenshots; the user reviews the look.
 
 ## Before planning or implementing
 1. Read `docs/development/principles/README.md` (workflow and Definition of done).
@@ -43,7 +43,7 @@ Issue, merge request and worktree relate 1:1:1. An issue split into stacked merg
 
 ## Subagents and models
 Agentic work is split by model to save tokens (`docs/development/03-agent-harness.md`):
-- Grooming, planning, validation and design review run on Sonnet 5.5 at low effort: `groomer`, `planner`, `validator`, `designer`.
+- Grooming, planning, validation and UI specs run on Sonnet 5.5 at low effort: `groomer`, `planner`, `validator`, `designer`.
 - All execution runs on Haiku: implementation, exploration and chores such as rebases, checks, board and PR bookkeeping go to `worker`.
 - The main session orchestrates and delegates. Keep it from reading or editing code itself beyond what a decision needs.
 - Hand `worker` concrete work units from a plan, never open design questions. A `validator` failure goes back to `worker` as its next work unit.

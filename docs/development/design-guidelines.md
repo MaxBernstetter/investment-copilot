@@ -1,12 +1,12 @@
 # Design guidelines
 
 Binding reference for the frontend. **Direction A (Calm editorial) is binding**, chosen by the user on 2026-10-20, with the compact table density (`verticalSpacing="xs"`). The Burger/Navbar below `sm` is legacy and not required (see Display range).
-Rule IDs (T, L, D, Q, C, A, Don't) are cited by the `designer` agent and by visual review. Taste is not a criterion; cite a rule.
+Rule IDs (T, L, D, Q, C, A, Don't) are cited by the `designer` agent in its UI spec. Taste is not a criterion; cite a rule.
 The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 
 ## Display range
 - **Decided by the user on 2026-10-20: desktop only.** The frontend must look good on regular desktop displays, 1280–1920 px wide. Phone layouts (390 px) are no longer a requirement.
-- Review and snapshot sizes: 1280×800, 1440×900 and 1920×1080, in light and dark.
+- Sizes the e2e layout checks run at: 1280×800, 1440×900 and 1920×1080. There are no screenshot baselines; the user reviews the look.
 - The Burger/Navbar below `sm` is legacy code that stays on main. No new mobile-specific work is done.
 
 ## Tokens

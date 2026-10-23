@@ -152,7 +152,7 @@ The local development stack (Oracle, the `CORE`, `ING` and `PROC` migrations, pe
 
 Python components (`contracts`, `persistence`, `ingestion`, `orchestration`, `access`, `processing`) implement `setup`, `fmt`, `lint`, `typecheck` and `test:unit`; services add `test:integration` and `run` where they need them. The four deployable services (`persistence`, `access`, `ingestion`, `processing`) also implement `image` and `image:scan`, with task variables `IMAGE`, `TAG`, `PLATFORMS` and `OUTPUT`. `persistence` also has `db:start`, `db:migrate`, `db:stop` and `db:reset` for its local Oracle database (see [[02-persistence-service]]); `ingestion` has `db:migrate` for its `ING` schema in that database (see [[04-raw-deliveries]]); `processing` has `db:migrate` for its `PROC` schema. `orchestration` also has `pools:import`, which creates the Airflow pools from `pools.json` (see [[04-daily-schedule]]).
 
-The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `audit`, `fmt`, `lint`, `typecheck`, `test:unit`, `build`, `build:pages` (the Pages bundle, needs `VITE_ACCESS_URL`), `size` (the bundle budget, after `build`), `e2e`, `e2e:update` and `dev` (see [[01-frontend]]).
+The frontend (`src/frontend/`, namespace `frontend`) is an npm project and implements `setup`, `audit`, `fmt`, `lint`, `typecheck`, `test:unit`, `build`, `build:pages` (the Pages bundle, needs `VITE_ACCESS_URL`), `size` (the bundle budget, after `build`), `e2e` and `dev` (see [[01-frontend]]).
 
 Each service has its own Taskfile, included as `<service>:<task>` and run from the service directory (Python services use `uv run --locked`):
 
