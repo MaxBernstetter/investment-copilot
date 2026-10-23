@@ -112,7 +112,18 @@ def test_ecb_summary_keys_keep_their_order() -> None:
 
     output = json.loads(summary("ecb", result, TRACE))
 
-    assert list(output)[:4] == ["event", "source", "run_id", "attempt"]
+    assert list(output) == [
+        "event",
+        "source",
+        "run_id",
+        "attempt",
+        "delivered_count",
+        "recorded_count",
+        "unchanged_count",
+        "windows",
+        "trace_id",
+        "span_id",
+    ]
     assert output["source"] == "ecb"
     assert output["event"] == "load_finished"
 
