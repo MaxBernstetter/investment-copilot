@@ -4,6 +4,19 @@
 
 &nbsp;
 
+## Quick look
+
+With Docker and [devbox](https://www.jetify.com/devbox) installed:
+
+```sh
+devbox shell
+task stack:up      # first run builds images: a few minutes
+```
+
+Then open the explorer at <http://localhost:5174> (the URL `stack:up` prints, if you changed the ports). The latest ECB curve is shown first. No hosted demo is live yet; the full walkthrough is under [Try it locally](#try-it-locally).
+
+&nbsp;
+
 ## Why
 
 Yield curves feed risk calculations, valuation and investment decisions. Most tools show only the latest value and overwrite history. YieldLens keeps every value it has ever known:
