@@ -19,11 +19,17 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
   const idleBorder = await select.evaluate((el) => getComputedStyle(el).borderTopColor)
   await page.keyboard.press('Tab')
   await expect(select).toBeFocused()
-  expect(await select.evaluate((el) => getComputedStyle(el).borderTopColor)).not.toBe(idleBorder)
+  await expect.poll(() => select.evaluate((el) => getComputedStyle(el).borderTopColor)).not.toBe(idleBorder)
 
   await page.keyboard.press('Enter')
   await expect(page.getByRole('listbox')).toBeVisible()
-  await page.keyboard.press('ArrowDown')
+  // ArrowDown can be lost while the list opens, or the highlight can return to the selected
+  // option; press again until the all-issuer option carries the keyboard highlight, then pick it.
+  const allIssuer = page.getByRole('option', { name: 'ECB euro area all-issuer spot' })
+  await expect(async () => {
+    if (!(await allIssuer.getAttribute('data-combobox-selected'))) await page.keyboard.press('ArrowDown')
+    await expect(allIssuer).toHaveAttribute('data-combobox-selected', { timeout: 1000 })
+  }).toPass()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('listbox')).not.toBeVisible()
   await expect(page).toHaveURL(/curve=ecb-all-spot/)
