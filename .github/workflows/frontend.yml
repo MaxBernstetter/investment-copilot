@@ -110,7 +110,7 @@ jobs:
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS: "1"
         run: devbox run -- task frontend:e2e
 
-      # Keeps the failing screenshots, diffs and traces for inspection; the CI reporter writes no HTML report.
+      # Keeps the failing traces for inspection; the CI reporter writes no HTML report.
       - name: Upload e2e failure artifacts
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -11,8 +11,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "size": "size-limit",
-    "e2e": "playwright test",
-    "e2e:update": "playwright test --update-snapshots"
+    "e2e": "playwright test"
   },
   "size-limit": [
     {

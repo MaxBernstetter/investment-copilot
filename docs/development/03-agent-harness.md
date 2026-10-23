@@ -12,7 +12,7 @@ The project subagents live in `.claude/agents/` and are committed to the reposit
 | `planner` | Sonnet 5.5 (low) | read-only | Turns one issue into merge-request-sized slices and concrete work units |
 | `worker` | Haiku 5.5 | all but spawning agents | Implements one work unit, or does one chore: rebase, checks, board and PR bookkeeping, broad search |
 | `validator` | Sonnet 5.5 (low) | read-only, runs checks | Checks a change against plan, acceptance criteria and the [[principles/README#Definition of done\|Definition of done]]; pass or fail |
-| `designer` | Sonnet 5.5 (low) | read-only, browses the running app | Specifies UI issues before planning, and runs the visual review of UI changes against [[design-guidelines]]; pass or fail |
+| `designer` | Sonnet 5.5 (low) | read-only | Writes the text spec of a UI issue before planning (components, props, copy, states, tokens, a11y) against [[design-guidelines]] |
 
 ## Flow
 
@@ -20,17 +20,13 @@ The project subagents live in `.claude/agents/` and are committed to the reposit
 flowchart LR
   G[groomer<br/>Sonnet] --> P[planner<br/>Sonnet] --> W[worker<br/>Haiku] --> V[validator<br/>Sonnet]
   V -- fail: fix list --> W
-  V -- pass, UI diff --> D[designer<br/>Sonnet]
-  V -- pass, other --> PR[pull request]
-  D -- FAIL: fix list --> W
-  D -- PASS --> PR
+  V -- pass --> PR[pull request]
 ```
 
 1. **Groom** the issue if it is not Ready yet.
-2. **Plan** it. The plan holds every design decision, so the worker does not have to make any. A UI issue gets a `designer` spec in spec mode before planning, so the plan takes its components, states and copy from that spec.
+2. **Plan** it. The plan holds every design decision, so the worker does not have to make any. A UI issue gets a `designer` spec before planning, so the plan takes its components, states, copy, tokens and accessibility needs from that spec.
 3. **Work**: one `worker` per work unit, each in the worktree of its merge request (see `AGENTS.md`, Worktrees). Independent units can run in parallel.
-4. **Validate** the result. On a failure, the fix list goes back to a `worker` as the next work unit.
-   - **4b Visual review** (`designer`, review mode). It runs after the validator passes and before the pull request, and only when the diff touches `src/frontend/src/**` or `theme.ts`. It checks the screenshot acceptance list, axe, the 1280 px layout and the rules in [[design-guidelines]]. The result is `VISUAL REVIEW: PASS` or `FAIL` with a fix list; a FAIL goes back to a `worker` like a validator failure. Baseline snapshots are updated only after a PASS that approves them.
+4. **Validate** the result. On a failure, the fix list goes back to a `worker` as the next work unit. The validator checks frontend changes by code: unit tests, e2e behaviour and axe. No agent reads, renders or compares screenshots, and there is no visual review step. The user reviews the look.
 5. Mechanical steps after that also go to a `worker`: push, open the pull request, update the board, rebase stacks.
 
 Trivial changes (typos, a one-line fix) skip the harness.

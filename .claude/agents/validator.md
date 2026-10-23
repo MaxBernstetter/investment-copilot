@@ -14,6 +14,6 @@ Your prompt names the worktree, the branch or diff range, the issue and the plan
 - the Definition of done in `docs/development/principles/README.md`,
 - the merge request size rules in `AGENTS.md`.
 
-Run the relevant tests and checks yourself; do not trust the worker's report. Stay inside the Bash sandbox and do not commit, push or change files.
+Run the relevant tests and checks yourself; do not trust the worker's report. Stay inside the Bash sandbox and do not commit, push or change files. You never read or render screenshots: frontend changes are checked by unit tests, e2e behaviour and axe, and the user reviews the look.
 
 Return a verdict: **pass** or **fail**. For a failure, list each problem with file and line, why it matters, and the concrete fix. That list must be specific enough to hand to the worker agent as its next work unit. Report each Definition-of-done item as met, not applicable or open.
