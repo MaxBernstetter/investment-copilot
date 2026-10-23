@@ -29,7 +29,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
   (NavLinks + curve choice); header keeps logo, Burger and the as-of status. The curve choice is a `Select` (`aria-label="Curve"`, size xs, w 280) right of the view tabs, grouped "Published" then "Simulated", with options in catalogue order showing the catalogue label. An unknown `?curve=` falls back to the default curve, never to a simulated one.
 - L2 Body: `Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg"`. Each page = PageHeader + sections in Cards.
 - L3 PageHeader: Title order 1 + one-line dimmed subtitle (what, which unit) + actions right .
-- L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): attribution left, from the curve catalogue: `{attribution}, {label}.` plus the publisher's reuse-terms link; simulated curves: `{attribution}. Scenario data, not published by {publisher}.`; empty until the catalogue has loaded. Right: API docs, Methodology, GitHub, version · commit. Not fixed.
+- L4 Footer: in-flow at page end (`component="footer"`, Divider above, `py="lg"`, Text xs dimmed): attribution left, from the curve catalogue: `{attribution}, {label}.` plus the publisher's reuse-terms link where the source has reuse terms; simulated curves: `{attribution}. Scenario data, not published by {publisher}.`; empty until the catalogue has loaded. Right: API docs, Methodology, GitHub, version · commit. Not fixed.
 - L5 Key figures as a 4-col (desktop) SimpleGrid of StatCards above the chart. Max 4.
 - L6 No horizontal page scroll at 1280 px; wide tables scroll inside `Table.ScrollContainer`.
 

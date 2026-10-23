@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T10:00:00Z",
+    "source_attribution": "Source: U.S. Department of the Treasury"
+  },
+  "points": [
+    {
+      "maturity": "1M",
+      "months": 1,
+      "value": 3.95,
+      "origin": "published"
+    },
+    {
+      "maturity": "3M",
+      "months": 3,
+      "value": 3.9,
+      "origin": "published"
+    },
+    {
+      "maturity": "6M",
+      "months": 6,
+      "value": 3.85,
+      "origin": "published"
+    },
+    {
+      "maturity": "1Y",
+      "months": 12,
+      "value": 3.7,
+      "origin": "published"
+    },
+    {
+      "maturity": "2Y",
+      "months": 24,
+      "value": 3.62,
+      "origin": "published"
+    },
+    {
+      "maturity": "3Y",
+      "months": 36,
+      "value": 3.6,
+      "origin": "published"
+    },
+    {
+      "maturity": "5Y",
+      "months": 60,
+      "value": 3.66,
+      "origin": "published"
+    },
+    {
+      "maturity": "7Y",
+      "months": 84,
+      "value": 3.78,
+      "origin": "published"
+    },
+    {
+      "maturity": "10Y",
+      "months": 120,
+      "value": 3.95,
+      "origin": "published"
+    },
+    {
+      "maturity": "20Y",
+      "months": 240,
+      "value": 4.42,
+      "origin": "published"
+    },
+    {
+      "maturity": "30Y",
+      "months": 360,
+      "value": 4.58,
+      "origin": "published"
+    }
+  ]
+}
