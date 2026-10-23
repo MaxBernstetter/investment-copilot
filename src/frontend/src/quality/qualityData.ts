@@ -136,3 +136,45 @@ export function rangeError({ from, to }: { from: string; to: string }): string |
   if (span > 365) return 'Choose a range of at most 366 days.'
   return undefined
 }
+
+export type CalendarCell = {
+  /** ISO valid date of the cell. */
+  date: string
+  /** Day of the month, 1-based. */
+  day: number
+  /** The quality result of the day; undefined for weekends, holidays and days outside the range. */
+  quality?: QualityDay
+}
+
+export type CalendarMonth = {
+  /** `YYYY-MM`. */
+  key: string
+  /** For example `October 2026`. */
+  title: string
+  /** Empty cells before the 1st so the grid starts on Monday. */
+  leading: number
+  cells: CalendarCell[]
+}
+
+/** The business days grouped into calendar months, newest month first; each month lists every date. */
+export function calendarMonths(days: QualityDay[]): CalendarMonth[] {
+  const byDate = new Map(days.map((day) => [day.valid_date, day]))
+  const months = new Set(days.map((day) => day.valid_date.slice(0, 7)))
+  return [...months]
+    .sort()
+    .reverse()
+    .map((key) => {
+      const [year, month] = key.split('-').map(Number)
+      const first = new Date(Date.UTC(year, month - 1, 1))
+      const length = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      return {
+        key,
+        title: first.toLocaleString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+        leading: (first.getUTCDay() + 6) % 7,
+        cells: Array.from({ length }, (_, index) => {
+          const date = `${key}-${String(index + 1).padStart(2, '0')}`
+          return { date, day: index + 1, quality: byDate.get(date) }
+        }),
+      }
+    })
+}

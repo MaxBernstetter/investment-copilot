@@ -48,7 +48,7 @@ async function openQualityTab(page: Page) {
 
 async function openQuality(page: Page) {
   await openQualityTab(page)
-  await expect(page.getByRole('cell', { name: '2026-10-16' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '2026-10-16, Warn' })).toBeVisible()
 }
 
 /** Overrides the quality endpoint for one test; registered after beforeEach, so it wins. */
@@ -402,7 +402,7 @@ test.describe('screens §7', () => {
 
   test('S12 quality flag popover', async ({ page }) => {
     await openQuality(page)
-    await checkFlagPopover(page, 'Jump · warn, 10Y')
+    await checkFlagPopover(page, '2026-10-16, Warn')
   })
 
   test('S16 curve flag popover', async ({ page }) => {

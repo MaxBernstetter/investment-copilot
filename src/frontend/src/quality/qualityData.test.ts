@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { components } from '../api/schema'
 import {
+  calendarMonths,
   defaultQualityRange,
   filterDays,
   flagAriaLabel,
@@ -180,5 +181,32 @@ describe('rangeError', () => {
     expect(rangeError({ from: '2026-10-19', to: '2026-10-18' })).toBe(
       'To must be on or after From.',
     )
+  })
+})
+
+describe('calendarMonths', () => {
+  const days = ['2026-09-30', '2026-10-01', '2026-10-02'].map(
+    (valid_date) => ({ valid_date, status: 'passed', findings: [], rules: [] }) as unknown as QualityDay,
+  )
+
+  it('groups by month, newest first, every date of the month', () => {
+    const months = calendarMonths(days)
+
+    expect(months.map((month) => month.title)).toEqual(['October 2026', 'September 2026'])
+    expect(months[0].cells).toHaveLength(31)
+    expect(months[1].cells).toHaveLength(30)
+  })
+
+  it('starts the grid on Monday and attaches the day results', () => {
+    const [october] = calendarMonths(days)
+
+    expect(october.leading).toBe(3)
+    expect(october.cells[0]).toMatchObject({ date: '2026-10-01', day: 1 })
+    expect(october.cells[0].quality?.valid_date).toBe('2026-10-01')
+    expect(october.cells[2].quality).toBeUndefined()
+  })
+
+  it('has no months without days', () => {
+    expect(calendarMonths([])).toEqual([])
   })
 })
