@@ -1,4 +1,6 @@
-import { Accordion, Anchor, Card, Stack, Text, Title } from '@mantine/core'
+import { ActionIcon, Accordion, Anchor, Modal, Stack, Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { IconHelp } from '@tabler/icons-react'
 import { METHODOLOGY_URL } from '../config'
 import { RULE_LABEL, type Rule } from './qualityData'
 
@@ -14,25 +16,38 @@ const HOW_WE_CHECK: Record<Rule, string> = {
 
 const RULES = Object.keys(HOW_WE_CHECK) as Rule[]
 
-export default function HowWeCheck() {
+/** The rules and a link to the full method; the content of the "How we check" popup. */
+export function HowWeCheckContent() {
   return (
-    <Card>
-      <Stack gap="md">
-        <Title order={2}>How we check</Title>
-        <Accordion>
-          {RULES.map((rule) => (
-            <Accordion.Item key={rule} value={rule}>
-              <Accordion.Control>{RULE_LABEL[rule]}</Accordion.Control>
-              <Accordion.Panel>
-                <Text size="sm">{HOW_WE_CHECK[rule]}</Text>
-              </Accordion.Panel>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-        <Anchor size="sm" href={METHODOLOGY_URL} target="_blank" rel="noreferrer">
-          Read the full method
-        </Anchor>
-      </Stack>
-    </Card>
+    <Stack gap="md">
+      <Accordion>
+        {RULES.map((rule) => (
+          <Accordion.Item key={rule} value={rule}>
+            <Accordion.Control>{RULE_LABEL[rule]}</Accordion.Control>
+            <Accordion.Panel>
+              <Text size="sm">{HOW_WE_CHECK[rule]}</Text>
+            </Accordion.Panel>
+          </Accordion.Item>
+        ))}
+      </Accordion>
+      <Anchor size="sm" href={METHODOLOGY_URL} target="_blank" rel="noreferrer">
+        Read the full method
+      </Anchor>
+    </Stack>
+  )
+}
+
+/** A question mark button that opens "How we check" as a centred popup. */
+export default function HowWeCheck() {
+  const [opened, { open, close }] = useDisclosure(false)
+  return (
+    <>
+      <ActionIcon variant="subtle" color="gray" aria-label="How we check" aria-haspopup="dialog" onClick={open}>
+        <IconHelp size={20} aria-hidden />
+      </ActionIcon>
+      <Modal opened={opened} onClose={close} title="How we check" centered size="lg">
+        <HowWeCheckContent />
+      </Modal>
+    </>
   )
 }

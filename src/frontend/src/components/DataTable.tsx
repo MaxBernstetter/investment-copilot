@@ -238,6 +238,8 @@ type DataTableProps<T> = {
   emptyText?: string
   /** Height in pixels above which the body scrolls under a sticky header. */
   maxHeight?: number
+  /** Fill the height of the parent instead (which needs a definite height); the body scrolls under the header. */
+  fill?: boolean
 }
 
 /** Compact pickers, so a from and a to input fit side by side in one column. */
@@ -363,6 +365,7 @@ export default function DataTable<T>({
   striped = false,
   emptyText = 'No rows match the filters.',
   maxHeight = 520,
+  fill = false,
 }: DataTableProps<T>) {
   const [hiddenIds, setHiddenIds] = useState<string[]>([])
   const [widths, setWidths] = useState<Record<string, number>>({})
@@ -395,7 +398,7 @@ export default function DataTable<T>({
   }
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" h={fill ? '100%' : undefined} style={fill ? { minHeight: 0 } : undefined}>
       {columns.length > 1 && (
         <Group justify="flex-end">
           <Popover position="bottom-end" withArrow shadow="md">
@@ -423,7 +426,11 @@ export default function DataTable<T>({
           </Popover>
         </Group>
       )}
-      <Table.ScrollContainer minWidth={0} maxHeight={maxHeight} scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}>
+      <Table.ScrollContainer
+        minWidth={0}
+        maxHeight={fill ? '100%' : maxHeight}
+        style={fill ? { flex: 1, minHeight: 0 } : undefined}
+        scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}>
         <Table striped={striped} stickyHeader style={{ tableLayout: 'fixed', width: '100%', minWidth: tableWidth }}>
           {caption && <Table.Caption>{caption}</Table.Caption>}
           <Table.Thead>
