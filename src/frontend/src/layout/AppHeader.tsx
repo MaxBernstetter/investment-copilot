@@ -18,10 +18,26 @@ import AsOfStatus from './AsOfStatus'
 
 /** The views, in tab order. The navbar on small screens lists the same views. */
 export const VIEWS = [
-  { value: 'curve', label: 'Curve' },
-  { value: 'series', label: 'Time series' },
-  { value: 'changes', label: 'Changes' },
-  { value: 'quality', label: 'Quality' },
+  {
+    value: 'curve',
+    label: 'Curve',
+    help: 'Yields across all maturities on one valid date. Pick a date, overlay other dates or curves, and read the key figures.',
+  },
+  {
+    value: 'series',
+    label: 'Time series',
+    help: 'How one maturity, spread or curvature moves over a date range, as a chart and a table.',
+  },
+  {
+    value: 'changes',
+    label: 'Changes',
+    help: 'What changed in the data between two knowledge times: corrections and late values, per value.',
+  },
+  {
+    value: 'quality',
+    label: 'Quality',
+    help: 'Plausibility and completeness checks per business day. See warnings, what was not checked, and when.',
+  },
 ] as const
 
 type CurveSelectProps = {
@@ -57,12 +73,9 @@ function ColorSchemeToggle() {
   return (
     <Tooltip label={next === 'dark' ? 'Dark colours' : 'Light colours'}>
       <ActionIcon variant="default" size="lg" aria-label="Toggle colour scheme" onClick={() => setColorScheme(next)}>
-        {/* Both icons stay mounted; CSS hides one, so the node under the pointer never swaps. */}
-        <Box component="span" darkHidden display="flex">
-          <IconMoon size={18} />
-        </Box>
-        <Box component="span" lightHidden display="flex">
-          <IconSun size={18} />
+        {/* The icon shows the current scheme; the span stays mounted so only its child swaps. */}
+        <Box component="span" display="flex">
+          {computed === 'dark' ? <IconMoon size={18} /> : <IconSun size={18} />}
         </Box>
       </ActionIcon>
     </Tooltip>
@@ -112,9 +125,9 @@ export default function AppHeader({
         <Box component="nav" visibleFrom="sm" aria-label="Views">
           <Tabs.List>
             {VIEWS.map((item) => (
-              <Tabs.Tab key={item.value} value={item.value}>
-                {item.label}
-              </Tabs.Tab>
+              <Tooltip key={item.value} label={item.help} multiline w={280} openDelay={300}>
+                <Tabs.Tab value={item.value}>{item.label}</Tabs.Tab>
+              </Tooltip>
             ))}
           </Tabs.List>
         </Box>

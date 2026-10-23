@@ -392,17 +392,28 @@ describe('App', () => {
     expect(document.documentElement).toHaveAttribute('data-mantine-color-scheme', 'light')
   })
 
-  it('keeps both colour-scheme icons mounted so the hovered node is not replaced', async () => {
+  it('shows only the icon of the current colour scheme and keeps the button node', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
 
     render(<App />)
     expect(await screen.findByText('Curve view')).toBeInTheDocument()
     const toggle = screen.getByRole('button', { name: 'Toggle colour scheme' })
 
-    expect(toggle.querySelectorAll('svg')).toHaveLength(2)
+    expect(toggle.querySelectorAll('svg')).toHaveLength(1)
+    expect(toggle.querySelector('.tabler-icon-sun')).not.toBeNull()
     fireEvent.click(toggle)
-    expect(toggle.querySelectorAll('svg')).toHaveLength(2)
+    expect(toggle.querySelectorAll('svg')).toHaveLength(1)
+    expect(toggle.querySelector('.tabler-icon-moon')).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Toggle colour scheme' })).toBe(toggle)
+  })
+
+  it('explains each view in a tooltip on its tab', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+
+    render(<App />)
+    expect(await screen.findByText('Curve view')).toBeInTheDocument()
+    fireEvent.mouseEnter(screen.getAllByRole('tab', { name: 'Quality' })[0])
+    expect(await screen.findByText(/Plausibility and completeness checks per business day/)).toBeInTheDocument()
   })
 
   it('shows Live in the header by default and the past time when one is set', async () => {
