@@ -2,7 +2,7 @@
 # Start or stop the whole local stack: Oracle, migrations, the four APIs, seed data and the explorer.
 #
 # Usage: stack.sh up|down
-#   up    task dev:up, then task dev:seed unless the curve already has data, then the Vite dev
+#   up    task dev:up, then task dev:seed unless the three real curves already have data, then the Vite dev
 #         server in the background (log and pid in .task/stack/)
 #   down  stops the dev server, then task dev:down (keeps the data)
 #
@@ -23,7 +23,11 @@ frontend_running() {
 
 up() {
 	task dev:up
-	if curl -fsS -o /dev/null "$access_url/v1/curves/ecb-aaa-spot/observations" 2>/dev/null; then
+	seeded=1
+	for curve in ecb-aaa-spot ecb-all-spot ust-par; do
+		curl -fsS -o /dev/null "$access_url/v1/curves/$curve/observations" 2>/dev/null || seeded=0
+	done
+	if ((seeded)); then
 		echo "Seed data present, skipping task dev:seed"
 	else
 		task dev:seed START="${SEED_START:-2024-01-01}"

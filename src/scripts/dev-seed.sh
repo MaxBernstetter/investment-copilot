@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Seed the local development stack with ECB history recorded at two knowledge times, so the
+# Seed the local development stack with ECB and US Treasury history recorded at two knowledge times, so the
 # explorer can time travel: the first load covers START up to a cutoff (with a quality check
-# of both ECB curves), the second covers the days after it (with another check at the end),
+# of the three real curves), the second covers the days after it (with another check at the end),
 # and the printed knowledge time lies between the two loads.
 #
 # Usage: dev-seed.sh START
@@ -11,7 +11,7 @@
 #   COMPOSE_FILE  docker compose's own; task dev:seed sets it (adds compose.observability.yaml
 #                 while the observability profile runs)
 #
-# Makes live ECB calls through the ingestion job container. Needs GNU date.
+# Makes live ECB and Treasury calls through the ingestion job container. Needs GNU date.
 # Exit codes: 0 success, 1 a load failed, 2 usage error.
 set -euo pipefail
 
@@ -39,12 +39,13 @@ done
 after_cutoff=$(date -u -d "$cutoff + 1 day" +%F)
 
 ingest() {
-	docker compose --profile tools run --rm ingestion "$@"
+	docker compose --profile tools run --rm --build ingestion "$@"
+	docker compose --profile tools run --rm --build --entrypoint ingestion-load-ust ingestion "$@"
 }
 
 check() {
-	for curve in ecb-aaa-spot ecb-all-spot; do
-		docker compose --profile tools run --rm processing-job "$curve" --from "$1" --to "$2"
+	for curve in ecb-aaa-spot ecb-all-spot ust-par; do
+		docker compose --profile tools run --rm --build processing-job "$curve" --from "$1" --to "$2"
 	done
 }
 
