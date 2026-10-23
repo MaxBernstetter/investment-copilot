@@ -28,7 +28,7 @@ function Attribution({ curve }: { curve: CurveInfo }) {
 /** The page footer, in the page flow at the end of the body (not fixed, so it costs no mobile height). */
 export default function AppFooter({ curve }: AppFooterProps) {
   return (
-    <Box component="footer" style={{ flexShrink: 0 }}>
+    <Box component="footer" role="contentinfo" style={{ flexShrink: 0 }}>
       <Divider />
       <Container fluid px={{ base: 'md', sm: 'lg' }} py="sm">
         <Group justify="space-between" align="flex-start" gap="md">
