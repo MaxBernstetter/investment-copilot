@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   Alert,
-  Badge,
   Box,
   Button,
   Card,
@@ -11,7 +10,6 @@ import {
   SimpleGrid,
   Skeleton,
   Stack,
-  Table,
   Text,
   TextInput,
   Title,
@@ -22,19 +20,15 @@ import StatCard from '../components/StatCard'
 import type { CurveInfo } from '../curve/fetchCurves'
 import { formatUtc } from '../format'
 import PageHeader from '../layout/PageHeader'
-import { qualityBadgeProps } from '../theme'
 import { fetchQuality, type QualityResult } from './fetchQuality'
 import HowWeCheck from './HowWeCheck'
-import QualityFlag from './QualityFlag'
+import QualityCalendar from './QualityCalendar'
 import {
   defaultQualityRange,
   filterDays,
   newestFirst,
   qualityStats,
   rangeError,
-  sortFindings,
-  STATUS_LABEL,
-  uncheckedRuleLabels,
   type DayFilter,
   type QualityDay,
 } from './qualityData'
@@ -232,50 +226,14 @@ function QualityDays({ days, filter, onFilterChange }: QualityDaysProps) {
               </EmptyState>
             </Box>
           ) : (
-            <Table.ScrollContainer minWidth={720}>
-              <Table striped>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th scope="col">Valid date</Table.Th>
-                    <Table.Th scope="col">Status</Table.Th>
-                    <Table.Th scope="col">Findings</Table.Th>
-                    <Table.Th scope="col">Checked as of</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {shown.map((day) => {
-                    const notChecked = uncheckedRuleLabels(day)
-                    return (
-                      <Table.Tr key={day.valid_date}>
-                        <Table.Td>{day.valid_date}</Table.Td>
-                        <Table.Td>
-                          <Badge {...qualityBadgeProps(day.status)}>{STATUS_LABEL[day.status]}</Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Stack gap={4}>
-                            {day.findings.length > 0 ? (
-                              <Group gap={4} wrap="wrap">
-                                {sortFindings(day.findings).map((finding, index) => (
-                                  <QualityFlag key={index} finding={finding} />
-                                ))}
-                              </Group>
-                            ) : (
-                              <Text>{EMPTY}</Text>
-                            )}
-                            {notChecked.length > 0 && (
-                              <Text size="xs" c="dimmed">
-                                Not checked: {notChecked.join(', ')}
-                              </Text>
-                            )}
-                          </Stack>
-                        </Table.Td>
-                        <Table.Td>{day.checked_as_of ? formatUtc(day.checked_as_of) : EMPTY}</Table.Td>
-                      </Table.Tr>
-                    )
-                  })}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+            <>
+              <Text size="sm" c="dimmed">
+                Select a day for its checks. Unchecked means no check result is known yet: checks run after each
+                data load (daily in Airflow) and cannot be started from here, so the newest days stay unchecked
+                until the next load.
+              </Text>
+              <QualityCalendar days={days} filter={filter} />
+            </>
           )}
         </Stack>
       </Card>

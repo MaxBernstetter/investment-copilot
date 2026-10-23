@@ -58,7 +58,7 @@ test('header tab order and as-of popover keyboard', async ({ page }) => {
   await expect(page.getByLabel(/Known as of/)).toBeVisible()
 })
 
-test('quality view tab order and flag popover', async ({ page }) => {
+test('quality view tab order and day popover', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/')
   await waitForCurveLoaded(page)
@@ -71,7 +71,7 @@ test('quality view tab order and flag popover', async ({ page }) => {
   await expect(qualityTab).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: 'Data quality' })).toBeVisible()
-  await expect(page.getByRole('cell', { name: '2026-10-16' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '2026-10-16, Warn' })).toBeVisible()
 
   // The header controls sit between the tab list and the view, so Tab walks to From first.
   // Hidden panels stay mounted, so the visible fields are found by role. Chromium date inputs
@@ -85,8 +85,8 @@ test('quality view tab order and flag popover', async ({ page }) => {
   await tabUntilFocused(page.getByRole('textbox', { name: 'From' }), 20)
   await tabUntilFocused(page.getByRole('textbox', { name: 'To' }), 10)
   await tabUntilFocused(page.getByRole('radio', { name: 'All' }), 10)
-  const flag = page.getByRole('button', { name: 'Jump · warn, 10Y' })
-  await tabUntilFocused(flag, 10)
+  const flag = page.getByRole('button', { name: '2026-10-16, Warn' })
+  await tabUntilFocused(flag, 20)
 
   await page.keyboard.press('Enter')
   await expect(page.getByRole('link', { name: 'How we check this' })).toBeFocused()

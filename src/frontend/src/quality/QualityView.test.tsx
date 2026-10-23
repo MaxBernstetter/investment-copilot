@@ -112,12 +112,12 @@ function okResult(days: QualityDay[]): QualityResult {
   }
 }
 
-function dateCells() {
-  const table = screen.getByRole('table')
-  return within(table)
-    .getAllByRole('row')
-    .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[0].textContent)
+function dayButtons() {
+  return screen.queryAllByRole('button', { name: /^\d{4}-\d{2}-\d{2}, / })
+}
+
+function dayNames() {
+  return dayButtons().map((button) => button.getAttribute('aria-label'))
 }
 
 beforeEach(() => {
@@ -156,38 +156,68 @@ describe('QualityView', () => {
     expect(screen.queryByText('No check results known at this time')).toBeNull()
   })
 
-  it('lists rows newest first with status badges', async () => {
+  it('groups the days into month blocks with a status badge per day', async () => {
+    mockedFetch.mockResolvedValue(okResult([day('2026-09-30', 'passed'), ...DAYS]))
     render(<QualityView curve={AAA} />)
 
-    await screen.findByRole('cell', { name: '2026-10-16' })
-    expect(dateCells()).toEqual(['2026-10-16', '2026-10-09', '2026-10-08', '2026-10-07'])
-    const table = screen.getByRole('table')
-    const firstRow = within(table).getAllByRole('row')[1]
-    expect(within(firstRow).getByText('Warn')).toBeInTheDocument()
-    expect(within(firstRow).getByRole('button', { name: 'Jump · warn, 10Y' })).toBeInTheDocument()
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'October 2026',
+      'September 2026',
+    ])
+    expect(dayNames()).toEqual([
+      '2026-10-07, Unchecked',
+      '2026-10-08, Passed',
+      '2026-10-09, Warn',
+      '2026-10-16, Warn',
+      '2026-09-30, Passed',
+    ])
+    expect(screen.getByRole('button', { name: '2026-10-16, Warn' })).toHaveTextContent('16')
   })
 
-  it('filter Warn keeps warn days; no match shows the filter empty state and Show all days restores', async () => {
+  it('opens the findings of a day', async () => {
     render(<QualityView curve={AAA} />)
-    await screen.findByRole('cell', { name: '2026-10-16' })
+
+    fireEvent.click(await screen.findByRole('button', { name: '2026-10-16, Warn' }))
+
+    expect(await screen.findByText('Jump · warn')).toBeInTheDocument()
+    expect(screen.getByText('Jump · info')).toBeInTheDocument()
+    expect(screen.getByText('Jump at 10Y')).toBeInTheDocument()
+    expect(screen.getAllByText('Why the rule exists.')).toHaveLength(2)
+    expect(screen.getByRole('link', { name: 'How we check this' })).toBeInTheDocument()
+    expect(screen.getByText(/Checked as of 19 Oct 2026, 06:00:00 UTC/)).toBeInTheDocument()
+  })
+
+  it('filter Warn keeps warn days as badges; no match shows the filter empty state and Show all days restores', async () => {
+    render(<QualityView curve={AAA} />)
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
 
     fireEvent.click(screen.getByRole('radio', { name: 'Warn' }))
-    expect(dateCells()).toEqual(['2026-10-16', '2026-10-09'])
+    expect(dayNames()).toEqual(['2026-10-09, Warn', '2026-10-16, Warn'])
 
     fireEvent.click(screen.getByRole('radio', { name: 'Info' }))
-    expect(screen.queryByRole('table')).toBeNull()
+    expect(dayButtons()).toHaveLength(0)
     expect(screen.getByRole('status')).toHaveTextContent('No days match this filter')
 
     fireEvent.click(screen.getByRole('button', { name: 'Show all days' }))
     expect(screen.getByRole('radio', { name: 'All' })).toBeChecked()
-    expect(dateCells()).toHaveLength(4)
+    expect(dayButtons()).toHaveLength(4)
   })
 
-  it('partial check shows Not checked: Jump', async () => {
+  it('partial check shows Not checked: Jump in the day', async () => {
     render(<QualityView curve={AAA} />)
 
+    fireEvent.click(await screen.findByRole('button', { name: '2026-10-08, Passed' }))
+
     expect(await screen.findByText('Not checked: Jump')).toBeInTheDocument()
-    expect(screen.getAllByText('Not checked: Jump')).toHaveLength(1)
+  })
+
+  it('explains an unchecked day and that checks cannot be started here', async () => {
+    render(<QualityView curve={AAA} />)
+
+    expect(await screen.findByText(/cannot be started from here/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '2026-10-07, Unchecked' }))
+    expect(await screen.findByText(/No check result is known for this day/)).toBeInTheDocument()
   })
 
   it('empty days shows the empty state; Show last 30 days refetches the default range', async () => {
@@ -200,7 +230,7 @@ describe('QualityView', () => {
     mockedFetch.mockResolvedValueOnce(okResult(DAYS))
     fireEvent.click(screen.getByRole('button', { name: 'Show last 30 days' }))
 
-    await screen.findByRole('cell', { name: '2026-10-16' })
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
     expect(mockedFetch).toHaveBeenCalledTimes(2)
     expect(mockedFetch).toHaveBeenLastCalledWith(
       expect.objectContaining({ from: '2026-09-19', to: '2026-10-19' }),
@@ -222,7 +252,7 @@ describe('QualityView', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend offline')
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
-    await screen.findByRole('cell', { name: '2026-10-16' })
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
     expect(mockedFetch).toHaveBeenCalledTimes(2)
   })
 
@@ -237,7 +267,7 @@ describe('QualityView', () => {
 
   it('To before From shows the error and does not fetch', async () => {
     render(<QualityView curve={AAA} />)
-    await screen.findByRole('cell', { name: '2026-10-16' })
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
     mockedFetch.mockClear()
 
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-09-01' } })
@@ -256,7 +286,7 @@ describe('QualityView', () => {
 
   it('range over 366 days shows the error and does not fetch', async () => {
     render(<QualityView curve={AAA} />)
-    await screen.findByRole('cell', { name: '2026-10-16' })
+    await screen.findByRole('button', { name: '2026-10-16, Warn' })
     mockedFetch.mockClear()
 
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-10-16' } })
