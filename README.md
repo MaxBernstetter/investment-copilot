@@ -45,40 +45,37 @@ More in [docs/idea/](docs/idea/) and [ARCHITECTURE.md](ARCHITECTURE.md).
 - Docker with Compose
 - [devbox](https://www.jetify.com/devbox) — provides `task`, Node and the other tools in pinned versions
 
-**Steps**
+**Quickstart**
 
 1. **Configure ports** (optional, see [Ports](#ports)): `cp .env.example .env`
 2. **Open the toolchain shell:** `devbox shell`
-3. **Start the stack:** `task dev:up`
-   - Starts Oracle, applies the migrations, starts the `persistence`, `processing`, `access` and `ingestion` APIs.
-   - Waits until they are healthy.
-   - First run pulls and builds images: a few minutes.
-4. **Load real data:** `task dev:seed`
-   - Loads ECB history since 2024-01-01 in two loads at two knowledge times.
-   - Prints an `as_of` link between them.
-   - Calls the ECB API (a few requests).
-   - Less history: `task dev:seed START=2026-01-01`
-5. **Start the explorer:** `task frontend:dev`, then open <http://localhost:5174> (or your `FRONTEND_PORT`).
-   - Latest curve is shown first.
-   - Pick another valid date, overlay dates, switch to one maturity's time series.
-   - See what changed in the Changes view; check the data in the Quality view.
-6. **Travel in time:** open the printed `?as_of=` link.
-   - The explorer shows only what the platform knew then (latest curve about 20 business days older).
-   - "Now" returns to today.
-7. **See a correction:** `task dev:scenario:corrected-yield`
-   - Plays publish, gap, bad value, late value, correction on the simulated curve `ecb-aaa-spot-sim`.
-   - Pick that curve in the explorer to see quality flags, changes and each value's version history.
+3. **Start everything:** `task stack:up`
+   - Starts Oracle, runs the migrations, starts the four APIs and waits until they are healthy.
+   - Loads ECB history since 2024-01-01 if the database is empty (live ECB calls). Less history: `SEED_START=2026-01-01 task stack:up`
+   - Starts the explorer in the background (log: `.task/stack/frontend.log`).
+   - Prints the explorer and API URLs. First run builds images: a few minutes.
+   - Safe to run again.
+4. **Stop:** `task stack:down` — keeps the data. `task dev:reset` removes it.
+
+**Explore**
+
+- Open the explorer: the latest curve is shown first.
+- Pick another valid date, overlay dates, switch to one maturity's time series.
+- See what changed in the Changes view; check the data in the Quality view.
+- **Travel in time:** open the `?as_of=` link printed by the seed (`task dev:seed`).
+  - The explorer shows only what the platform knew then (latest curve about 20 business days older).
+  - "Now" returns to today.
+- **See a correction:** `task dev:scenario:corrected-yield`
+  - Plays publish, gap, bad value, late value, correction on the simulated curve `ecb-aaa-spot-sim`.
+  - Pick that curve in the explorer to see quality flags, changes and each value's version history.
+
+**Step by step** (what `stack:up` does): `task dev:up`, `task dev:seed`, `task frontend:dev`.
 
 **API**
 
 - <http://localhost:8000> (or your `ACCESS_PORT`)
 - Example: `curl localhost:8000/v1/curves/ecb-aaa-spot/observations`
   - Replace `8000` with your `ACCESS_PORT` if you changed it.
-
-**Stop**
-
-- `task dev:down` — keeps the data
-- `task dev:reset` — removes it
 
 &nbsp;
 
@@ -89,8 +86,8 @@ Dev machines often run many containers, so no port is assumed free. Every host p
 - `cp .env.example .env`, then change the values.
 - Unset values fall back to the defaults below.
 - Only the host side changes; containers still talk to each other on their internal ports.
-- Use `task dev:*`: it loads `.env`. Bare `docker compose` does not.
-- Setting `FRONTEND_PORT` also updates the API's allowed origin. Restart with `task dev:up`.
+- Use `task` commands (`stack:*`, `dev:*`): they load `.env`. Bare `docker compose` does not.
+- Setting `FRONTEND_PORT` also updates the API's allowed origin. Re-run `task stack:up`.
 
 | Variable | Service | Default |
 |---|---|---|

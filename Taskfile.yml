@@ -45,3 +45,13 @@ tasks:
     desc: List available tasks
     cmds:
       - task --list
+
+  stack:up:
+    desc: Start everything locally (Oracle, APIs, seed data, explorer); idempotent
+    cmds:
+      - src/scripts/stack.sh up
+
+  stack:down:
+    desc: Stop the explorer and the local stack (keeps the data)
+    cmds:
+      - src/scripts/stack.sh down
