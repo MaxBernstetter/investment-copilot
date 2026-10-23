@@ -40,7 +40,7 @@ describe('DataTable', () => {
     expect(headerNames()).toEqual(['Name', 'Value', 'Note'])
     expect(screen.getByRole('columnheader', { name: 'Value' })).toBeVisible()
     expect(screen.getByRole('rowheader', { name: 'Alpha' })).toBeVisible()
-    expect(screen.getAllByRole('row').length).toBe(1 + 1 + rows.length)
+    expect(screen.getAllByRole('row').length).toBe(1 + rows.length)
   })
 
   it('hides a column from the Columns menu and shows it again', async () => {
@@ -66,6 +66,7 @@ describe('DataTable', () => {
   it('filters rows by the text of one column, case-insensitively', async () => {
     const user = userEvent.setup()
     renderTable()
+    await user.click(screen.getByRole('button', { name: 'Filter Name' }))
     await user.type(screen.getByRole('textbox', { name: 'Filter Name' }), 'AMM')
     expect(screen.getAllByRole('rowheader').map((cell) => cell.textContent)).toEqual(['Gamma'])
   })
@@ -73,14 +74,15 @@ describe('DataTable', () => {
   it('shows the empty text when the filters hide every row', async () => {
     const user = userEvent.setup()
     renderTable()
+    await user.click(screen.getByRole('button', { name: 'Filter Value' }))
     await user.type(screen.getByRole('textbox', { name: 'Filter Value' }), '9')
     expect(screen.getByText('No rows match the filters.')).toBeVisible()
     expect(screen.queryByRole('rowheader')).not.toBeInTheDocument()
   })
 
-  it('has no filter input for a column without filter text', () => {
+  it('has no filter icon for a column without filter text', () => {
     renderTable()
-    expect(screen.queryByRole('textbox', { name: 'Filter Note' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Filter Note' })).not.toBeInTheDocument()
   })
 
   it('resizes a column from its separator with the arrow keys, never below the minimum', async () => {
@@ -138,12 +140,19 @@ describe('typed filters', () => {
     expect(matchesFilters(a, typedColumns, { group: [] })).toBe(true)
   })
 
-  it('renders a slider, date pickers and a multiselect, and left-aligns every header', () => {
+  it('opens a slider, date pickers and a multiselect from the header icons, and left-aligns every header', async () => {
+    const user = userEvent.setup()
     render(<DataTable columns={typedColumns} rows={typed} rowKey={(r) => r.id} />)
+    expect(screen.queryByLabelText('Filter Day from')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filter Day' }))
     expect(screen.getByLabelText('Filter Day from')).toHaveAttribute('type', 'date')
     expect(screen.getByLabelText('Filter Day to')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close filter Day' }))
+    await user.click(screen.getByRole('button', { name: 'Filter Value' }))
     expect(screen.getAllByRole('slider', { name: /Filter Value/ })).toHaveLength(2)
-    expect(screen.getAllByLabelText('Filter Group').length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: 'Close filter Value' }))
+    await user.click(screen.getByRole('button', { name: 'Filter Group' }))
+    expect(screen.getAllByLabelText('Filter Group').length).toBeGreaterThan(1)
     for (const header of screen.getAllByRole('columnheader')) expect(header).toHaveStyle({ textAlign: 'left' })
   })
 })
@@ -164,11 +173,12 @@ describe('filter edge cases', () => {
     ]
     render(<DataTable columns={cols} rows={withNull} rowKey={(r) => r.id} />)
     const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Filter V' }))
     const from = screen.getByRole('slider', { name: 'Filter V from' })
     from.focus()
     await user.keyboard('{ArrowRight}')
-    expect(screen.getAllByRole('row')).toHaveLength(2 + 1)
+    expect(screen.getAllByRole('row')).toHaveLength(1 + 1)
     await user.keyboard('{ArrowLeft}')
-    expect(screen.getAllByRole('row')).toHaveLength(2 + 3)
+    expect(screen.getAllByRole('row')).toHaveLength(1 + 3)
   })
 })
