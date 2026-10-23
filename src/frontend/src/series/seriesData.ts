@@ -39,20 +39,31 @@ export type SeriesStats = {
   changeBp: number | undefined
 }
 
-/** Summary figures for a time series in valid-date order. */
-export function seriesStats(points: SeriesPoint[]): SeriesStats {
-  if (points.length === 0) {
+/**
+ * Summary figures over values in order; null values are skipped. `bpPerUnit` converts one
+ * unit of the values into basis points for the change (100 for percent yields, 1 for bp measures).
+ */
+export function statsOf(values: (number | null)[], bpPerUnit: number): SeriesStats {
+  const present = values.filter((value): value is number => value !== null)
+  if (present.length === 0) {
     return { last: undefined, min: undefined, max: undefined, changeBp: undefined }
   }
-  const values = points.map((point) => point.value)
-  const first = values[0]
-  const last = values[values.length - 1]
+  const first = present[0]
+  const last = present[present.length - 1]
   return {
     last,
-    min: Math.min(...values),
-    max: Math.max(...values),
-    changeBp: points.length >= 2 ? Math.round((last - first) * 1000) / 10 : undefined,
+    min: Math.min(...present),
+    max: Math.max(...present),
+    changeBp: present.length >= 2 ? Math.round((last - first) * bpPerUnit * 10) / 10 : undefined,
   }
+}
+
+/** Summary figures for a time series in valid-date order. */
+export function seriesStats(points: SeriesPoint[]): SeriesStats {
+  return statsOf(
+    points.map((point) => point.value),
+    100,
+  )
 }
 
 /** Number of values with an info or warn flag. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flaggedCount, seriesStats, type SeriesPoint } from './seriesData'
+import { flaggedCount, seriesStats, statsOf, type SeriesPoint } from './seriesData'
 
 const point = (valid_date: string, value: number): SeriesPoint => ({
   valid_date,
@@ -23,6 +23,16 @@ describe('seriesData', () => {
   it('leaves change undefined with fewer than two points', () => {
     expect(seriesStats([point('2026-10-16', 2.6)]).changeBp).toBeUndefined()
     expect(seriesStats([]).last).toBeUndefined()
+  })
+
+  it('statsOf skips null values wherever they sit', () => {
+    expect(statsOf([null, 2.5, null, 3, null], 100)).toEqual({ last: 3, min: 2.5, max: 3, changeBp: 50 })
+    expect(statsOf([2.5, null, 3], 100)).toEqual({ last: 3, min: 2.5, max: 3, changeBp: 50 })
+  })
+
+  it('statsOf is empty without values, and leaves change undefined with one value', () => {
+    expect(statsOf([null, null], 100)).toEqual({ last: undefined, min: undefined, max: undefined, changeBp: undefined })
+    expect(statsOf([null, 1.5, null], 100)).toEqual({ last: 1.5, min: 1.5, max: 1.5, changeBp: undefined })
   })
 
   it('flaggedCount counts info and warn values only', () => {
