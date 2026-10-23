@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
-import { Box, Button, Checkbox, Group, MultiSelect, Popover, RangeSlider, Stack, Table, Text, TextInput } from '@mantine/core'
-import { IconColumns } from '@tabler/icons-react'
+import { ActionIcon, Box, Button, Checkbox, Group, MultiSelect, Popover, RangeSlider, Stack, Table, Text, TextInput } from '@mantine/core'
+import { IconColumns, IconFilter, IconX } from '@tabler/icons-react'
 
 export type TableColumn<T> = {
   /** Stable id, used for the hidden set, the widths and the filters. */
@@ -148,26 +148,80 @@ function ResizeHandle({ label, width, onChange }: ResizeHandleProps) {
   )
 }
 
+/** True when a filter has been set to something that narrows the rows. */
+function isActive(state: FilterState | undefined): boolean {
+  if (state === undefined) return false
+  if (typeof state === 'string') return state.trim() !== ''
+  if (Array.isArray(state)) return state.length > 0
+  return state.from !== '' || state.to !== ''
+}
+
 type ColumnHeaderProps<T> = {
   column: TableColumn<T>
   width: number
   onResize: (width: number) => void
+  rows: T[]
+  filter: FilterState | undefined
+  onFilter: (state: FilterState) => void
+}
+
+/** A filter icon in the column header; it opens the column's filter in a popup that can be closed. */
+function HeaderFilter<T>({ column, rows, filter, onFilter }: Pick<ColumnHeaderProps<T>, 'column' | 'rows' | 'filter' | 'onFilter'>) {
+  const [opened, setOpened] = useState(false)
+  const name = column.header || column.id
+  const active = isActive(filter)
+  return (
+    <Popover opened={opened} onChange={setOpened} position="bottom-start" withArrow shadow="md" trapFocus>
+      <Popover.Target>
+        <ActionIcon
+          variant={active ? 'filled' : 'subtle'}
+          color={active ? undefined : 'gray'}
+          size="sm"
+          aria-label={active ? `Filter ${name} (active)` : `Filter ${name}`}
+          aria-expanded={opened}
+          onClick={() => setOpened((current) => !current)}
+        >
+          <IconFilter size={14} aria-hidden />
+        </ActionIcon>
+      </Popover.Target>
+      <Popover.Dropdown w={280}>
+        <Stack gap="xs">
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="sm" fw={600}>
+              Filter {name}
+            </Text>
+            <ActionIcon variant="subtle" color="gray" size="sm" aria-label={`Close filter ${name}`} onClick={() => setOpened(false)}>
+              <IconX size={14} aria-hidden />
+            </ActionIcon>
+          </Group>
+          <FilterControl column={column} rows={rows} state={filter} onChange={onFilter} />
+          {active && (
+            <Button
+              variant="default"
+              size="compact-xs"
+              onClick={() => onFilter(kindOf(column) === 'text' ? '' : kindOf(column) === 'datetime' ? { from: '', to: '' } : [])}
+            >
+              Clear filter
+            </Button>
+          )}
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
+  )
 }
 
 /**
- * A column header named by its text alone: the resize handle sits inside the cell, so the cell is
- * labelled by the text span rather than its content.
+ * A column header named by its text alone: the resize handle and the filter icon sit inside the cell,
+ * so the cell is labelled by the text span rather than its content.
  */
-function ColumnHeader<T>({ column, width, onResize }: ColumnHeaderProps<T>) {
+function ColumnHeader<T>({ column, width, onResize, rows, filter, onFilter }: ColumnHeaderProps<T>) {
   const labelId = useId()
   return (
-    <Table.Th
-      scope="col"
-      aria-labelledby={labelId}
-      ta="left"
-      style={{ width, position: 'relative' }}
-    >
-      <span id={labelId}>{column.header}</span>
+    <Table.Th scope="col" aria-labelledby={labelId} ta="left" style={{ width, position: 'relative' }}>
+      <Group gap={4} wrap="nowrap" justify="space-between" pr={8}>
+        <span id={labelId}>{column.header}</span>
+        {kindOf(column) !== undefined && <HeaderFilter column={column} rows={rows} filter={filter} onFilter={onFilter} />}
+      </Group>
       <ResizeHandle label={column.header || column.id} width={width} onChange={onResize} />
     </Table.Th>
   )
@@ -298,8 +352,8 @@ function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<
 /**
  * A real table with three controls: a column selector (show or hide columns), a filter per column,
  * and resizable column widths. Hidden columns, widths and filters live in this component's state.
- * The header row keeps the column headers; the filter row under it holds one input per filterable column
- * and uses plain cells, so the column headers stay the only columnheaders.
+ * Each filterable column header carries a filter icon that opens that column's filter in a popup,
+ * so the sticky header stays one row while the body scrolls.
  */
 export default function DataTable<T>({
   caption,
@@ -315,7 +369,6 @@ export default function DataTable<T>({
   const [filters, setFilters] = useState<Record<string, FilterState>>({})
 
   const visible = columns.filter((column) => !hiddenIds.includes(column.id))
-  const filterable = visible.some((column) => kindOf(column) !== undefined)
   // A number range counts only while its slider is shown and narrower than the data, so a stale or full range never hides rows.
   const activeFilters = Object.fromEntries(
     Object.entries(filters).filter(([id, state]) => {
@@ -381,25 +434,12 @@ export default function DataTable<T>({
                   column={column}
                   width={widthOf(column)}
                   onResize={(width) => setWidth(column.id, width)}
+                  rows={rows}
+                  filter={filters[column.id]}
+                  onFilter={(state) => setFilter(column.id, state)}
                 />
               ))}
             </Table.Tr>
-            {filterable && (
-              <Table.Tr>
-                {visible.map((column) => (
-                  <Table.Td key={column.id} style={{ width: widthOf(column) }}>
-                    {kindOf(column) !== undefined && (
-                      <FilterControl
-                        column={column}
-                        rows={rows}
-                        state={filters[column.id]}
-                        onChange={(state) => setFilter(column.id, state)}
-                      />
-                    )}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            )}
           </Table.Thead>
           <Table.Tbody>
             {shown.length === 0 ? (
