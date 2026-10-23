@@ -84,7 +84,7 @@ Both charts use `@mantine/charts` (a Recharts wrapper) and share the theme and t
 - **Curve chart:** one row per maturity in grid order, one line per curve. A maturity without a value is a gap (`connectNulls` off). Legend shows the valid dates. Data is built by `overlayRows` and `overlaySeries` in `src/curve/curveData.ts`.
 - **Time series chart:** one line over valid dates in valid-date order, linear axes with `domain: ['auto','auto']`, dots when ≤ 15 points, brush to zoom the range, tooltips at 3 dp, no legend (the card title names the series). A table toggle in the same card lists the same points.
 - **Lazy loading:** each chart module imports `@mantine/charts` with `lazy`/`import()` and renders it inside `Suspense` with a 320 px skeleton, so the charting code is a separate chunk (`dist/assets/chunk-*.js`) that loads with the first chart.
-- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 170 kB, all JS at most 500 kB, CSS at most 45 kB. The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165), and raised to 500 kB on 2026-10-20 by the user. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
+- **Bundle budget:** `npm run size` (`size-limit`, `frontend:size`) checks gzipped sizes of the bundle: initial entry (`index-*.js`) at most 180 kB, all JS at most 500 kB, CSS at most 45 kB. The initial-entry limit was raised from 170 kB to 180 kB on 2026-10-23 by the user for the curve catalogue and measures UI (the reason is in the entry's name in `package.json`). The all-JS limit was raised from 320 kB to 330 kB on 2026-10-20 by the user for the design system MRs (#165), and raised to 500 kB on 2026-10-20 by the user. Vite names lazy chunks `chunk-*.js` so the entry is not confused with them. CI runs the check after the build.
 
 ## Changes view
 
@@ -186,7 +186,7 @@ The curves come from `GET /v1/curves` (the curve catalogue), fetched once after 
 
 ## Offline state
 
-On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows a 320 px skeleton with visually hidden "Loading…". Then the app loads the curve list once; the Connecting page stays until it arrives. Both states are inside the app shell, so the header and footer stay visible.
+On mount the app calls `GET {VITE_ACCESS_URL}/health` (`src/backend.ts`). A `2xx` response shows the views; a non-2xx response or a network error shows a `role="alert"` message ("Backend offline: the YieldLens API is not reachable. Try again later.") with a "Try again" button that repeats the check. While the check runs, the page shows a 320 px skeleton with visually hidden "Loading…". Then the app loads the curve list once; the Connecting page stays until it arrives. A failed list shows the "Curves unavailable" page with a `role="alert"` "Curve list not loaded" and a "Try again" button that refetches only the list. An empty list shows a `role="status"` empty state "No curves yet" (no h1) with "Try again", which also refetches only the list. All these states are inside the app shell, so the header and footer stay visible.
 
 ## Hosting
 
@@ -239,7 +239,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25, S28–S29), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

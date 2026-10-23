@@ -6,7 +6,7 @@ import type { Page, Route } from '@playwright/test'
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const ACCESS_URL = 'http://localhost:8000'
 
-export type MockMode = 'online' | 'offline' | 'loading' | 'not-found'
+export type MockMode = 'online' | 'offline' | 'loading' | 'not-found' | 'catalogue-error' | 'catalogue-empty'
 
 type CurveFixture = {
   meta: { as_of: string; source_attribution: string }
@@ -116,6 +116,14 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
 
     if (path === '/v1/curves') {
       if (mode === 'loading') return
+      if (mode === 'catalogue-error') {
+        await fulfillJson(route, 500, { detail: 'Unexpected error' })
+        return
+      }
+      if (mode === 'catalogue-empty') {
+        await fulfillJson(route, 200, { data: [] })
+        return
+      }
       await fulfillJson(route, 200, catalogue)
       return
     }

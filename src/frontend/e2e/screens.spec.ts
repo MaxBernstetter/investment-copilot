@@ -441,6 +441,25 @@ test.describe('visual snapshots §7', () => {
       }
     }
   })
+
+  test('S28 curve list error', async ({ page }) => {
+    await page.unroute('http://localhost:8000/**')
+    await installApiMocks(page, 'catalogue-error')
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1, name: 'Curves unavailable' })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText('Curve list not loaded')
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S28', ['light'])
+  })
+
+  test('S29 curve list empty', async ({ page }) => {
+    await page.unroute('http://localhost:8000/**')
+    await installApiMocks(page, 'catalogue-empty')
+    await page.goto('/')
+    await expect(page.getByRole('status')).toContainText('No curves yet')
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S29', ['light'])
+  })
 })
 
 test.describe('curve catalogue', () => {

@@ -16,9 +16,9 @@
   },
   "size-limit": [
     {
-      "name": "initial JS",
+      "name": "initial JS (raised 2026-10-23 for the curve catalogue and measures UI)",
       "path": "dist/assets/index-*.js",
-      "limit": "170 kB",
+      "limit": "180 kB",
       "gzip": true
     },
     {
