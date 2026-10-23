@@ -37,3 +37,4 @@ insert into grid_maturity (grid_version, maturity, months) values (2, '4M', 4);
 --changeset yieldlens:25-grid-maturity-months-comment
 --comment: Documents the fractional months.
 comment on column grid_maturity.months is 'Length of the tenor in months, for ordering; fractional for short tenors, e.g. 1.5 for 1.5M';
+--rollback comment on column grid_maturity.months is 'Length of the tenor in months, for ordering';
