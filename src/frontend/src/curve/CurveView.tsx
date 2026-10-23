@@ -43,7 +43,7 @@ import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
 import { MEASURE_HELP, MEASURE_LABEL, measureHint, measureValue, type MeasurePoint } from './measuresData'
-import { validDateHelp } from './sources'
+import { gapNotes, validDateHelp } from './sources'
 import { MAX_OVERLAYS, type CanAdd, type OverlayState } from './useOverlay'
 
 const HELP_10Y = 'Spot rate for a 10-year maturity on this valid date, in percent.'
@@ -313,7 +313,11 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
             {entries.length > 0 && <OverlayNotes curves={drawnCurves} drawn={curves} />}
             {(missing.length > 0 || flagged.length > 0) && (
               <Stack gap={4} mt="sm">
-                {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}
+                {gapNotes(curve, missing).map((note) => (
+                  <Text key={note} size="sm" c="dimmed">
+                    {note}
+                  </Text>
+                ))}
                 {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
               </Stack>
             )}

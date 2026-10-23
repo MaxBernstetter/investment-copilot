@@ -420,7 +420,11 @@ describe('CurveView', () => {
   it('marks missing points', async () => {
     render(<Host curve={AAA} />)
 
-    expect(await screen.findByText('No value for: 15Y, 20Y')).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        'No value for: 15Y, 20Y on this date (not published by the ECB); gaps are not interpolated.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('refetches for a picked date', async () => {
