@@ -12,7 +12,9 @@ from typing import Any
 import httpx
 import pytest
 
-ACCESS_URL = os.environ.get("E2E_ACCESS_URL", "http://localhost:8000")
+ACCESS_URL = os.environ.get(
+    "E2E_ACCESS_URL", f"http://localhost:{os.environ.get('ACCESS_PORT', '8000')}"
+)
 E2E_COMPOSE_FILE = os.environ.get("E2E_COMPOSE_FILE")
 SIM = "ecb-aaa-spot-sim"
 REAL = "ecb-aaa-spot"

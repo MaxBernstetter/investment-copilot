@@ -53,7 +53,7 @@ check "$start" "$cutoff"
 sleep 2
 knowledge_time=$(date -u +%FT%TZ)
 echo "Knowledge time between the two loads: $knowledge_time"
-echo "Try: http://localhost:5174/?as_of=$knowledge_time"
+echo "Try: http://localhost:${FRONTEND_PORT:-5174}/?as_of=$knowledge_time"
 sleep 2
 ingest history --start "$after_cutoff" --end "$yesterday"
 check "$after_cutoff" "$yesterday"

@@ -19,7 +19,7 @@
 # (15 s) plus the rule evaluation (1 m). Exit codes: 0 the check passed, 1 a step failed or timed out.
 set -euo pipefail
 
-grafana=http://127.0.0.1:3300
+grafana=http://127.0.0.1:${GRAFANA_PORT:-3300}
 curve=ecb-aaa-spot-sim
 from=2026-10-05
 to=2026-10-08

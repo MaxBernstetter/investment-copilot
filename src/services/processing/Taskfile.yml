@@ -7,12 +7,12 @@ version: "3"
 env:
   PROCESSING_DB_ADMIN_PASSWORD: '{{.PROCESSING_DB_ADMIN_PASSWORD | default "LocalAdmin_1"}}'
   PROCESSING_DB_OWNER_PASSWORD: '{{.PROCESSING_DB_OWNER_PASSWORD | default "LocalProcOwner_1"}}'
-  PROCESSING_DB__DSN: '{{.PROCESSING_DB__DSN | default "localhost:1521/FREEPDB1"}}'
+  PROCESSING_DB__DSN: '{{.PROCESSING_DB__DSN | default (printf "localhost:%s/FREEPDB1" (.PERSISTENCE_DB_PORT | default "1521"))}}'
   PROCESSING_DB__PASSWORD: '{{.PROCESSING_DB__PASSWORD | default "LocalProcApp_1"}}'
-  PROCESSING_PERSISTENCE__URL: '{{.PROCESSING_PERSISTENCE__URL | default "http://localhost:8001"}}'
+  PROCESSING_PERSISTENCE__URL: '{{.PROCESSING_PERSISTENCE__URL | default (printf "http://localhost:%s" (.PERSISTENCE_PORT | default "8001"))}}'
 
 vars:
-  PORT: '{{.PORT | default "8002"}}'
+  PORT: '{{.PORT | default (.PROCESSING_PORT | default "8002")}}'
 
 tasks:
   setup:
