@@ -28,6 +28,8 @@ export type TableColumn<T> = {
 
 export const DEFAULT_WIDTH = 140
 export const MIN_WIDTH = 64
+/** Default width of a date or date-time column, wide enough for a from and a to picker side by side. */
+export const DATETIME_WIDTH = 240
 const KEY_STEP = 8
 
 /** Keeps a column width at or above the minimum, in whole pixels. */
@@ -184,6 +186,9 @@ type DataTableProps<T> = {
   maxHeight?: number
 }
 
+/** Compact pickers, so a from and a to input fit side by side in one column. */
+const PICKER_STYLES = { input: { paddingInline: 4, fontSize: 11, minWidth: 0 } }
+
 type FilterControlProps<T> = {
   column: TableColumn<T>
   rows: T[]
@@ -195,11 +200,14 @@ type FilterControlProps<T> = {
 function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<T>) {
   const label = `Filter ${column.header || column.id}`
   const kind = kindOf(column)
+  // The slider moves freely while dragged and filters the rows only once it is released.
+  const [draft, setDraft] = useState<[number, number] | null>(null)
   if (kind === 'number') {
     const bounds = numberBounds(column, rows)
     if (bounds === undefined || bounds[0] === bounds[1]) return null
     const [min, max] = bounds
-    const value = Array.isArray(state) && typeof state[0] === 'number' ? state : [min, max]
+    const committed = Array.isArray(state) && typeof state[0] === 'number' ? state : [min, max]
+    const value = draft ?? committed
     return (
       <RangeSlider
         size="xs"
@@ -209,7 +217,11 @@ function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<
         minRange={0}
         label={(v) => v.toFixed(2)}
         value={value as [number, number]}
-        onChange={onChange}
+        onChange={setDraft}
+        onChangeEnd={(range) => {
+          setDraft(null)
+          onChange(range)
+        }}
         aria-label={label}
         thumbFromLabel={`${label} from`}
         thumbToLabel={`${label} to`}
@@ -225,10 +237,13 @@ function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<
     })
     const type = dateOnly ? 'date' : 'datetime-local'
     return (
-      <Stack gap={2}>
+      <Group gap={4} wrap="nowrap" align="center">
         <TextInput
           size="xs"
           type={type}
+          flex={1}
+          miw={0}
+          styles={PICKER_STYLES}
           aria-label={`${label} from`}
           value={range.from === '' ? '' : dateOnly ? range.from.slice(0, 10) : range.from}
           onChange={(event) => {
@@ -236,9 +251,15 @@ function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<
             onChange({ ...range, from: v === '' ? '' : toMinute(v) })
           }}
         />
+        <Text size="xs" c="dimmed" aria-hidden>
+          –
+        </Text>
         <TextInput
           size="xs"
           type={type}
+          flex={1}
+          miw={0}
+          styles={PICKER_STYLES}
           aria-label={`${label} to`}
           value={range.to === '' ? '' : dateOnly ? range.to.slice(0, 10) : range.to}
           onChange={(event) => {
@@ -246,7 +267,7 @@ function FilterControl<T>({ column, rows, state, onChange }: FilterControlProps<
             onChange({ ...range, to: v === '' ? '' : dateOnly ? `${v}T23:59` : toMinute(v) })
           }}
         />
-      </Stack>
+      </Group>
     )
   }
   if (kind === 'category') {
@@ -306,7 +327,8 @@ export default function DataTable<T>({
     }),
   )
   const shown = rows.filter((row) => matchesFilters(row, visible, activeFilters))
-  const widthOf = (column: TableColumn<T>) => widths[column.id] ?? column.width ?? DEFAULT_WIDTH
+  const widthOf = (column: TableColumn<T>) =>
+    widths[column.id] ?? column.width ?? (kindOf(column) === 'datetime' ? DATETIME_WIDTH : DEFAULT_WIDTH)
   const tableWidth = visible.reduce((sum, column) => sum + widthOf(column), 0)
 
   const setColumnShown = (id: string, shownNow: boolean) => {
