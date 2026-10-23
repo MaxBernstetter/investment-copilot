@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Stack, Text } from '@mantine/core'
+import { Alert, Button, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { IconPlayerPlay } from '@tabler/icons-react'
 import { fetchQualityCheck, type QualityCheckResult } from './fetchQualityCheck'
 
@@ -63,7 +63,7 @@ export default function QualityCheckNow({ curveId, from, to, disabledReason, onC
   }
 
   return (
-    <Stack gap={4}>
+    <Stack gap={4} align="flex-start">
       {answer?.result.kind !== 'disabled' && (
         <Button
           variant="light"
@@ -90,9 +90,7 @@ function AnswerNote({ answer }: { answer: { result: QualityCheckResult; from: st
   const { result } = answer
   if (result.kind === 'ok') {
     return (
-      <Alert variant="light" color="green" role="status">
-        {checkSummary(result.check, answer.from, answer.to)}
-      </Alert>
+      <VisuallyHidden role="status">{checkSummary(result.check, answer.from, answer.to)}</VisuallyHidden>
     )
   }
   const detail =

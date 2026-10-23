@@ -224,19 +224,21 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
 
   const headerActions = (
     <>
-      <Group gap={4} align="flex-end">
-        <TextInput
-          type="date"
-          label="Valid date"
-          value={validDate ?? returnedDate}
-          onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
-        />
-        <Tooltip label={validDateHelp(curve)}>
-          <ActionIcon variant="subtle" size="sm" aria-label="About valid date">
-            <IconInfoCircle size={16} />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
+      <TextInput
+        type="date"
+        label={
+          <Group gap={4} component="span" wrap="nowrap">
+            Valid date
+            <Tooltip label={validDateHelp(curve)}>
+              <ActionIcon component="span" role="button" tabIndex={0} variant="subtle" size="xs" aria-label="About valid date">
+                <IconInfoCircle size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        }
+        value={validDate ?? returnedDate}
+        onChange={(event) => setValidDate(event.currentTarget.value || undefined)}
+      />
       <Button
         variant="default"
         ref={addRef}
@@ -302,7 +304,7 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
               <OverlayEntries entries={entries} labelOf={labelOf} listRef={pillsRef} onRemove={onRemove} />
             )}
             {hint && (
-              <Text id={hintId} size="xs" c="dimmed" mb="md">
+              <Text id={hintId} size="sm" fw={500} mb="md">
                 {hint}
               </Text>
             )}
@@ -314,11 +316,11 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
             {(missing.length > 0 || flagged.length > 0) && (
               <Stack gap={4} mt="sm">
                 {gapNotes(curve, missing).map((note) => (
-                  <Text key={note} size="sm" c="dimmed">
+                  <Text key={note} size="sm">
                     {note}
                   </Text>
                 ))}
-                {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
+                {flagged.length > 0 && <Text size="sm">Flagged: {flagged.join(', ')}</Text>}
               </Stack>
             )}
             {entries.length > 0 && <OverlayTable curves={curves} />}

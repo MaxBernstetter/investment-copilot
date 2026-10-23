@@ -20,7 +20,7 @@ export default function PageHeader({ title, subtitle, actions }: PageHeaderProps
           </Text>
         )}
       </Stack>
-      {actions && <Group gap="sm">{actions}</Group>}
+      {actions && <Group gap="sm" align="flex-end">{actions}</Group>}
     </Group>
   )
 }
