@@ -1,0 +1,76 @@
+import { MEASURE_INPUTS, type MeasureKey, type MeasurePoint } from '../curve/measuresData'
+import { MATURITIES, statsOf, type SeriesStats } from './seriesData'
+
+/** Labels as the curve view key figures show them (#33). */
+export const MEASURE_LABELS: Record<MeasureKey, string> = {
+  spread_2y_10y: '2Y–10Y spread',
+  spread_3m_10y: '3M–10Y spread',
+  curvature_2y_5y_10y: 'Curvature 2Y–5Y–10Y',
+}
+
+const MEASURE_KEYS: MeasureKey[] = ['spread_2y_10y', 'spread_3m_10y', 'curvature_2y_5y_10y']
+
+export const MEASURES: { key: MeasureKey; label: string }[] = MEASURE_KEYS.map((key) => ({
+  key,
+  label: MEASURE_LABELS[key],
+}))
+
+/** What the Time series view shows: one maturity yield, or one measure. */
+export type SeriesChoice = { kind: 'yield'; maturity: string } | { kind: 'measure'; key: MeasureKey }
+
+const DEFAULT_CHOICE: SeriesChoice = { kind: 'yield', maturity: '10Y' }
+
+export function choiceValue(choice: SeriesChoice): string {
+  return choice.kind === 'yield' ? `yield:${choice.maturity}` : `measure:${choice.key}`
+}
+
+/** The choice for a select value; anything unknown falls back to the 10Y yield. */
+export function parseChoice(value: string): SeriesChoice {
+  const [kind, id = ''] = value.split(':')
+  if (kind === 'yield' && (MATURITIES as readonly string[]).includes(id)) {
+    return { kind: 'yield', maturity: id }
+  }
+  const measure = MEASURE_KEYS.find((key) => key === id)
+  if (kind === 'measure' && measure !== undefined) return { kind: 'measure', key: measure }
+  return DEFAULT_CHOICE
+}
+
+export function isSpread(key: MeasureKey): boolean {
+  return key !== 'curvature_2y_5y_10y'
+}
+
+export type MeasureRow = { valid_date: string; value: number | null }
+
+/** Chart and table rows for one measure in valid-date order; null stays null, so the chart shows a gap. */
+export function measureRows(points: MeasurePoint[], key: MeasureKey): MeasureRow[] {
+  return points.map((point) => ({ valid_date: point.valid_date, value: point[key] ?? null }))
+}
+
+/** Last, min, max and change in bp over the non-null values of a measure (already in bp). */
+export function measureStats(points: MeasurePoint[], key: MeasureKey): SeriesStats {
+  return statsOf(
+    points.map((point) => point[key] ?? null),
+    1,
+  )
+}
+
+export type InvertedCount = { inverted: number; total: number }
+
+/**
+ * Days with a spread value below zero, out of the days with a value. Counts the
+ * spread's own value, not the API `inverted` flag, which is the 2Y–10Y slope only.
+ */
+export function invertedDays(points: MeasurePoint[], key: MeasureKey): InvertedCount {
+  const values = points.map((point) => point[key] ?? null).filter((value): value is number => value !== null)
+  return { inverted: values.filter((value) => value < 0).length, total: values.length }
+}
+
+export function invertedHint({ inverted, total }: InvertedCount): string {
+  return `Inverted on ${inverted} of ${total} days`
+}
+
+/** The measure's own inputs that carry a warn or info flag on this day. */
+export function measureFlagged(point: MeasurePoint, key: MeasureKey): string[] {
+  const inputs = MEASURE_INPUTS[key]
+  return point.quality.flagged.filter((maturity) => inputs.includes(maturity))
+}
