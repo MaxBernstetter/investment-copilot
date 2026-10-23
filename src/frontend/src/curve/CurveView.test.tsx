@@ -484,7 +484,7 @@ describe('CurveView', () => {
     fireEvent.click(addButton())
 
     expect(await screen.findByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' })).toBeInTheDocument()
-    expect(screen.getByText('ECB euro area AAA spot · 2026-10-16')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Overlaid curves' })).getByText('ECB euro area AAA spot · 2026-10-16')).toBeInTheDocument()
   })
 
   it('removes an overlaid entry', async () => {
