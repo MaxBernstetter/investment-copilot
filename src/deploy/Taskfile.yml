@@ -84,7 +84,7 @@ tasks:
       - uv run --project ../e2e --locked pytest ../e2e/tests
 
   seed:
-    desc: Load ECB history at two knowledge times (live ECB calls)
+    desc: Load ECB and US Treasury history at two knowledge times (live calls)
     vars:
       START: '{{.START | default "2024-01-01"}}'
       DEV_COMPOSE_FILE:

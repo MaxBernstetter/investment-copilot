@@ -51,7 +51,7 @@ More in [docs/idea/](docs/idea/) and [ARCHITECTURE.md](ARCHITECTURE.md).
 2. **Open the toolchain shell:** `devbox shell`
 3. **Start everything:** `task stack:up`
    - Starts Oracle, runs the migrations, starts the four APIs and waits until they are healthy.
-   - Loads ECB history since 2024-01-01 if the database is empty (live ECB calls). Less history: `SEED_START=2026-01-01 task stack:up`
+   - Loads ECB and US Treasury history since 2024-01-01 unless all three real curves already have data (live calls). Less history: `SEED_START=2026-01-01 task stack:up`
    - Starts the explorer in the background (log: `.task/stack/frontend.log`).
    - Prints the explorer and API URLs. First run builds images: a few minutes.
    - Safe to run again.
