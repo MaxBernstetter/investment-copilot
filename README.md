@@ -102,7 +102,11 @@ Dev machines often run many containers, so no port is assumed free. Every host p
 | `TEMPO_PORT` | Tempo (optional) | 3200 |
 | `GRAFANA_PORT` | Grafana (optional) | 3300 |
 
-The maintainer's `.env` uses 6661–6670, in the table's order.
+**Browsers refuse some ports.** Chrome and Firefox block 6665–6669 (`ERR_UNSAFE_PORT`) and a few others, such as 6000 and 6697.
+
+- Give anything you open in a browser a safe port: `FRONTEND_PORT`, `ACCESS_PORT`, `AIRFLOW_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`.
+- The other services are only reached by tools and can use blocked ports.
+- Example for a 6661–6670 range: browser-facing on 6661–6664 and 6670, the rest on 6665–6669.
 
 &nbsp;
 
