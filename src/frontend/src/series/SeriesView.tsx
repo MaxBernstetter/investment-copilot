@@ -249,20 +249,23 @@ export default function SeriesView({ curveId, asOf }: SeriesViewProps) {
                     id: 'valid-date',
                     header: 'Valid date',
                     cell: (point) => point.valid_date,
-                    filterText: (point) => point.valid_date,
+                    kind: 'datetime',
+                    filterValue: (point) => point.valid_date,
                   },
                   {
                     id: 'yield',
                     header: 'Yield (%)',
                     align: 'right',
                     cell: (point) => formatYield(point.value),
-                    filterText: (point) => formatYield(point.value),
+                    kind: 'number',
+                    filterValue: (point) => point.value,
                   },
                   {
                     id: 'quality',
                     header: 'Quality',
                     cell: (point) => <ValueQualityCell quality={point.quality} maturity={current.maturity} />,
-                    filterText: (point) => STATUS_LABEL[point.quality.status],
+                    kind: 'category',
+                    filterValue: (point) => STATUS_LABEL[point.quality.status],
                   },
                 ]}
                 rows={yieldPoints}

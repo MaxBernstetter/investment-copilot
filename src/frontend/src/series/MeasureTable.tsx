@@ -23,7 +23,7 @@ type MeasureTableProps = {
 export default function MeasureTable({ points, measureKey }: MeasureTableProps) {
   const hasUnchecked = points.some((point) => point.quality.status === 'unchecked')
   const columns: TableColumn<MeasurePoint>[] = [
-    { id: 'valid-date', header: 'Valid date', cell: (point) => point.valid_date, filterText: (point) => point.valid_date },
+    { id: 'valid-date', header: 'Valid date', cell: (point) => point.valid_date, kind: 'datetime', filterValue: (point) => point.valid_date },
     {
       id: 'value',
       header: 'Value (bp)',
@@ -32,16 +32,15 @@ export default function MeasureTable({ points, measureKey }: MeasureTableProps) 
         const value = point[measureKey]
         return value === null || value === undefined ? EMPTY : formatBpPlain(value)
       },
-      filterText: (point) => {
-        const value = point[measureKey]
-        return value === null || value === undefined ? '' : formatBpPlain(value)
-      },
+      kind: 'number',
+      filterValue: (point) => point[measureKey] ?? null,
     },
     {
       id: 'quality',
       header: 'Quality',
       cell: (point) => <MeasureQualityCell point={point} measureKey={measureKey} />,
-      filterText: (point) => measureHint(point, measureKey) ?? STATUS_LABEL[point.quality.status],
+      kind: 'category',
+      filterValue: (point) => measureHint(point, measureKey) ?? STATUS_LABEL[point.quality.status],
     },
   ]
   return (

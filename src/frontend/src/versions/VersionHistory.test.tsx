@@ -117,7 +117,7 @@ describe('VersionHistory', () => {
     renderHistory()
 
     await screen.findByRole('table')
-    const badgeVariant = (text: string) => screen.getByText(text).closest('[data-variant]')
+    const badgeVariant = (text: string) => within(screen.getAllByRole('rowgroup')[1] as HTMLElement).getByText(text).closest('[data-variant]')
     expect(badgeVariant('correction')).toHaveAttribute('data-variant', 'filled')
     expect(badgeVariant('revision')).toHaveAttribute('data-variant', 'light')
     expect(badgeVariant('initial')).toHaveAttribute('data-variant', 'light')
@@ -127,7 +127,7 @@ describe('VersionHistory', () => {
     renderHistory()
 
     await screen.findByRole('table')
-    const badge = screen.getByText('revision').closest('[data-variant]')
+    const badge = within(screen.getAllByRole('rowgroup')[1] as HTMLElement).getByText('revision').closest('[data-variant]')
     expect(badge).toHaveStyle({ minWidth: 'max-content' })
   })
 
