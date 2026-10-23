@@ -83,6 +83,9 @@ export default function App() {
   }
 
   return (
+    // Mantine keeps hidden panels mounted (activity mode, its default), so a view keeps its state
+    // and data across tab switches. Do not switch to display-none: that fetches every view on load
+    // and renders charts at size 0.
     <Tabs value={view} onChange={setView}>
       <AppShell
         header={{ height: 56 }}
