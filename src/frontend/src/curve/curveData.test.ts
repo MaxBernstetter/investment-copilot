@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { CHART_COLORS } from '../theme'
 import {
+  entryKey,
   flaggedMaturities,
   missingMaturities,
+  monthsLabel,
+  nextSlot,
   overlayRows,
   overlaySeries,
   tenYearHint,
@@ -23,17 +27,39 @@ describe('curveData', () => {
     expect(missingMaturities([points[0]])).toEqual([])
   })
 
-  it('overlay rows keep grid order and nulls as gaps', () => {
-    expect(
-      overlayRows([
-        { label: '2026-10-16', points },
-        { label: '2026-10-01', points: [points[0]] },
-      ]),
-    ).toEqual([
-      { maturity: '3M', '2026-10-16': 2.1, '2026-10-01': 2.1 },
-      { maturity: '1Y', '2026-10-16': null, '2026-10-01': null },
-      { maturity: '10Y', '2026-10-16': 2.6, '2026-10-01': null },
+  it('overlay rows are the sorted union of tenors, with nulls as gaps', () => {
+    const short: CurvePoint = { maturity: '1.5M', months: 1.5, value: 2.0, version_id: 1, origin: 'published', quality: passed }
+    const rows = overlayRows([
+      { key: 'a', label: '2026-10-16', points: [...points, short], slot: 0 },
+      { key: 'b', label: '2026-10-01', points: [points[0]], slot: 1 },
     ])
+    expect(rows).toEqual([
+      { months: 1.5, a: 2.0, b: null },
+      { months: 3, a: 2.1, b: 2.1 },
+      { months: 12, a: null, b: null },
+      { months: 120, a: 2.6, b: null },
+    ])
+  })
+
+  it('overlay rows keep one row per tenor across curves', () => {
+    expect(overlayRows([{ key: 'a', label: 'x', points, slot: 0 }])).toEqual([
+      { months: 3, a: 2.1 },
+      { months: 12, a: null },
+      { months: 120, a: 2.6 },
+    ])
+  })
+
+  it('monthsLabel labels whole months, years and decimal months', () => {
+    expect(monthsLabel(1.5)).toBe('1.5M')
+    expect(monthsLabel(6)).toBe('6M')
+    expect(monthsLabel(12)).toBe('1Y')
+    expect(monthsLabel(18)).toBe('18M')
+    expect(monthsLabel(24)).toBe('2Y')
+    expect(monthsLabel(360)).toBe('30Y')
+  })
+
+  it('entryKey joins the curve id and valid date', () => {
+    expect(entryKey({ curveId: 'ecb-aaa-spot', validDate: '2026-10-16' })).toBe('ecb-aaa-spot|2026-10-16')
   })
 
   it('reads 10Y yield', () => {
@@ -63,15 +89,15 @@ describe('curveData', () => {
     expect(flaggedMaturities(grid)).toEqual(['2Y', '10Y'])
   })
 
-  it('one series per curve named by valid date', () => {
+  it('one series per curve, named by key and labelled by valid date', () => {
     expect(
       overlaySeries([
-        { label: '2026-10-16', points },
-        { label: '2026-10-01', points: [points[0]] },
+        { key: 'a|2026-10-16', label: '2026-10-16', points, slot: 0 },
+        { key: 'a|2026-10-01', label: '2026-10-01', points: [points[0]], slot: 1 },
       ]),
     ).toEqual([
-      { name: '2026-10-16', color: 'blue.8' },
-      { name: '2026-10-01', color: 'orange.8' },
+      { name: 'a|2026-10-16', label: '2026-10-16', color: 'blue.8' },
+      { name: 'a|2026-10-01', label: '2026-10-01', color: 'orange.8' },
     ])
   })
 
@@ -89,5 +115,40 @@ describe('curveData', () => {
 
   it('tenYearHint is undefined for a passed 10Y', () => {
     expect(tenYearHint(points)).toBeUndefined()
+  })
+})
+
+describe('colour slots', () => {
+  it('nextSlot is the lowest free slot', () => {
+    expect(nextSlot([])).toBe(0)
+    expect(nextSlot([0])).toBe(1)
+    expect(nextSlot([0, 1, 3])).toBe(2)
+  })
+
+  it('an overlay keeps its colour when a middle one is removed', () => {
+    let slots = [0]
+    slots = [...slots, nextSlot(slots)] // add A: 1
+    slots = [...slots, nextSlot(slots)] // add B: 2
+    slots = [...slots, nextSlot(slots)] // add C: 3
+    slots = slots.filter((slot) => slot !== 2) // remove B
+    expect(slots).toEqual([0, 1, 3])
+  })
+
+  it('a new overlay reuses the lowest free slot', () => {
+    expect(nextSlot([0, 1, 3])).toBe(2)
+  })
+
+  it('the cap of five overlays gives six slots in total', () => {
+    let slots = [0]
+    for (let i = 0; i < 5; i++) slots = [...slots, nextSlot(slots)]
+    expect(slots).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  it('overlaySeries colours by slot, not by position', () => {
+    const series = overlaySeries([
+      { key: 'a', label: 'x', points, slot: 0 },
+      { key: 'b', label: 'y', points, slot: 3 },
+    ])
+    expect(series.map((s) => s.color)).toEqual([CHART_COLORS[0], CHART_COLORS[3]])
   })
 })
