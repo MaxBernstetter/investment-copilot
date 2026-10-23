@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../api/schema'
-import { localInputToUtc } from '../asOf'
+import { localInputToUtc, utcToLocalInput } from '../asOf'
 import { formatYield } from '../format'
 import { fetchChanges, type ChangesResult } from './fetchChanges'
 import ChangesView from './ChangesView'
@@ -59,14 +59,32 @@ afterEach(() => {
 })
 
 describe('ChangesView', () => {
-  it('asks for the earlier knowledge time before fetching', () => {
+  it('prefills the earlier knowledge time one week before now and fetches', async () => {
     render(<ChangesView curveId="ecb-aaa-spot" />)
+
+    const input = screen.getByLabelText('Compare from (known as of)')
+    expect(input).toHaveValue(utcToLocalInput('2026-10-12T12:00:00Z').slice(0, 16))
+    await screen.findByRole('cell', { name: formatYield(2.61) })
+    expect(mockedFetch).toHaveBeenCalledWith(expect.objectContaining({ since: '2026-10-12T12:00:00.000Z' }))
+  })
+
+  it('prefills one week before the shared knowledge time', () => {
+    render(<ChangesView curveId="ecb-aaa-spot" asOf="2026-10-15T09:30:00Z" />)
+
+    expect(screen.getByLabelText('Compare from (known as of)')).toHaveValue(
+      utcToLocalInput('2026-10-08T09:30:00Z').slice(0, 16),
+    )
+  })
+
+  it('asks for the earlier knowledge time when it is cleared', () => {
+    render(<ChangesView curveId="ecb-aaa-spot" />)
+
+    fireEvent.change(screen.getByLabelText('Compare from (known as of)'), { target: { value: '' } })
 
     const status = screen.getByRole('status')
     expect(status).toHaveTextContent('Pick a starting point')
     expect(status).toHaveTextContent('Choose the earlier knowledge time to compare.')
     expect(status.querySelector('h1, h2, h3, h4, h5, h6')).toBeNull()
-    expect(mockedFetch).not.toHaveBeenCalled()
   })
 
   it('associates the compare-from label and description with the input', () => {
