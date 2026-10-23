@@ -30,7 +30,7 @@ export default function AppFooter({ curve }: AppFooterProps) {
   return (
     <Box component="footer">
       <Divider />
-      <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
+      <Container fluid px={{ base: 'md', sm: 'lg' }} py="lg">
         <Group justify="space-between" align="flex-start" gap="md">
           <Text size="xs" c="dimmed" maw={640}>
             {curve && <Attribution curve={curve} />}

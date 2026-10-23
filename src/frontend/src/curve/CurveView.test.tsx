@@ -349,7 +349,7 @@ describe('CurveView', () => {
     await renderLoaded()
 
     const headers = screen.getAllByRole('columnheader').map((header) => header.textContent)
-    expect(headers).toEqual(['Maturity', 'Yield (%)', 'Quality', ''])
+    expect(headers).toEqual(['Maturity', 'Yield (%)', 'Quality', 'History'])
   })
 
   it('shows flag badges in the 10Y row before History', async () => {

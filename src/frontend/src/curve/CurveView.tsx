@@ -7,11 +7,11 @@ import {
   Box,
   Card,
   EmptyState,
+  Grid,
   Group,
   SimpleGrid,
   Skeleton,
   Stack,
-  Table,
   TextInput,
   Text,
   Title,
@@ -19,9 +19,11 @@ import {
   VisuallyHidden,
 } from '@mantine/core'
 import { IconArrowsDownUp, IconInfoCircle } from '@tabler/icons-react'
+import DataTable from '../components/DataTable'
 import StatCard from '../components/StatCard'
 import { COMPOUNDING, EMPTY, RATE_TYPE, formatUtc, formatYield, unitSymbol } from '../format'
 import PageHeader from '../layout/PageHeader'
+import { STATUS_LABEL } from '../quality/qualityData'
 import UncheckedNote from '../quality/UncheckedNote'
 import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
@@ -298,96 +300,105 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
               hint={measureHint(measurePoint, 'curvature_2y_5y_10y')}
             />
           </SimpleGrid>
-          <Card aria-busy={overlayLoading || undefined}>
-            <Title order={2} mb="md">{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
-            {entries.length > 0 && (
-              <OverlayEntries entries={entries} labelOf={labelOf} listRef={pillsRef} onRemove={onRemove} />
-            )}
-            {hint && (
-              <Text id={hintId} size="sm" fw={500} mb="md">
-                {hint}
-              </Text>
-            )}
-            <VisuallyHidden aria-live="polite" aria-atomic>
-              {announcement}
-            </VisuallyHidden>
-            <CurveChart curves={curves} />
-            {entries.length > 0 && <OverlayNotes curves={drawnCurves} drawn={curves} />}
-            {(missing.length > 0 || flagged.length > 0) && (
-              <Stack gap={4} mt="sm">
-                {gapNotes(curve, missing).map((note) => (
-                  <Text key={note} size="sm">
-                    {note}
-                  </Text>
-                ))}
-                {flagged.length > 0 && <Text size="sm">Flagged: {flagged.join(', ')}</Text>}
-              </Stack>
-            )}
-            {entries.length > 0 && <OverlayTable curves={curves} />}
-            {entries.map((entry) => {
-              const loaded = overlayResults[entryKey(entry)]
-              const name = `${labelOf(entry.curveId)} · ${entry.validDate}`
-              if (loaded === undefined || loaded.kind === 'ok') return null
-              if (loaded.kind === 'not-found') {
-                return (
-                  <Text key={entryKey(entry)} size="sm" c="dimmed" mt="sm">
-                    {`No data for ${labelOf(entry.curveId)} on ${entry.validDate}.`}
-                  </Text>
-                )
-              }
-              return (
-                <Alert key={entryKey(entry)} color="red" mt="sm" title={`Could not load ${name}`}>
-                  <Stack gap="xs" align="flex-start">
-                    <Text size="sm">Check your connection and try again.</Text>
-                    <Button variant="light" size="xs" onClick={() => setOverlayRetry((count) => count + 1)}>
-                      Try again
-                    </Button>
-                  </Stack>
-                </Alert>
-              )
-            })}
-          </Card>
-          <Card>
-            <Title order={2} mb="md">Values</Title>
-            <Table.ScrollContainer minWidth={560}>
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th scope="col">Maturity</Table.Th>
-                    <Table.Th scope="col" ta="right">Yield (%)</Table.Th>
-                    <Table.Th scope="col">Quality</Table.Th>
-                    <Table.Th scope="col" />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {points.map((point) => (
-                    <Table.Tr key={point.maturity}>
-                      <Table.Td>{point.maturity}</Table.Td>
-                      <Table.Td ta="right">
-                        {point.value === null ? EMPTY : formatYield(point.value)}
-                      </Table.Td>
-                      <Table.Td>
-                        <ValueQualityCell quality={point.quality} maturity={point.maturity} />
-                      </Table.Td>
-                      <Table.Td>
-                        {point.value !== null && (
-                          <Button
-                            size="compact-xs"
-                            variant="subtle"
-                            aria-label={`History ${point.maturity}`}
-                            onClick={() => setHistoryMaturity(point.maturity)}
-                          >
-                            History
-                          </Button>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
+          <Grid>
+            <Grid.Col span={{ base: 12, lg: 7 }}>
+            <Card aria-busy={overlayLoading || undefined}>
+              <Title order={2} mb="md">{`${RATE_TYPE[curve.rateType]} curve (${unitSymbol(curve.unit)})`}</Title>
+              {entries.length > 0 && (
+                <OverlayEntries entries={entries} labelOf={labelOf} listRef={pillsRef} onRemove={onRemove} />
+              )}
+              {hint && (
+                <Text id={hintId} size="sm" fw={500} mb="md">
+                  {hint}
+                </Text>
+              )}
+              <VisuallyHidden aria-live="polite" aria-atomic>
+                {announcement}
+              </VisuallyHidden>
+              <CurveChart curves={curves} />
+              {entries.length > 0 && <OverlayNotes curves={drawnCurves} drawn={curves} />}
+              {(missing.length > 0 || flagged.length > 0) && (
+                <Stack gap={4} mt="sm">
+                  {gapNotes(curve, missing).map((note) => (
+                    <Text key={note} size="sm">
+                      {note}
+                    </Text>
                   ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-            {hasUnchecked && <UncheckedNote />}
-          </Card>
+                  {flagged.length > 0 && <Text size="sm">Flagged: {flagged.join(', ')}</Text>}
+                </Stack>
+              )}
+              {entries.length > 0 && <OverlayTable curves={curves} />}
+              {entries.map((entry) => {
+                const loaded = overlayResults[entryKey(entry)]
+                const name = `${labelOf(entry.curveId)} · ${entry.validDate}`
+                if (loaded === undefined || loaded.kind === 'ok') return null
+                if (loaded.kind === 'not-found') {
+                  return (
+                    <Text key={entryKey(entry)} size="sm" c="dimmed" mt="sm">
+                      {`No data for ${labelOf(entry.curveId)} on ${entry.validDate}.`}
+                    </Text>
+                  )
+                }
+                return (
+                  <Alert key={entryKey(entry)} color="red" mt="sm" title={`Could not load ${name}`}>
+                    <Stack gap="xs" align="flex-start">
+                      <Text size="sm">Check your connection and try again.</Text>
+                      <Button variant="light" size="xs" onClick={() => setOverlayRetry((count) => count + 1)}>
+                        Try again
+                      </Button>
+                    </Stack>
+                  </Alert>
+                )
+              })}
+            </Card>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, lg: 5 }}>
+            <Card>
+              <Title order={2} mb="md">Values</Title>
+              <DataTable
+                columns={[
+                  {
+                    id: 'maturity',
+                    header: 'Maturity',
+                    cell: (point) => point.maturity,
+                    filterText: (point) => point.maturity,
+                  },
+                  {
+                    id: 'yield',
+                    header: 'Yield (%)',
+                    align: 'right',
+                    cell: (point) => (point.value === null ? EMPTY : formatYield(point.value)),
+                    filterText: (point) => (point.value === null ? '' : formatYield(point.value)),
+                  },
+                  {
+                    id: 'quality',
+                    header: 'Quality',
+                    cell: (point) => <ValueQualityCell quality={point.quality} maturity={point.maturity} />,
+                    filterText: (point) => (point.quality === null ? '' : STATUS_LABEL[point.quality.status]),
+                  },
+                  {
+                    id: 'history',
+                    header: 'History',
+                    cell: (point) =>
+                      point.value !== null && (
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          aria-label={`History ${point.maturity}`}
+                          onClick={() => setHistoryMaturity(point.maturity)}
+                        >
+                          History
+                        </Button>
+                      ),
+                  },
+                ]}
+                rows={points}
+                rowKey={(point) => point.maturity}
+              />
+              {hasUnchecked && <UncheckedNote />}
+            </Card>
+            </Grid.Col>
+          </Grid>
           <VersionHistory
             curveId={curve.id}
             maturity={historyMaturity ?? ''}

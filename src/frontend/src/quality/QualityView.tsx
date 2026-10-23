@@ -122,7 +122,7 @@ export default function QualityView({ curve, asOf }: QualityViewProps) {
       />
       {error === undefined && result === undefined && (
         <>
-          <SimpleGrid cols={4}>
+          <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Skeleton h={104} />
             <Skeleton h={104} />
             <Skeleton h={104} />
@@ -200,7 +200,7 @@ function QualityDays({ days, filter, onFilterChange }: QualityDaysProps) {
 
   return (
     <>
-      <SimpleGrid cols={4}>
+      <SimpleGrid cols={{ base: 2, sm: 4 }}>
         <StatCard label="Days checked" value={String(stats.checked)} hint={`of ${stats.total} business days`} />
         <StatCard label="Warnings" value={String(stats.warnings)} hint={`on ${stats.warnDays} days`} />
         <StatCard label="Info flags" value={String(stats.infos)} hint={`on ${stats.infoDays} days`} />

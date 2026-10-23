@@ -124,7 +124,7 @@ export default function App() {
           </AppShell.Navbar>
         )}
         <AppShell.Main>
-          <Container size={1200} px={{ base: 'md', sm: 'lg' }} py="lg">
+          <Container fluid px={{ base: 'md', sm: 'lg' }} py="lg">
             {(state === 'checking' || (state === 'online' && catalogue.kind === 'loading')) && (
               <Stack gap="lg">
                 <PageHeader title="Connecting" />

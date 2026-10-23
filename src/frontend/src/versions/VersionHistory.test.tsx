@@ -80,7 +80,7 @@ function rows(): string[][] {
   const table = screen.getByRole('table')
   return within(table)
     .getAllByRole('row')
-    .slice(1)
+    .filter((row) => row.closest('tbody') !== null)
     .map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent ?? ''))
 }
 

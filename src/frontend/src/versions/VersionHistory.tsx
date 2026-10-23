@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Badge, Drawer, Table, Text } from '@mantine/core'
+import { Alert, Badge, Drawer, Text } from '@mantine/core'
+import DataTable from '../components/DataTable'
 import { formatUtc, formatYield } from '../format'
 import { reasonBadgeProps } from '../theme'
 import { fetchVersions, type VersionsResult } from './fetchVersions'
@@ -38,7 +39,7 @@ export default function VersionHistory({
   }, [curveId, maturity, validDate, asOf, opened])
 
   return (
-    <Drawer.Root position="right" size="xl" opened={opened} onClose={onClose}>
+    <Drawer.Root position="right" size="90%" opened={opened} onClose={onClose}>
       <Drawer.Overlay />
       <Drawer.Content>
         {/* Drawer.Header defaults to <header>, a banner landmark that duplicates the app header. */}
@@ -54,41 +55,60 @@ export default function VersionHistory({
             </Alert>
           )}
           {result?.kind === 'ok' && result.versions.data.versions.length > 0 && (
-            <Table.ScrollContainer
-              minWidth={720}
-              scrollAreaProps={{ viewportProps: { tabIndex: 0 } }}
-            >
-              <Table striped>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th scope="col" ta="right">Value</Table.Th>
-                    <Table.Th scope="col">Known from</Table.Th>
-                    <Table.Th scope="col">Known until</Table.Th>
-                    <Table.Th scope="col">Reason</Table.Th>
-                    <Table.Th scope="col">Source</Table.Th>
-                    <Table.Th scope="col">Run</Table.Th>
-                    <Table.Th scope="col">Delivery</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {result.versions.data.versions.map((version) => (
-                    <Table.Tr key={version.version_id}>
-                      <Table.Td ta="right">{formatYield(version.value)}</Table.Td>
-                      <Table.Td>{formatUtc(version.known_from)}</Table.Td>
-                      <Table.Td>{version.known_to === null ? 'current' : formatUtc(version.known_to)}</Table.Td>
-                      <Table.Td>
-                        <Badge {...reasonBadgeProps(version.change_reason)}>
-                          {version.change_reason}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>{version.source_id ?? EMPTY}</Table.Td>
-                      <Table.Td><Text span inherit display="inline-block" miw="max-content">{version.run_id}</Text></Table.Td>
-                      <Table.Td>{version.delivery_id ?? EMPTY}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+            <DataTable
+              striped
+              columns={[
+                {
+                  id: 'value',
+                  header: 'Value',
+                  align: 'right',
+                  cell: (version) => formatYield(version.value),
+                  filterText: (version) => formatYield(version.value),
+                },
+                {
+                  id: 'known-from',
+                  header: 'Known from',
+                  cell: (version) => formatUtc(version.known_from),
+                  filterText: (version) => formatUtc(version.known_from),
+                },
+                {
+                  id: 'known-until',
+                  header: 'Known until',
+                  cell: (version) => (version.known_to === null ? 'current' : formatUtc(version.known_to)),
+                  filterText: (version) => (version.known_to === null ? 'current' : formatUtc(version.known_to)),
+                },
+                {
+                  id: 'reason',
+                  header: 'Reason',
+                  cell: (version) => <Badge {...reasonBadgeProps(version.change_reason)}>{version.change_reason}</Badge>,
+                  filterText: (version) => version.change_reason,
+                },
+                {
+                  id: 'source',
+                  header: 'Source',
+                  cell: (version) => version.source_id ?? EMPTY,
+                  filterText: (version) => version.source_id ?? '',
+                },
+                {
+                  id: 'run',
+                  header: 'Run',
+                  cell: (version) => (
+                    <Text span inherit display="inline-block" miw="max-content">
+                      {version.run_id}
+                    </Text>
+                  ),
+                  filterText: (version) => version.run_id,
+                },
+                {
+                  id: 'delivery',
+                  header: 'Delivery',
+                  cell: (version) => version.delivery_id ?? EMPTY,
+                  filterText: (version) => version.delivery_id ?? '',
+                },
+              ]}
+              rows={result.versions.data.versions}
+              rowKey={(version) => String(version.version_id)}
+            />
           )}
           {result?.kind === 'offline' && (
             <Alert color="red" role="alert">

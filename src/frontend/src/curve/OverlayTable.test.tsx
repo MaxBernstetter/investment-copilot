@@ -24,7 +24,7 @@ describe('OverlayTable', () => {
   it('has a caption naming the overlay and one row header per curve·date entry, in legend order', () => {
     render(<OverlayTable curves={curves} />)
     expect(screen.getByRole('table', { name: 'Overlaid curves: ECB AAA · 2026-10-15, US par · 2026-10-16' })).toBeVisible()
-    const rows = screen.getAllByRole('row').slice(1)
+    const rows = screen.getAllByRole('row').filter((row) => row.closest('tbody') !== null)
     expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual([
       'ECB AAA · 2026-10-15',
       'US par · 2026-10-16',
@@ -39,7 +39,7 @@ describe('OverlayTable', () => {
 
   it('shows a missing tenor as an empty cell with a no-value text, not as zero', () => {
     render(<OverlayTable curves={curves} />)
-    const usRow = screen.getAllByRole('row')[2]
+    const usRow = screen.getAllByRole('row').filter((row) => row.closest('tbody') !== null)[1]
     const cells = within(usRow).getAllByRole('cell')
     expect(cells[0]).toHaveTextContent('No value')
     expect(cells[0].textContent).not.toContain('0.000')

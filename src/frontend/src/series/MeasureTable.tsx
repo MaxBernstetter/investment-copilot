@@ -1,4 +1,5 @@
-import { Badge, Table, Text, VisuallyHidden } from '@mantine/core'
+import { Badge, Text, VisuallyHidden } from '@mantine/core'
+import DataTable, { type TableColumn } from '../components/DataTable'
 import { measureHint, type MeasureKey, type MeasurePoint } from '../curve/measuresData'
 import { EMPTY, formatBpPlain } from '../format'
 import UncheckedNote from '../quality/UncheckedNote'
@@ -21,33 +22,31 @@ type MeasureTableProps = {
 /** Valid date, value in bp without the unit (the header carries it), and quality for each day. */
 export default function MeasureTable({ points, measureKey }: MeasureTableProps) {
   const hasUnchecked = points.some((point) => point.quality.status === 'unchecked')
+  const columns: TableColumn<MeasurePoint>[] = [
+    { id: 'valid-date', header: 'Valid date', cell: (point) => point.valid_date, filterText: (point) => point.valid_date },
+    {
+      id: 'value',
+      header: 'Value (bp)',
+      align: 'right',
+      cell: (point) => {
+        const value = point[measureKey]
+        return value === null || value === undefined ? EMPTY : formatBpPlain(value)
+      },
+      filterText: (point) => {
+        const value = point[measureKey]
+        return value === null || value === undefined ? '' : formatBpPlain(value)
+      },
+    },
+    {
+      id: 'quality',
+      header: 'Quality',
+      cell: (point) => <MeasureQualityCell point={point} measureKey={measureKey} />,
+      filterText: (point) => measureHint(point, measureKey) ?? STATUS_LABEL[point.quality.status],
+    },
+  ]
   return (
     <>
-      <Table.ScrollContainer minWidth={560}>
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th scope="col">Valid date</Table.Th>
-              <Table.Th scope="col" ta="right">Value (bp)</Table.Th>
-              <Table.Th scope="col">Quality</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {points.map((point) => {
-              const value = point[measureKey]
-              return (
-                <Table.Tr key={point.valid_date}>
-                  <Table.Td>{point.valid_date}</Table.Td>
-                  <Table.Td ta="right">{value === null || value === undefined ? EMPTY : formatBpPlain(value)}</Table.Td>
-                  <Table.Td>
-                    <MeasureQualityCell point={point} measureKey={measureKey} />
-                  </Table.Td>
-                </Table.Tr>
-              )
-            })}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <DataTable columns={columns} rows={points} rowKey={(point) => point.valid_date} />
       {hasUnchecked && <UncheckedNote />}
     </>
   )
