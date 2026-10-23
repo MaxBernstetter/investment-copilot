@@ -9,8 +9,9 @@ import {
   setColorScheme,
   VIEWPORTS,
   waitForCurveLoaded,
+  waitForKeyFigures,
 } from './helpers'
-import { catalogue, freezeClock, installApiMocks } from './mockApi'
+import { catalogue, curveBody, curveGrid, freezeClock, installApiMocks, measuresBody, measuresGrid } from './mockApi'
 
 const AXE_VIEWPORT = { width: 1440, height: 900 }
 
@@ -63,6 +64,21 @@ async function routeQuality(page: Page, status: number, body: unknown) {
   )
 }
 
+/** Overrides the measures endpoint for one test; registered after beforeEach, so it wins. */
+async function routeMeasures(page: Page, status: number, body: unknown) {
+  await page.route('**/v1/curves/*/measures**', (route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
+  )
+}
+
+/** The key-figure card with this label, found by its label text. */
+function statCard(page: Page, label: string) {
+  return page.locator('.mantine-Card-root', { has: page.getByText(label, { exact: true }) })
+}
+
+/** Help text of the 2Y–10Y spread tooltip, as in CurveView. */
+const HELP_2Y_10Y = '10Y yield minus 2Y yield, in basis points. Also called the slope. Below zero the curve is inverted.'
+
 /** Opens one flag popover at every viewport and scheme, checks it, and closes it again. */
 async function captureFlagPopover(page: Page, flagName: string, id: string) {
   const flag = page.getByRole('button', { name: flagName })
@@ -111,6 +127,10 @@ test.describe('visual snapshots §7', () => {
   test('S1 curve, real, live', async ({ page }) => {
     await page.goto('/')
     await waitForCurveLoaded(page)
+    await expect(page.getByText('+52.1 bp')).toBeVisible()
+    await expect(page.getByText('+77.1 bp')).toBeVisible()
+    await expect(page.getByText('\u221212.1 bp')).toBeVisible()
+    await expect(statCard(page, '10Y yield')).toContainText('2.871')
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S1', ['light', 'dark'])
   })
@@ -120,7 +140,12 @@ test.describe('visual snapshots §7', () => {
     await waitForCurveLoaded(page)
     await expect(page.getByRole('status')).toContainText('As of 19 Oct 2026, 18:49:25 UTC')
     await expect(page.getByRole('note')).toBeVisible()
-    await expect(page.getByText('Flagged: 10Y')).toBeVisible()
+    await expect(page.getByText('Flagged: 10Y', { exact: true })).toBeVisible()
+    await expect(page.getByText('Input flagged: 10Y')).toHaveCount(3)
+    await expect(page.getByText('Value flagged')).toBeVisible()
+    await expect(page.getByText('+2,405.0 bp')).toBeVisible()
+    await expect(page.getByText('+2,430.0 bp')).toBeVisible()
+    await expect(page.getByText('\u22122,365.0 bp')).toBeVisible()
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S2', ['light'])
   })
@@ -133,6 +158,7 @@ test.describe('visual snapshots §7', () => {
     await page.getByLabel(/Valid date/).fill('2026-10-14')
     await page.getByRole('button', { name: 'Add to overlay' }).click()
     await expect(page.getByLabel('Overlaid valid dates')).toBeVisible()
+    await waitForKeyFigures(page)
     await assertAxeAt(page, ['light', 'dark'])
     await captureSnapshots(page, 'S3', ['light', 'dark'])
   })
@@ -263,6 +289,97 @@ test.describe('visual snapshots §7', () => {
     await page.goto('/?curve=ecb-aaa-spot-sim&as_of=2026-10-19T18%3A49%3A25Z')
     await waitForCurveLoaded(page)
     await captureFlagPopover(page, 'Range · warn, 10Y', 'S16')
+  })
+
+  test('S18 curve inverted', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByLabel(/Valid date/).fill('2026-10-13')
+    await expect(page.getByLabel(/Valid date/)).toHaveValue('2026-10-13')
+    await waitForKeyFigures(page)
+    await expect(page.getByText('Inverted')).toBeVisible()
+    await expect(page.getByText('\u221215.0 bp')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S18', ['light', 'dark'])
+  })
+
+  test('S19 curvature without 5Y', async ({ page }) => {
+    const inputs = (measuresGrid.point.inputs as { maturity: string }[]).filter((input) => input.maturity !== '5Y')
+    await page.route('**/v1/curves/*/observations**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          curveBody('ecb-aaa-spot', {
+            ...curveGrid,
+            points: curveGrid.points.map((point) => (point.maturity === '5Y' ? { ...point, value: null } : point)),
+          }),
+        ),
+      }),
+    )
+    await routeMeasures(
+      page,
+      200,
+      measuresBody(
+        'ecb-aaa-spot',
+        {
+          ...measuresGrid,
+          point: {
+            ...measuresGrid.point,
+            curvature_2y_5y_10y: null,
+            missing: ['5Y'],
+            inputs,
+          },
+        },
+        '2026-10-16',
+      ),
+    )
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await expect(page.getByText('No 5Y value')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S19', ['light'])
+  })
+
+  test('S20 measures unavailable', async ({ page }) => {
+    await routeMeasures(page, 503, { detail: 'The measures service is not reachable; try again later.' })
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await expect(page.getByText('Not available')).toHaveCount(3)
+    await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S20', ['light'])
+  })
+
+  test('S21 key figure tooltip from keyboard', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    const add = page.getByRole('button', { name: 'Add to overlay' })
+    const about = page.getByRole('button', { name: 'About 2Y–10Y spread' })
+    const tooltip = page.getByRole('tooltip')
+    for (const { width, height } of VIEWPORTS) {
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height })
+        await setColorScheme(page, scheme)
+        await add.focus()
+        await expect(add).toBeFocused()
+        await page.keyboard.press('Tab')
+        await page.keyboard.press('Tab')
+        await expect(about).toBeFocused()
+        // Wait for the new tooltip by its text, then for it to be the only one: a closing tooltip can linger.
+        await expect(page.getByRole('tooltip').filter({ hasText: HELP_2Y_10Y })).toHaveCount(1)
+        await expect(tooltip).toHaveCount(1)
+        await settleAnimations(page)
+        await expectOpaque(tooltip)
+        if (width === AXE_VIEWPORT.width) {
+          await runAxe(page)
+        }
+        await expect(page).toHaveScreenshot(screenshotName('S21', width, height, scheme))
+        await page.keyboard.press('Escape')
+        await expect(tooltip).toHaveCount(0)
+      }
+    }
   })
 
   test('S13 quality no business days', async ({ page }) => {

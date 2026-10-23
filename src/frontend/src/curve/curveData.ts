@@ -50,14 +50,6 @@ export function yield10y(points: CurvePoint[]): number | undefined {
   return yieldAt(points, '10Y')
 }
 
-/** 10Y minus 2Y in basis points from the same curve, or undefined when either leg is missing. */
-export function spread2s10s(points: CurvePoint[]): number | undefined {
-  const y2 = yieldAt(points, '2Y')
-  const y10 = yieldAt(points, '10Y')
-  if (y2 === undefined || y10 === undefined) return undefined
-  return (y10 - y2) * 100
-}
-
 /** Hint under the 10Y yield card: missing, or flagged info/warn. */
 export function tenYearHint(points: CurvePoint[]): string | undefined {
   if (yield10y(points) === undefined) return 'Not available'

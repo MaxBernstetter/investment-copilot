@@ -8,6 +8,8 @@ import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchVersions } from '../versions/fetchVersions'
 import type { ValueQuality } from '../quality/qualityData'
 import { AAA, SIM } from '../test/catalogue'
+import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
+import type { MeasurePoint } from './measuresData'
 
 vi.mock('./CurveChart', () => ({
   default: vi.fn(() => null),
@@ -21,11 +23,48 @@ vi.mock('../versions/fetchVersions', () => ({
   fetchVersions: vi.fn(),
 }))
 
+vi.mock('./fetchMeasures', () => ({
+  fetchMeasures: vi.fn(),
+}))
+
 const mockedFetch = vi.mocked(fetchCurve)
 const mockedVersions = vi.mocked(fetchVersions)
+const mockedMeasures = vi.mocked(fetchMeasures)
 const mockedChart = vi.mocked(CurveChart)
 
 const passedQuality = { status: 'passed' as const, flags: [] }
+
+/** A measures answer for one valid date; overrides change the point of that date. */
+function measuresResult(validDate: string, overrides: Partial<MeasurePoint> = {}): MeasuresResult {
+  return {
+    kind: 'ok',
+    measures: {
+      data: {
+        curve_id: 'ecb-aaa-spot',
+        valid_from: validDate,
+        valid_to: validDate,
+        points: [
+          {
+            valid_date: validDate,
+            spread_2y_10y: 52.1,
+            spread_3m_10y: 77.1,
+            curvature_2y_5y_10y: -12.1,
+            inverted: false,
+            inputs: [],
+            missing: [],
+            quality: { status: 'passed', flagged: [] },
+            ...overrides,
+          },
+        ],
+      },
+      meta: {
+        as_of: '2026-10-19T10:00:00Z',
+        method_version: '1',
+        source_attribution: 'Source: ECB statistics',
+      },
+    },
+  }
+}
 
 /** qualities[i], when given, replaces the default quality of grid point i. */
 function curveResult(
@@ -59,6 +98,7 @@ beforeEach(() => {
   mockedFetch.mockImplementation(async ({ validDate }) =>
     curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
   )
+  mockedMeasures.mockImplementation(async ({ from }) => measuresResult(from))
   mockedVersions.mockResolvedValue({
     kind: 'ok',
     versions: {
@@ -85,6 +125,13 @@ async function renderLoaded() {
   return view
 }
 
+/** Waits until the key figures have their measures (the grid is no longer aria-busy). */
+async function waitForMeasures() {
+  await waitFor(() =>
+    expect(screen.getByText('10Y yield').closest('.mantine-SimpleGrid-root')).not.toHaveAttribute('aria-busy'),
+  )
+}
+
 function addButton() {
   return screen.getByRole('button', { name: 'Add to overlay' })
 }
@@ -98,10 +145,18 @@ function chartLabels(): string[] {
   return last ? last[0].curves.map((curve) => curve.label) : []
 }
 
+function statCard(label: string): HTMLElement {
+  const card = screen.getByText(label).closest('.mantine-Card-root')
+  expect(card).not.toBeNull()
+  return card as HTMLElement
+}
+
 function expectStatValue(label: string, value: string | RegExp) {
-  const stack = screen.getByText(label).parentElement
-  expect(stack).not.toBeNull()
-  expect(within(stack!).getByText(value)).toBeInTheDocument()
+  expect(within(statCard(label)).getByText(value)).toBeInTheDocument()
+}
+
+function expectStatHint(label: string, hint: string) {
+  expect(within(statCard(label)).getByText(hint)).toBeInTheDocument()
 }
 
 describe('CurveView', () => {
@@ -144,22 +199,121 @@ describe('CurveView', () => {
     expect(screen.getByText('Simulated scenario based on ECB AAA spot')).toBeInTheDocument()
   })
 
-  it('shows key figures with formatted yield and spread', async () => {
+  it('shows the four key figures', async () => {
     await renderLoaded()
+    await waitForMeasures()
 
     expectStatValue('10Y yield', /2\.600/)
-    expectStatValue('2Y–10Y spread', '+10.0 bp')
-    expectStatValue('Curve date', '2026-10-16')
-    expectStatValue('Knowledge', 'Live')
+    expectStatValue('2Y–10Y spread', '+52.1 bp')
+    expectStatValue('3M–10Y spread', '+77.1 bp')
+    expectStatValue('2Y–5Y–10Y curvature', '\u221212.1 bp')
+    expect(screen.queryByText('Curve date')).toBeNull()
+    expect(screen.queryByText('Knowledge')).toBeNull()
   })
 
-  it('shows a negative spread when 10Y is below 2Y', async () => {
-    mockedFetch.mockImplementation(async ({ validDate }) =>
-      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 3.0, 2.6, null, null]),
+  it('requests measures for the shown date at the curve answer\'s as_of', async () => {
+    await renderLoaded()
+
+    await waitFor(() =>
+      expect(mockedMeasures).toHaveBeenCalledWith({
+        curveId: 'ecb-aaa-spot',
+        from: '2026-10-16',
+        to: '2026-10-16',
+        asOf: '2026-10-19T10:00:00Z',
+      }),
+    )
+  })
+
+  it('refetches measures for a picked date', async () => {
+    await renderLoaded()
+
+    pickDate('2026-10-01')
+
+    await waitFor(() =>
+      expect(mockedMeasures).toHaveBeenLastCalledWith(
+        expect.objectContaining({ from: '2026-10-01', to: '2026-10-01' }),
+      ),
+    )
+  })
+
+  it('shows the Inverted badge when the curve is inverted', async () => {
+    mockedMeasures.mockImplementation(async ({ from }) =>
+      measuresResult(from, { spread_2y_10y: -15, inverted: true }),
     )
     await renderLoaded()
 
-    expectStatValue('2Y–10Y spread', '−40.0 bp')
+    expect(await screen.findByText('Inverted')).toBeInTheDocument()
+    expectStatValue('2Y–10Y spread', '\u221215.0 bp')
+    expect(statCard('2Y–10Y spread')).toContainElement(screen.getByText('Inverted'))
+  })
+
+  it('shows no Inverted badge otherwise', async () => {
+    await renderLoaded()
+
+    await waitFor(() => expectStatValue('2Y–10Y spread', '+52.1 bp'))
+    expect(screen.queryByText('Inverted')).toBeNull()
+  })
+
+  it('explains a missing input', async () => {
+    mockedMeasures.mockImplementation(async ({ from }) =>
+      measuresResult(from, { curvature_2y_5y_10y: null, missing: ['5Y'] }),
+    )
+    await renderLoaded()
+    await waitForMeasures()
+
+    expectStatValue('2Y–5Y–10Y curvature', '–')
+    expectStatHint('2Y–5Y–10Y curvature', 'No 5Y value')
+  })
+
+  it('shows Not available when the measures request fails', async () => {
+    mockedMeasures.mockResolvedValue({ kind: 'offline' })
+    await renderLoaded()
+
+    expect(await screen.findAllByText('Not available')).toHaveLength(3)
+    expect(screen.getByRole('heading', { name: 'Values' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows flagged input hints', async () => {
+    const warn = { status: 'warn' as const, flags: [] }
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null], [null, null, null, warn, null, null]),
+    )
+    mockedMeasures.mockImplementation(async ({ from }) =>
+      measuresResult(from, { quality: { status: 'warn', flagged: ['10Y'] } }),
+    )
+    await renderLoaded()
+
+    expect(await screen.findAllByText('Input flagged: 10Y')).toHaveLength(3)
+    expectStatHint('10Y yield', 'Value flagged')
+  })
+
+  it('shows Not available for a missing 10Y', async () => {
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, null, null, null]),
+    )
+    await renderLoaded()
+
+    expectStatValue('10Y yield', '–')
+    expectStatHint('10Y yield', 'Not available')
+  })
+
+  it('shows skeletons while measures load', async () => {
+    mockedMeasures.mockReturnValue(new Promise(() => {}))
+    await renderLoaded()
+
+    const grid = screen.getByText('10Y yield').closest('.mantine-SimpleGrid-root')
+    expect(grid).toHaveAttribute('aria-busy', 'true')
+    expect(grid!.querySelectorAll('.mantine-Skeleton-root')).toHaveLength(3)
+    expectStatValue('10Y yield', /2\.600/)
+  })
+
+  it('each key figure has an explanation', async () => {
+    await renderLoaded()
+
+    for (const label of ['10Y yield', '2Y–10Y spread', '3M–10Y spread', '2Y–5Y–10Y curvature']) {
+      expect(screen.getByRole('button', { name: `About ${label}` })).toBeInTheDocument()
+    }
   })
 
   it('values table has a Quality column after Yield', async () => {

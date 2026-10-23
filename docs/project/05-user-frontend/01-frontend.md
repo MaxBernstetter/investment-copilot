@@ -30,9 +30,9 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 - **Latest curve:** on open, the view calls `GET /v1/curves/{curve_id}/observations` without `valid_date`; the date input then shows the `valid_date` the API returned.
 - **Valid date:** in the page header, with an info tooltip (ECB business day). Picking a date refetches for that date. Clearing the input returns to the latest curve.
-- **Key figures:** 10Y yield (`formatYield`, 3 dp), 2Y–10Y spread in basis points (`spread2s10s` and `formatBp`, signed), curve date and knowledge (`Live` or `formatUtc(asOf)`).
+- **Key figures:** 10Y yield from the curve (`formatYield`, 3 dp, hint "Not available" or "Value flagged"); 2Y–10Y spread (with a gray "Inverted" badge), 3M–10Y spread and 2Y–5Y–10Y curvature from `GET /v1/curves/{curve_id}/measures`, in signed basis points. The request uses `from = to` = the curve answer's `valid_date` and `as_of` = the curve answer's `meta.as_of`, so date and knowledge time come from one answer. Each label has a Q5 tooltip with its definition. Hints follow C5 (`measuresData.ts`). The grid shows skeletons and `aria-busy` while the measures load; a failed request shows "Not available" only, with no alert, and the rest of the page renders.
 - **Gaps and flags:** maturities without a published value (`value: null`) are plotted as gaps, not zeros. Dimmed captions under the chart list them ("No value for: …") and the maturities with an info or warn flag ("Flagged: …", `flaggedMaturities`), in grid order. The chart has no quality marks. Points keep the API's grid order.
-- **Values table:** every grid maturity with yield to three decimals, its quality and a subtle "History" row action (`aria-label` "History {maturity}"), in a `Table.ScrollContainer` with a minimum width of 560 px. The Quality column (`ValueQualityCell`) shows one flag badge per flag (Q1, warnings first, `aria-label` "{rule} · {severity}, {maturity}"). Its popover shows the API's explanation and evidence and links to the methodology note. Info or warn without flags shows a static status badge, an unchecked value a static "Unchecked" badge, a passed value only a visually hidden "Passed", and a missing value nothing. When a value is unchecked, `UncheckedNote` under the table explains it and links "How we check this". The key figures and the history drawer show no quality.
+- **Values table:** every grid maturity with yield to three decimals, its quality and a subtle "History" row action (`aria-label` "History {maturity}"), in a `Table.ScrollContainer` with a minimum width of 560 px. The Quality column (`ValueQualityCell`) shows one flag badge per flag (Q1, warnings first, `aria-label` "{rule} · {severity}, {maturity}"). Its popover shows the API's explanation and evidence and links to the methodology note. Info or warn without flags shows a static status badge, an unchecked value a static "Unchecked" badge, a passed value only a visually hidden "Passed", and a missing value nothing. When a value is unchecked, `UncheckedNote` under the table explains it and links "How we check this". The history drawer shows no quality; the key figures show flagged inputs as hints.
 - **Errors:** 404 shows "No data known for this date."; 422 and other errors show the problem `detail`; 503 or an unreachable API shows the offline alert.
 - **Attribution:** the source is in the footer (see [Layout](#layout)).
 
@@ -47,11 +47,13 @@ The page shows the ECB euro area AAA spot curve (`curve_id` `ecb-aaa-spot`, or i
 
 | Path | Content |
 |---|---|
-| `src/components/StatCard.tsx` | Reusable key figure card (label, value, optional hint) |
+| `src/components/StatCard.tsx` | Reusable key figure card (label, value, optional hint, help tooltip, badge, loading skeleton) |
 | `src/curve/CurveView.tsx` | Curve page: header actions, stat cards, chart and values cards |
 | `src/curve/CurveChart.tsx` | Mantine line chart, one line per curve, gaps unconnected |
 | `src/curve/fetchCurve.ts` | API call and mapping of responses to `CurveResult` |
-| `src/curve/curveData.ts` | Chart series, missing and flagged maturities, `yield10y`, `spread2s10s` |
+| `src/curve/curveData.ts` | Chart series, missing and flagged maturities, `yield10y`, `tenYearHint` |
+| `src/curve/fetchMeasures.ts` | Measures API call and mapping to `MeasuresResult` |
+| `src/curve/measuresData.ts` | Measure values and hints |
 
 ## Time series
 
@@ -237,7 +239,7 @@ Run from the repository root with `devbox run -- task frontend:<task>` (see [[13
 | `frontend:build` | Production bundle in `dist/`, with `VITE_COMMIT` set from the git commit |
 | `frontend:build:pages` | Production bundle for GitHub Pages (base `/yield-lens/`); needs `VITE_ACCESS_URL` |
 | `frontend:size` | Bundle budget with `size-limit` on the built `dist/`; depends on `build` |
-| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S17, S5t, S25), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
+| `frontend:e2e` | Playwright against `vite preview` with mocked access API fixtures: visual snapshots (S1–S21, S5t, S25), axe (`wcag2a`, `wcag2aa`, `wcag21aa`), layout at 1280 px, charts inside their card, keyboard |
 | `frontend:e2e:update` | Re-baseline screenshot files (only after designer approval) |
 | `frontend:dev` | Vite dev server on port 5174 (override with `FRONTEND_PORT`; fails if the port is taken) |
 

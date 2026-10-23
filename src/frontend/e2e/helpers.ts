@@ -36,6 +36,12 @@ export async function waitForCurveLoaded(page: Page) {
   await expect(page.getByRole('heading', { level: 1, name: 'Yield curve' })).toBeVisible()
   await expect(page.getByLabel(/Valid date/)).toHaveValue('2026-10-16', { timeout: 15_000 })
   await expect(page.getByRole('button', { name: 'Add to overlay' })).toBeEnabled({ timeout: 15_000 })
+  await waitForKeyFigures(page)
+}
+
+/** Waits until the key figures have their measures (the grid is no longer aria-busy). */
+export async function waitForKeyFigures(page: Page) {
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 })
 }
 
 /** Inner padding of a chart card (design T2/L2): chart content keeps at least this many px from the border. */
