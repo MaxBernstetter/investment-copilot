@@ -44,6 +44,9 @@ export type MeasuresFixture = {
 export const measuresGrid = loadJson<MeasuresFixture>('measures-grid.json')
 const measuresSimSpike = loadJson<MeasuresFixture>('measures-sim-spike.json')
 const measuresInverted = loadJson<MeasuresFixture>('measures-inverted.json')
+const measuresRange = loadJson<{ meta: MeasuresFixture['meta']; points: Record<string, unknown>[] }>(
+  'measures-range.json',
+)
 const series10y = loadJson<SeriesFixture>('series-10y.json')
 const series10ySimSpike = loadJson<SeriesFixture>('series-10y-sim-spike.json')
 const changesThree = loadJson<{
@@ -68,6 +71,20 @@ export function measuresBody(curveId: string, fixture: MeasuresFixture, validDat
       points: [{ valid_date: validDate, ...fixture.point }],
     },
     meta: fixture.meta,
+  }
+}
+
+/** Several valid dates, for a measure over a range (the Time series view); the curve view asks for one date. */
+export function measuresRangeBody(curveId: string) {
+  const dates = measuresRange.points.map((point) => point.valid_date as string)
+  return {
+    data: {
+      curve_id: curveId,
+      valid_from: dates[0],
+      valid_to: dates[dates.length - 1],
+      points: measuresRange.points,
+    },
+    meta: measuresRange.meta,
   }
 }
 
@@ -254,9 +271,14 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
     if (path.match(/^\/v1\/curves\/[^/]+\/measures$/)) {
       const curveId = path.split('/')[3]
       const from = url.searchParams.get('from') ?? '2026-10-16'
+      const to = url.searchParams.get('to') ?? from
       const asOf = url.searchParams.get('as_of')
       if (mode === 'not-found') {
         await fulfillJson(route, 404, { detail: 'No data known for this date.' })
+        return
+      }
+      if (to !== from) {
+        await fulfillJson(route, 200, measuresRangeBody(curveId))
         return
       }
       if (from === '2026-10-13') {

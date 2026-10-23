@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "as_of": "2026-10-19T10:00:00Z",
+    "method_version": "1",
+    "source_attribution": "Source: ECB statistics"
+  },
+  "points": [
+    {
+      "valid_date": "2026-10-05",
+      "spread_2y_10y": 28.4,
+      "spread_3m_10y": 55.2,
+      "curvature_2y_5y_10y": -9.1,
+      "inverted": false,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-06",
+      "spread_2y_10y": 12.0,
+      "spread_3m_10y": 41.7,
+      "curvature_2y_5y_10y": -4.3,
+      "inverted": false,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-07",
+      "spread_2y_10y": -3.6,
+      "spread_3m_10y": 20.1,
+      "curvature_2y_5y_10y": 2.8,
+      "inverted": true,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-08",
+      "spread_2y_10y": -8.9,
+      "spread_3m_10y": 14.6,
+      "curvature_2y_5y_10y": 5.2,
+      "inverted": true,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-09",
+      "spread_2y_10y": null,
+      "spread_3m_10y": 31.0,
+      "curvature_2y_5y_10y": null,
+      "inverted": false,
+      "inputs": [],
+      "missing": [
+        "2Y"
+      ],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-12",
+      "spread_2y_10y": -12.4,
+      "spread_3m_10y": 9.8,
+      "curvature_2y_5y_10y": 6.5,
+      "inverted": true,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "warn",
+        "flagged": [
+          "10Y"
+        ]
+      }
+    },
+    {
+      "valid_date": "2026-10-13",
+      "spread_2y_10y": 4.7,
+      "spread_3m_10y": 22.3,
+      "curvature_2y_5y_10y": -1.9,
+      "inverted": false,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    },
+    {
+      "valid_date": "2026-10-14",
+      "spread_2y_10y": 9.0,
+      "spread_3m_10y": 26.5,
+      "curvature_2y_5y_10y": -2.4,
+      "inverted": false,
+      "inputs": [],
+      "missing": [],
+      "quality": {
+        "status": "passed",
+        "flagged": []
+      }
+    }
+  ]
+}

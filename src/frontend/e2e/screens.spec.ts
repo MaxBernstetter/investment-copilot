@@ -253,6 +253,45 @@ test.describe('visual snapshots §7', () => {
     await captureSnapshots(page, 'S33', ['light'])
   })
 
+  test('S30 time series spread chart', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByRole('tab', { name: 'Time series' }).click()
+    const panel = page.getByRole('tabpanel', { name: 'Time series' })
+    await page.getByLabel('Series', { exact: true }).selectOption({ label: '2Y–10Y spread' })
+    await expect(panel.getByText('Inverted on 3 of 7 days')).toBeVisible()
+    await expect(panel.locator('.recharts-wrapper')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S30', ['light', 'dark'])
+  })
+
+  test('S31 time series spread table', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByRole('tab', { name: 'Time series' }).click()
+    const panel = page.getByRole('tabpanel', { name: 'Time series' })
+    await page.getByLabel('Series', { exact: true }).selectOption({ label: '2Y–10Y spread' })
+    await panel.locator('.mantine-SegmentedControl-label').filter({ hasText: 'Table' }).click()
+    await expect(panel.getByRole('cell', { name: '−12.4', exact: true })).toBeVisible()
+    await expect(panel.getByText('No 2Y value')).toBeVisible()
+    await expect(panel.getByText('Input flagged: 10Y')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S31', ['light'])
+  })
+
+  test('S32 time series curvature chart', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await page.getByRole('tab', { name: 'Time series' }).click()
+    const panel = page.getByRole('tabpanel', { name: 'Time series' })
+    await page.getByLabel('Series', { exact: true }).selectOption({ label: '2Y–5Y–10Y curvature' })
+    await expect(panel.getByRole('heading', { name: '2Y–5Y–10Y curvature (bp)' })).toBeVisible()
+    await expect(panel.getByText(/^Inverted on/)).toHaveCount(0)
+    await expect(panel.locator('.recharts-wrapper')).toBeVisible()
+    await assertAxeAt(page, ['light', 'dark'])
+    await captureSnapshots(page, 'S32', ['light'])
+  })
+
   test('S6 changes with three rows', async ({ page }) => {
     await page.goto('/')
     await waitForCurveLoaded(page)

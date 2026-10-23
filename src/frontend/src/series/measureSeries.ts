@@ -63,8 +63,9 @@ export function invertedDays(points: MeasurePoint[], key: SpreadKey): InvertedCo
   return { inverted: values.filter((value) => value < 0).length, total: values.length }
 }
 
+/** "Inverted on 2 of 5 days", "Inverted on 0 of 1 day". */
 export function invertedHint({ inverted, total }: InvertedCount): string {
-  return `Inverted on ${inverted} of ${total} days`
+  return `Inverted on ${inverted} of ${total} ${total === 1 ? 'day' : 'days'}`
 }
 
 /** The measure's own inputs that carry a warn or info flag on this day. */

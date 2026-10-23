@@ -62,7 +62,7 @@ The "Time series" view shows one yield maturity or one measure of the same curve
 
 - **Header:** title "Time series", subtitle "{maturity} yield over valid dates (%)" or "{measure} over valid dates (bp)", and actions for the series and the date range.
 - **Series:** a select labelled "Series" with two groups: "Yields" (the 11 grid tenors, 3M to 30Y) and "Measures" (2Y–10Y spread, 3M–10Y spread, 2Y–5Y–10Y curvature). It defaults to 10Y and refetches on change; the range and the as-of time carry over.
-- **Measures:** the card is titled "{measure} (bp)" with an info icon whose tooltip gives the definition (`MEASURE_HELP`, the same as the curve view). Key figures are last, min, max and change in signed bp (`formatBp`); "Last" is dated when its day is not the last returned day, and "Change over range" says "Needs two values" with fewer than two values. The chart uses 1 dp for tooltips and ticks, and a null day is a gap. Under the chart or table, a caption counts the gap days ("No value on 1 day; shown as gaps.") and the flagged days. The table has the columns "Valid date", "Value (bp)" (plain signed values, no unit, as the header carries it) and "Quality", where a null or flagged day shows its dimmed hint ("No 2Y value", "Input flagged: 10Y").
+- **Measures:** the card is titled "{measure} (bp)" with an info icon whose tooltip gives the definition (`MEASURE_HELP`, the same as the curve view). Key figures are last, min, max and change in signed bp (`formatBp`); "Last" is dated when its day is not the last returned day, and "Change over range" says "Needs two values" with fewer than two values. The chart uses 1 dp for tooltips and ticks, and a null day is a gap. A spread (2Y–10Y, 3M–10Y) also draws a dashed, dimmed 0 bp line labelled "0 bp", with the y domain still automatic, so the line shows only where 0 is in range; curvature has none. Under the chart or table, captions appear in this order: "Inverted on {n} of {m} days" for spreads (m counts the days with a value, 3M–10Y uses its own value, and "1 day" for one day; no caption when m is 0), then the gap days ("No value on 1 day; shown as gaps."), then the flagged days. The table has the columns "Valid date", "Value (bp)" (plain signed values, no unit, as the header carries it) and "Quality", where a null or flagged day shows its dimmed hint ("No 2Y value", "Input flagged: 10Y").
 - **Empty and errors:** a range with no values, or a measure with no non-null day, shows an `EmptyState`; a measure's empty state offers "Show 10Y yield". Offline and error answers show a titled red `Alert` with "Try again", which refetches. Until the answer for the current selection arrives, the key figures and card are skeletons, so an old series is never shown under a new title.
 - **Range:** "From" and "To" date inputs default to the last 365 days up to today (UTC). Dates without a value are absent from the series, not zeros.
 - **Key figures:** last, min and max yield (`formatYield`, 3 dp) and change over the range in basis points (`seriesStats` and `formatBp`, signed, true minus).
@@ -75,10 +75,10 @@ The "Time series" view shows one yield maturity or one measure of the same curve
 | Path | Content |
 |---|---|
 | `src/series/SeriesView.tsx` | Time series page: header actions, stat cards, chart/table card |
-| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush; rows, series label and decimals as props |
+| `src/series/SeriesChart.tsx` | Mantine line chart over valid dates, linear with brush; rows, series label, decimals and the optional 0 bp line as props |
 | `src/series/MeasureCard.tsx` | Measure key figures, chart or table and captions |
 | `src/series/MeasureTable.tsx` | Measure table with Value (bp) and Quality cells |
-| `src/series/measureSeries.ts` | Series choice values, measure rows, stats, gap and flagged counts |
+| `src/series/measureSeries.ts` | Series choice values, measure rows, stats, inverted hint, gap and flagged counts |
 | `src/series/fetchSeries.ts` | API call and mapping of responses to `SeriesResult` |
 | `src/series/seriesData.ts` | Maturity grid, chart rows, default range, `seriesStats` and `flaggedCount` |
 

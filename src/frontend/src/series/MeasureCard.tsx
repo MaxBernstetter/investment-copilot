@@ -6,7 +6,16 @@ import { MEASURE_HELP, MEASURE_LABEL, type MeasureKey, type MeasurePoint } from 
 import { EMPTY, formatBp } from '../format'
 import MeasureTable from './MeasureTable'
 import SeriesChart from './SeriesChart'
-import { flaggedMeasureDays, gapDays, lastValueDate, measureRows, measureStats } from './measureSeries'
+import {
+  flaggedMeasureDays,
+  gapDays,
+  invertedDays,
+  invertedHint,
+  isSpread,
+  lastValueDate,
+  measureRows,
+  measureStats,
+} from './measureSeries'
 import { flaggedCaption } from './seriesData'
 
 function gapCaption(count: number): string {
@@ -29,8 +38,12 @@ export default function MeasureCard({ points, measureKey, display, toggle }: Mea
   const lastRowDate = points[points.length - 1]?.valid_date
   const gaps = gapDays(points, measureKey)
   const flagged = flaggedMeasureDays(points, measureKey)
+  const spread = isSpread(measureKey)
+  const inverted = spread ? invertedDays(points, measureKey) : undefined
 
+  // Order: inverted days (spreads), gaps, then flagged values.
   const captions = [
+    inverted !== undefined && inverted.total > 0 ? invertedHint(inverted) : undefined,
     gaps > 0 ? gapCaption(gaps) : undefined,
     flagged > 0 ? flaggedCaption(flagged) : undefined,
   ].filter((caption): caption is string => caption !== undefined)
@@ -64,7 +77,7 @@ export default function MeasureCard({ points, measureKey, display, toggle }: Mea
           {toggle}
         </Group>
         {display === 'chart' ? (
-          <SeriesChart rows={measureRows(points, measureKey)} label={label} decimals={1} />
+          <SeriesChart rows={measureRows(points, measureKey)} label={label} decimals={1} zeroLine={spread} />
         ) : (
           <MeasureTable points={points} measureKey={measureKey} />
         )}
