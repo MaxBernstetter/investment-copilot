@@ -35,7 +35,7 @@ export default function StatCard({ label, value, hint, help, badge, loading = fa
         {help === undefined ? (
           labelText
         ) : (
-          <Group gap={4} wrap="nowrap" align="center">
+          <Group gap={8} wrap="nowrap" align="center">
             {labelText}
             <Tooltip label={help}>
               <ActionIcon variant="subtle" size="sm" aria-label={`About ${label}`}>
