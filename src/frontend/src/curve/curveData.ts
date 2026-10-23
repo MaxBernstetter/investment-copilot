@@ -1,5 +1,6 @@
 import type { components } from '../api/schema'
 import { CHART_COLORS } from '../theme'
+import type { CurveInfo } from './fetchCurves'
 
 export type CurvePoint = components['schemas']['CurvePoint']
 
@@ -89,4 +90,34 @@ export function tenYearHint(points: CurvePoint[]): string | undefined {
   if (yield10y(points) === undefined) return 'Not available'
   if (flaggedMaturities(points).includes('10Y')) return 'Value flagged'
   return undefined
+}
+
+/** Why the curves on one chart are not directly comparable, or undefined when their conventions agree. */
+export type ComparabilityIssue = 'rate-type' | 'compounding' | 'both'
+
+/** Whether the curves differ in rate type, compounding, or both. Simulated curves follow the same rule. */
+export function comparabilityIssue(curves: readonly CurveInfo[]): ComparabilityIssue | undefined {
+  const rateDiffers = new Set(curves.map((curve) => curve.rateType)).size > 1
+  const compoundingDiffers = new Set(curves.map((curve) => curve.compounding)).size > 1
+  if (rateDiffers && compoundingDiffers) return 'both'
+  if (rateDiffers) return 'rate-type'
+  if (compoundingDiffers) return 'compounding'
+  return undefined
+}
+
+/**
+ * The distinct catalogue curves of some overlay entries, in order of first appearance.
+ * An entry whose curve is not in the catalogue is skipped.
+ */
+export function distinctCurves(entries: readonly OverlayEntry[], catalogue: readonly CurveInfo[]): CurveInfo[] {
+  const byId = new Map(catalogue.map((curve) => [curve.id, curve]))
+  const seen = new Set<string>()
+  const curves: CurveInfo[] = []
+  for (const { curveId } of entries) {
+    const curve = byId.get(curveId)
+    if (curve === undefined || seen.has(curveId)) continue
+    seen.add(curveId)
+    curves.push(curve)
+  }
+  return curves
 }

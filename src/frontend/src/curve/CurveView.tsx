@@ -25,7 +25,9 @@ import ValueQualityCell from '../quality/ValueQualityCell'
 import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
 import OverlayEntries from './OverlayEntries'
+import OverlayNotes from './OverlayNotes'
 import {
+  distinctCurves,
   entryKey,
   flaggedMaturities,
   missingMaturities,
@@ -192,6 +194,19 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
     setAnnouncement(`Removed ${labelOf(removed.curveId)} · ${removed.validDate} from the overlay. ${inChart(count)}`)
   }
 
+  // The curves drawn: the shown one and each overlay entry that loaded. Failed or empty entries are not listed.
+  const drawnCurves = useMemo(
+    () =>
+      distinctCurves(
+        [
+          { curveId: curve.id, validDate: returnedDate },
+          ...entries.filter((entry) => overlayResults[entryKey(entry)]?.kind === 'ok'),
+        ],
+        catalogue,
+      ),
+    [catalogue, curve.id, entries, overlayResults, returnedDate],
+  )
+
   const points = result?.kind === 'ok' ? result.curve.data.points : []
   const missing = result?.kind === 'ok' ? missingMaturities(points) : []
   const flagged = flaggedMaturities(points)
@@ -292,6 +307,7 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
               {announcement}
             </VisuallyHidden>
             <CurveChart curves={curves} />
+            {entries.length > 0 && <OverlayNotes curves={drawnCurves} />}
             {(missing.length > 0 || flagged.length > 0) && (
               <Stack gap={4} mt="sm">
                 {missing.length > 0 && <Text size="sm" c="dimmed">No value for: {missing.join(', ')}</Text>}

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { CHART_COLORS } from '../theme'
+import { AAA, ALL, PAR } from '../test/catalogue'
+import type { CurveInfo } from './fetchCurves'
 import {
+  comparabilityIssue,
+  distinctCurves,
   entryKey,
   flaggedMaturities,
   missingMaturities,
@@ -150,5 +154,49 @@ describe('colour slots', () => {
       { key: 'b', label: 'y', points, slot: 3 },
     ])
     expect(series.map((s) => s.color)).toEqual([CHART_COLORS[0], CHART_COLORS[3]])
+  })
+})
+
+describe('comparabilityIssue', () => {
+  const semiAnnualSpot: CurveInfo = { ...AAA, id: 'semi', compounding: 'semi-annual' }
+
+  it('is undefined when the curves share rate type and compounding', () => {
+    expect(comparabilityIssue([AAA, ALL])).toBeUndefined()
+    expect(comparabilityIssue([AAA])).toBeUndefined()
+    expect(comparabilityIssue([])).toBeUndefined()
+  })
+
+  it('is rate-type when spot and par are mixed with the same compounding', () => {
+    expect(comparabilityIssue([AAA, { ...PAR, compounding: 'continuous' }])).toBe('rate-type')
+  })
+
+  it('is compounding when continuous and semi-annual are mixed with the same rate type', () => {
+    expect(comparabilityIssue([AAA, semiAnnualSpot])).toBe('compounding')
+  })
+
+  it('is both when rate type and compounding differ', () => {
+    expect(comparabilityIssue([AAA, PAR])).toBe('both')
+  })
+})
+
+describe('distinctCurves', () => {
+  const catalogue = [AAA, ALL, PAR]
+
+  it('returns each catalogue curve once, in order of first appearance', () => {
+    const entries = [
+      { curveId: 'ust-par', validDate: '2026-10-16' },
+      { curveId: 'ecb-aaa-spot', validDate: '2026-10-15' },
+      { curveId: 'ust-par', validDate: '2026-10-14' },
+      { curveId: 'ecb-aaa-spot', validDate: '2026-10-13' },
+    ]
+    expect(distinctCurves(entries, catalogue).map((curve) => curve.id)).toEqual(['ust-par', 'ecb-aaa-spot'])
+  })
+
+  it('skips an entry whose curve is not in the catalogue', () => {
+    const entries = [
+      { curveId: 'gone', validDate: '2026-10-15' },
+      { curveId: 'ecb-all-spot', validDate: '2026-10-15' },
+    ]
+    expect(distinctCurves(entries, catalogue).map((curve) => curve.id)).toEqual(['ecb-all-spot'])
   })
 })

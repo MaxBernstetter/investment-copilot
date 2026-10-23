@@ -190,6 +190,12 @@ export async function installApiMocks(page: Page, mode: MockMode = 'online') {
         return
       }
 
+      // The all-issuer curve has its own values on every date, so an overlay of it differs from the AAA overlay.
+      if (curveId === 'ecb-all-spot') {
+        await fulfillJson(route, 200, curveBody(curveId, curveAllGrid, validDate ?? undefined, true))
+        return
+      }
+
       if (validDate === '2026-10-13') {
         await fulfillJson(route, 200, curveBody(curveId, curveInverted, '2026-10-13'))
         return
