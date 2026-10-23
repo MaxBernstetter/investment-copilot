@@ -41,7 +41,7 @@ The theme lives only in `src/frontend/src/theme.ts`; no other CSS (ADR 0018).
 - L7 Every table is a `DataTable` (`src/components/DataTable.tsx`): a Columns menu to show or hide columns, a filter input per column (`filterText`), and resizable columns (drag the header separator, or focus it and use the arrow keys; 8 px a step). Columns keep their headers as `columnheader`s; the filter row uses plain cells.
 
 ## Data display
-- D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric columns `ta="right"`, header too.
+- D1 All numbers tabular (`Table tabularNums`, Title theme override). Numeric column cells `ta="right"`; every column header is left-aligned.
 - D2 Yields: 3 decimals, unit in the column header or after the value with a narrow no-break space (U+202F): `2.871 %`.
   Spreads and changes: basis points, 1 decimal, always signed with true minus: `+9.0 bp`, `−2,376.0 bp`.
   Thousands separator in bp. Missing: `–`. In a table the unit may sit in the column header (`Value (bp)`) with bare signed cells (`+9.0`, `−12.4`).

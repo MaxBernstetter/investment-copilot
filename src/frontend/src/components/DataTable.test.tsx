@@ -147,3 +147,28 @@ describe('typed filters', () => {
     for (const header of screen.getAllByRole('columnheader')) expect(header).toHaveStyle({ textAlign: 'left' })
   })
 })
+
+describe('filter edge cases', () => {
+  afterEach(cleanup)
+
+  it('lets an explicit text kind filter on filterText', () => {
+    const column: TableColumn<Row> = { id: 'n', header: 'N', cell: (r) => r.name, kind: 'text', filterText: (r) => r.name }
+    expect(matchesFilters(rows[0] as Row, [column], { n: 'zzz' })).toBe(false)
+    expect(matchesFilters(rows[0] as Row, [column], { n: 'alp' })).toBe(true)
+  })
+
+  it('ignores a full-range number filter so null rows stay visible', async () => {
+    const withNull = [{ id: 'a', v: 1 }, { id: 'b', v: 3 }, { id: 'c', v: null as number | null }]
+    const cols: TableColumn<(typeof withNull)[number]>[] = [
+      { id: 'v', header: 'V', cell: (r) => String(r.v), kind: 'number', filterValue: (r) => r.v },
+    ]
+    render(<DataTable columns={cols} rows={withNull} rowKey={(r) => r.id} />)
+    const user = userEvent.setup()
+    const from = screen.getByRole('slider', { name: 'Filter V from' })
+    from.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getAllByRole('row')).toHaveLength(2 + 1)
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getAllByRole('row')).toHaveLength(2 + 3)
+  })
+})
