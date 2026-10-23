@@ -349,6 +349,31 @@ test.describe('visual snapshots §7', () => {
     await captureSnapshots(page, 'S20', ['light'])
   })
 
+  test('Values History link keeps blue.9 with contrast on a hovered row (light)', async ({ page }) => {
+    await page.goto('/')
+    await waitForCurveLoaded(page)
+    await setColorScheme(page, 'light')
+    const history = page.getByRole('button', { name: /^History / }).first()
+    const row = history.locator('xpath=ancestor::tr')
+    await row.hover()
+    const measured = await history.evaluate((button) => {
+      const parse = (css: string) => css.match(/[\d.]+/g)!.slice(0, 3).map(Number)
+      const luminance = ([r, g, b]: number[]) => {
+        const [R, G, B] = [r, g, b].map((c) => {
+          const v = c / 255
+          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+        })
+        return 0.2126 * R + 0.7152 * G + 0.0722 * B
+      }
+      const text = parse(getComputedStyle(button).color)
+      const bg = parse(getComputedStyle(button.closest('tr')!).backgroundColor)
+      const [hi, lo] = [luminance(text), luminance(bg)].sort((a, b) => b - a)
+      return { text, bg, ratio: (hi + 0.05) / (lo + 0.05) }
+    })
+    expect(measured.text).toEqual([24, 100, 171]) // blue.9 #1864ab (T4)
+    expect(measured.ratio).toBeGreaterThanOrEqual(4.5)
+  })
+
   test('S21 key figure tooltip from keyboard', async ({ page }) => {
     await page.goto('/')
     await waitForCurveLoaded(page)
