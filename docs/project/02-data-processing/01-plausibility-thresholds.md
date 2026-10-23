@@ -85,6 +85,43 @@ Why the same values as the AAA curve:
 - **Jump > 50 bp as `warn`:** 3 days, 2008 to 2010. One is a long-end fitting artefact (30Y on 2010-10-15, −88 bp), which is exactly what `warn` is for; the other two are the 3M move on 2008-10-08 and the 30Y move on 2009-01-23.
 - **Same values on both ECB curves:** flags stay comparable when the two curves are overlaid in the explorer. The texts are curve-specific, because they cite this curve's own range and counts.
 
+## US Treasury par yield curve
+
+Derived for `ust-par` (the US Treasury daily par yield curve, grid 2) from the Treasury's yearly CSV files: 14 tenors (1M to 30Y), 9,208 published days from 1990-01-02 to 2026-10-22, 99,866 daily changes. Values in percent, as published. The thresholds are **provisional** (`UST_PAR` in `rule_config.py`): the derivation below was done by hand with the method of the ECB section, and `plausibility_thresholds.py --source ust` is a follow-up (MR3b).
+
+| Tenor | Min % | Max % | P50 bp | P99 bp | P99.9 bp | Max bp |
+|---|---|---|---|---|---|---|
+| 1M | 0.000 | 6.020 | 1.0 | 26.9 | 69.1 | 106.0 |
+| 1.5M | 3.650 | 4.530 | 1.0 | 6.8 | 10.9 | 13.0 |
+| 2M | 0.000 | 5.610 | 1.0 | 15.0 | 22.0 | 27.0 |
+| 3M | 0.000 | 8.260 | 1.0 | 17.0 | 47.0 | 81.0 |
+| 4M | 3.580 | 5.640 | 1.0 | 10.0 | 19.0 | 21.0 |
+| 6M | 0.020 | 8.490 | 1.0 | 15.0 | 32.6 | 75.0 |
+| 1Y | 0.040 | 8.640 | 2.0 | 16.0 | 33.8 | 60.0 |
+| 2Y | 0.090 | 9.050 | 3.0 | 19.0 | 33.0 | 57.0 |
+| 3Y | 0.100 | 9.110 | 3.0 | 19.0 | 32.0 | 50.0 |
+| 5Y | 0.190 | 9.100 | 3.0 | 19.0 | 29.0 | 46.0 |
+| 7Y | 0.360 | 9.120 | 3.0 | 19.0 | 28.8 | 53.0 |
+| 10Y | 0.520 | 9.090 | 3.0 | 18.0 | 26.6 | 51.0 |
+| 20Y | 0.870 | 8.300 | 3.0 | 16.0 | 25.0 | 35.0 |
+| 30Y | 0.990 | 9.180 | 3.0 | 16.0 | 27.8 | 86.0 |
+| **All** | **0.000** | **9.180** | | **18.0** | **34.0** | **106.0** |
+
+| Candidate jump threshold | Values above | Days | Share of changes | Years |
+|---|---|---|---|---|
+| > 20 bp | 709 | 269 | 0.710 % | 1990 to 2011, 2013, 2016 to 2018, 2020 to 2025 |
+| **> 25 bp (info)** | 278 | 130 | 0.278 % | 1990 to 1992, 1994 to 1998, 2000 to 2009, 2011, 2017, 2020, 2022 to 2024 |
+| > 30 bp | 159 | 81 | 0.159 % | 1991, 1992, 1994 to 1996, 1998, 2000, 2001, 2005 to 2009, 2017, 2020, 2022, 2023 |
+| > 40 bp | 67 | 37 | 0.067 % | 1994, 1998, 2000, 2001, 2006 to 2009, 2023 |
+| **> 50 bp (warn)** | 31 | 24 | 0.031 % | 1998, 2000, 2001, 2006 to 2009, 2023 |
+
+Why these thresholds:
+
+- **Range −0.50 % … 10.00 %:** the history spans 0.00 % to 9.18 %, so no value is flagged. The band leaves 0.5 pp below zero and about 0.8 pp above the highest value.
+- **Jump > 25 bp as `info`:** 130 days in about 37 years, about 3.5 a year, slightly above the "about three a year" revisit rule. 162 of the 278 values are from the 2000s and 69 are the 1M bill (2007 to 2008 and 2023 among them). The rule is kept provisional until the script derivation exists.
+- **Jump > 50 bp as `warn`:** 24 days, all in stress periods (1998, 2000, 2001, 2006 to 2009, 2023), except one artefact: 30Y on 2006-02-09 (+86 bp), the first value after the 2002-02-19 to 2006-02-08 gap, compared with 2002-02-15. The backfill will show this one `warn`; it is a known false positive of the gap, not a data error.
+- **Calendar and maturities:** the bond market closures (Good Friday, unscheduled closures) and the column introductions are in the calendar and the expected maturities, not the thresholds (see [[03-quality-checks]]).
+
 ## How users see it
 
 Every flag in the explorer carries a short explanation that states the rule and the evidence. The texts are configured per curve; for the ECB AAA spot curve (and `ecb-aaa-spot-sim`) they are:

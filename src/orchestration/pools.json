@@ -3,5 +3,10 @@
     "slots": 1,
     "description": "ECB Data Portal: one load at a time (source access policy)",
     "include_deferred": false
+  },
+  "ust": {
+    "slots": 1,
+    "description": "US Treasury website: one load at a time (source access policy)",
+    "include_deferred": false
   }
 }

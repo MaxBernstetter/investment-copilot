@@ -54,3 +54,25 @@ ECB_ALL_SPOT_EXPLANATIONS = replace(
         "This happened on only 3 days since 2004 (2008 to 2010); check the source data."
     ),
 )
+
+UST_PAR_EXPLANATIONS = replace(
+    ECB_AAA_SPOT_EXPLANATIONS,
+    range_warn=(
+        f"Outside the plausible range of {_MINUS}0.50{_PCT} to 10.00{_PCT}. "
+        f"US Treasury par yields stayed between 0.00{_PCT} and 9.18{_PCT} since 1990."
+    ),
+    jump_info=(
+        "Moved more than 25 bp since the previous business day. "
+        "This happened on 130 days since 1990, many of them in stress periods."
+    ),
+    jump_warn=(
+        "Moved more than 50 bp since the previous business day. "
+        "This happened on only 24 days since 1990 (1998 to 2009 and 2023), mostly in market "
+        "stress; check the source data."
+    ),
+    missing_date="No value was published for this US bond market business day.",
+    missing_maturity=(
+        "No value for this maturity on a US bond market business day on which other maturities "
+        "have one."
+    ),
+)

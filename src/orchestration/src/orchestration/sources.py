@@ -8,11 +8,12 @@ ingestion job it runs is ``ingestion-load-<source id>`` (see
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pendulum
 
 from orchestration.target_calendar import is_target_business_day, previous_target_business_day
+from orchestration.us_calendar import is_us_business_day
 
 BERLIN = pendulum.timezone("Europe/Berlin")
 
@@ -48,4 +49,28 @@ ECB = LoadSource(
     closed_message="{day} is a TARGET holiday: the ECB publishes nothing",
 )
 
-SOURCES: tuple[LoadSource, ...] = (ECB,)
+
+def is_ust_publication_day(run_day: date) -> bool:
+    """A UST run loads the day before, which the Treasury publishes only on a US business day."""
+    return is_us_business_day(run_day - timedelta(days=1))
+
+
+def previous_ust_publication_day(run_day: date) -> date:
+    """The valid date of a UST run: the day before, published by the Treasury that evening."""
+    return run_day - timedelta(days=1)
+
+
+# The Treasury publishes the curve of a day in the afternoon in New York, so the run the next
+# morning in Berlin loads it. Tuesday to Saturday: the runs for Monday to Friday publications.
+UST = LoadSource(
+    source_id="ust",
+    curve_ids=("ust-par",),
+    cron="0 8 * * 2-6",
+    timezone="Europe/Berlin",
+    start_date=datetime(2026, 10, 27, tzinfo=BERLIN),
+    is_publication_day=is_ust_publication_day,
+    previous_publication_day=previous_ust_publication_day,
+    closed_message="the day before {day} was a US bond market holiday: nothing published",
+)
+
+SOURCES: tuple[LoadSource, ...] = (ECB, UST)
