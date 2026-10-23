@@ -2,7 +2,37 @@
 
 The Airflow DAG `daily_load_ecb` runs the [[03-ecb-load|ECB curve load]] every TARGET business day after the ECB has published, and retries transient failures within the [[12-data-pipeline#Source access policy|source access policy]].
 
-Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: `src/orchestration/dags/daily_load_ecb.py`, with load steps in `src/orchestration/src/orchestration/ecb_daily_load.py`, quality-check commands in `orchestration/quality_check.py`, and the calendar in `orchestration/target_calendar.py`.
+Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: `src/orchestration/dags/load_sources.py` builds the DAG from the factory `orchestration/load_dags.py`, with the source configuration in `orchestration/sources.py`. The load steps are in `src/orchestration/src/orchestration/ecb_daily_load.py`, quality-check commands in `orchestration/quality_check.py`, and the calendar in `orchestration/target_calendar.py`.
+
+## Per-source DAGs
+
+Each source in `orchestration/sources.py` (`SOURCES`) gets two DAGs, built by the factories in `orchestration/load_dags.py` and registered by `dags/load_sources.py`:
+
+- `daily_load_<source>`: the scheduled load, tasks `load_<source>` and `check_quality`;
+- `backfill_<source>`: the manual range load, tasks `plan`, `load_year` and `check_year`.
+
+A source is one `LoadSource` (frozen dataclass) with these fields. ECB's values are the ones in the sections below.
+
+| Field | ECB value | Used for |
+|---|---|---|
+| `source_id` | `ecb` | DAG ids (`daily_load_ecb`, `backfill_ecb`), task id `load_ecb`, tags, the pool name, the job command `ingestion-load-ecb` |
+| `curve_ids` | `ecb-aaa-spot`, `ecb-all-spot` | one mapped quality check per curve, daily and per backfill year |
+| `cron`, `timezone` | `15 13 * * 1-5`, `Europe/Berlin` | the daily timetable |
+| `start_date` | 2026-10-19 | the daily DAG's start |
+| `is_publication_day`, `previous_publication_day` | TARGET calendar | the valid date of a run and the skip on closed days |
+| `closed_message` | `{day} is a TARGET holiday: the ECB publishes nothing` | the skip message (`{day}` is the run day) |
+
+The pool is named after the source and has one slot in `src/orchestration/pools.json`. Both DAGs of a source use that pool, so one source never has two requests in flight. Sources do not share pools or state.
+
+### Add a source
+
+Adding a source needs no new DAG file:
+
+1. Add a `LoadSource` to `SOURCES` in `orchestration/sources.py`, with its calendar functions (a new calendar module, as `target_calendar.py` is for TARGET).
+2. Add the pool `<source>` with `slots` 1 to `pools.json`; the DAG tests fail when a pool is missing.
+3. Add the ingestion side: the settings slot (`INGESTION_SOURCES__<SOURCE>__...`), the wiring in `ingestion/sources.py` and the console script `ingestion-load-<source>` (see [[03-ecb-load]]).
+
+The DAG factory tests (`test_dags.py`) check that every source's two DAGs import, use their own pool and follow their config.
 
 ## When it runs and what it loads
 
@@ -12,9 +42,9 @@ Tracked in [#21](https://github.com/MaxBernstetter/yield-lens/issues/21). Code: 
 | Why 13:15 | The ECB publishes at about 12:00 CET/CEST on TARGET business days ([[01-data-sources#Publication timing]]); the offset keeps the load off the publication minute |
 | Valid date | The previous TARGET business day before the run day (Monday loads Friday, the Tuesday after Easter loads Maundy Thursday). The job's lookback window re-fetches the days before it |
 | TARGET holiday | The task is skipped (`AirflowSkipException`), so the run ends as success with a skipped task, not as a failure |
-| Run id | `daily_load_ecb-<valid date>`, so a retry or rerun reuses it |
+| Run id | `daily_load_<source>-<valid date>` (ECB: `daily_load_ecb-<valid date>`), so a retry or rerun reuses it |
 | Catchup | Off. A missed day is covered by the next run's lookback window; longer gaps are the backfill ([#27](https://github.com/MaxBernstetter/yield-lens/issues/27)) |
-| Concurrency | `max_active_runs = 1` and the task runs in the pool `ecb` of size 1, so there is never more than one ECB load at a time |
+| Concurrency | `max_active_runs = 1` and the task runs in the pool `<source>` of size 1 (ECB: `ecb`), so there is never more than one load per source at a time |
 
 TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December. The calendar decides when to run; completeness checks against market calendars are processing's job ([[12-data-pipeline#Reference data]]).
 
@@ -30,7 +60,7 @@ TARGET is closed on weekends, 1 January, Good Friday, Easter Monday, 1 May, 25 a
 - A task attempt is cut off after 30 minutes (`execution_timeout`) and then retried like any failure.
 - The job's JSON output (`load_finished`, `load_failed`) goes into the task log.
 - When the task has failed for good, the failure callback logs one JSON line at `ERROR`: `event = task_failed`, `dag_id`, `task_id`, `run_id`, `try_number`, `error`, `message`. The failed task and run also stay in Airflow's run history.
-- A retried or finally failed load task runs `ingestion-load-ecb fail-unfinished` in Docker, which marks the still-running attempt of its run `failed` (the error type is the exception class: `AirflowTaskTimeout` when Airflow killed the task; `AttemptNotFinished` when the task has no exception). The run id comes from XCom (`ingestion_run_id`), which the load task pushes before it starts the job.
+- A retried or finally failed load task runs `ingestion-load-ecb fail-unfinished` in Docker, which marks the still-running attempt of its run `failed` (the error type is the exception class: `AirflowTaskTimeout` when Airflow killed the task; `AttemptNotFinished` when the task has no exception). The run id and the source id come from XCom (`ingestion_run_id`, `ingestion_source_id`), which the load task pushes before it starts the job; without both, the callback does nothing.
 
 ## How the tasks run the jobs
 
@@ -45,7 +75,7 @@ The ingestion and processing job images are built and tagged locally when you st
 
 ## Backfill
 
-The DAG `backfill_ecb` loads a date range by hand. Code: `src/orchestration/dags/backfill_ecb.py`, with the year split and the command in `src/orchestration/src/orchestration/ecb_backfill.py`.
+The DAG `backfill_ecb` loads a date range by hand (the backfill of every source is built the same way, see [Per-source DAGs](#per-source-dags)). Code: the factory `src/orchestration/src/orchestration/load_dags.py`, registered by `src/orchestration/dags/load_sources.py`, with the year split and the command in `src/orchestration/src/orchestration/ecb_backfill.py`.
 
 Trigger it from the Airflow UI with the parameters `start` and `end` (inclusive dates), or from the CLI:
 
@@ -77,9 +107,11 @@ Pools are defined in `src/orchestration/pools.json`. With the local Airflow prof
 
 | Test | Proves |
 |---|---|
-| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`, once per curve; one ECB task per daily run; the backfill is manual with load then quality check per year chunk and curve |
+| `tests/unit/test_sources.py` | The ECB source configuration literals (pool, job command, cron, timezone, start date, curves) and that source ids are unique identifiers |
+| `tests/unit/test_load_dags.py` | The run ids of the factory DAGs: unchanged for ECB, and carrying the DAG id of another source |
+| `tests/unit/test_dags.py` | Every DAG imports, uses only pools from `pools.json`, has tags and an owner; the DAG bag holds one daily and one backfill DAG per source; each source's pool has one slot and only its own DAGs use it; each DAG follows its source's cron, start date and curves; a second source built from config alone; the timetable fires Monday to Friday at 13:15 Berlin across the change to winter time; `max_active_runs = 1`, no catchup; 2 retries, the failure callback and the `ecb` pool of size 1; `check_quality` after `load_ecb`, once per curve; one ECB task per daily run; the backfill is manual with load then quality check per year chunk and curve |
 | `tests/unit/test_ecb_backfill.py` | The year split (clipped first and last chunk, one chunk within a year, `start` after `end` rejected) and the `history` command |
-| `tests/unit/test_ecb_daily_load.py` | Valid date per run day, skip on TARGET holidays, the job command, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
+| `tests/unit/test_ecb_daily_load.py` | Valid date per run day and per source calendar, skip on closed days, the job command and its source name, the unfinished-attempt command, the XCom source id, exit status mapping (retry on `1`, no retry on `2`), job output in the log, the JSON failure line |
 | `tests/unit/test_job_runner.py` | Image env mapping, argv split, forwarded env keys, missing image → fail-fast |
 | `tests/unit/test_quality_check.py` | The daily three-week window and the range check argv |
 | `tests/unit/test_target_calendar.py` | TARGET closing days, moving Easter, previous business day across weekends, holidays and the year end |

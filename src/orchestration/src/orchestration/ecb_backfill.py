@@ -1,14 +1,12 @@
 """Steps of the manual ECB backfill DAG: how a date range is split and which job command loads it.
 
 A range is loaded one calendar year at a time, so each job run makes one history request
-per year and the ECB is asked for a bounded window. The job is ``ingestion-load-ecb
+per year and the ECB is asked for a bounded window. The job is ``ingestion-load-<source>
 history`` (see ``docs/project/00-data-ingestion/03-ecb-load.md``). Running and failure
 reporting are shared with the daily DAG in ``ecb_daily_load``.
 """
 
 from datetime import date
-
-from orchestration.ecb_daily_load import JOB_COMMAND
 
 
 def backfill_years(start: date, end: date) -> list[tuple[date, date]]:
@@ -24,9 +22,9 @@ def backfill_years(start: date, end: date) -> list[tuple[date, date]]:
     ]
 
 
-def history_command(start: date, end: date, run_id: str) -> list[str]:
+def history_command(source_id: str, start: date, end: date, run_id: str) -> list[str]:
     return [
-        JOB_COMMAND,
+        f"ingestion-load-{source_id}",
         "history",
         "--start",
         start.isoformat(),
