@@ -479,6 +479,19 @@ describe('CurveView', () => {
     )
   })
 
+  it('adds and removes a table row with its overlay entry', async () => {
+    await renderLoaded()
+    fireEvent.click(addButton())
+    // Moving to another date makes the shown curve its own row, so the pinned 10-16 entry adds one more.
+    pickDate('2026-10-01')
+    const rows = () => within(screen.getByRole('table', { name: /^Overlaid curves:/ })).getAllByRole('rowheader')
+    await waitFor(() => expect(rows()).toHaveLength(2))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ECB euro area AAA spot · 2026-10-16 from overlay' }))
+    // The table follows the overlay entries: with none left it is not rendered.
+    await waitFor(() => expect(screen.queryByRole('table', { name: /^Overlaid curves:/ })).toBeNull())
+  })
+
   it('labels each pill with its curve and date', async () => {
     await renderLoaded()
     fireEvent.click(addButton())

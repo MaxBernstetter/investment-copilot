@@ -193,6 +193,7 @@ test.describe('screens §7', () => {
     await expect(pills.getByRole('button', { name: 'Remove US Treasury par · 2026-10-16 from overlay' })).toBeFocused()
     await expect(page.getByRole('note')).toHaveCount(0)
     await expect(page.getByText(/^No value on /)).toHaveCount(0)
+    await expect(page.getByRole('table', { name: /^Overlaid curves:/ }).getByRole('rowheader')).toHaveCount(1)
   })
 
   test('S3d overlay full: five entries and the disabled add button', async ({ page }) => {
