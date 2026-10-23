@@ -16,7 +16,7 @@ from opentelemetry import trace
 from pydantic import AwareDatetime
 
 from access.application.catalogue import CachedCatalogue
-from access.application.ports import CurveReader, MeasuresReader, QualityReader
+from access.application.ports import CurveReader, MeasuresReader, QualityChecker, QualityReader
 from access.domain.curve import (
     CurveNotFoundError,
     InvalidCurveQueryError,
@@ -25,10 +25,12 @@ from access.domain.curve import (
 )
 from access.domain.measures import MeasuresUnavailableError, inputs_are_checked
 from access.domain.quality import quality_is_complete
+from access.domain.quality_checks import QualityChecksDisabledError
 from access.facade.mapping import (
     to_changes_response,
     to_curves_response,
     to_measures_response,
+    to_quality_check_response,
     to_quality_days_response,
     to_response,
     to_series_response,
@@ -55,6 +57,8 @@ class Services:
     quality: QualityReader
     catalogue: CachedCatalogue
     measures: MeasuresReader
+    quality_checker: QualityChecker | None = None
+    """``None`` where the deployment does not let consumers start quality checks."""
 
 
 ServicesProvider = Callable[[], AbstractAsyncContextManager[Services]]
@@ -73,8 +77,8 @@ def create_app(services: ServicesProvider, *, cors_origins: Sequence[str]) -> Fa
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(cors_origins),
-        allow_methods=["GET"],
-        allow_headers=[],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
     )
     _add_problem_handlers(app)
     _add_routes(app)
@@ -279,6 +283,32 @@ def _add_routes(app: FastAPI) -> None:
             cache_control=NO_CACHE,
         )
 
+    @app.post(
+        v1.QUALITY_CHECKS_PATH,
+        response_model=v1.QualityCheckResponse,
+        responses={
+            status.HTTP_403_FORBIDDEN: {"model": v1.Problem},
+            status.HTTP_404_NOT_FOUND: {"model": v1.Problem},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": v1.Problem},
+            status.HTTP_503_SERVICE_UNAVAILABLE: {"model": v1.Problem},
+        },
+    )
+    async def quality_check(
+        curve_id: Annotated[str, Path(min_length=1, max_length=64)],
+        body: v1.QualityCheckRequest,
+        services: ServicesDependency,
+    ) -> v1.QualityCheckResponse:
+        """Check the quality of a curve over a valid-date range now and wait for the result.
+
+        A write, so a deployment must opt in; where it has not, the answer is 403. The check
+        reads the published values and records its result in processing; ``GET .../quality``
+        then shows it.
+        """
+        if services.quality_checker is None:
+            raise QualityChecksDisabledError
+        result = await services.quality_checker.check(curve_id, body.valid_from, body.valid_to)
+        return to_quality_check_response(result)
+
     @app.get(
         v1.MEASURES_PATH,
         response_model=v1.MeasuresResponse,
@@ -363,6 +393,14 @@ def _add_problem_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         return _problem(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Service unavailable", QUALITY_UNAVAILABLE_DETAIL
+        )
+
+    @app.exception_handler(QualityChecksDisabledError)
+    async def quality_checks_disabled(
+        _: Request, _error: QualityChecksDisabledError
+    ) -> JSONResponse:
+        return _problem(
+            status.HTTP_403_FORBIDDEN, "Forbidden", "Quality checks cannot be started here."
         )
 
     @app.exception_handler(MeasuresUnavailableError)

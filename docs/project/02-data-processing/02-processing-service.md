@@ -25,6 +25,7 @@ One image, two process types (see [[09-deployment]]):
 | Route | Parameters | Answers | Errors |
 |---|---|---|---|
 | `GET /v1/curves/{curve_id}/quality` | `from`, `to`, `as_of` | Quality per TARGET business day | 404 unknown curve; 422 invalid range or `as_of` |
+| `POST /v1/curves/{curve_id}/quality-checks` | body `valid_from`, `valid_to` | Checks the range now with the same use case as the `processing-check-quality` job, records the result under the run id `ui-check-<curve>-<from>-<to>-<UTC time>` and answers with the summary (`days`, `values`, `warn_count`, `info_count`, `checked_as_of`) | 404 unknown curve; 422 `valid_from` after `valid_to` or a range over 366 days |
 | `GET /v1/curves/{curve_id}/value-quality` | `from`, `to`, `maturity`, `as_of` | Quality per published value | 404 unknown curve; 422 invalid range or `as_of` |
 | `GET /v1/curves/{curve_id}/measures` | `from`, `to`, `as_of` | Spreads, curvature and inversion per valid date, see [[04-derived-measures]] | 404 unknown curve; 422 `from` after `to`, a range over 3660 days, or a future `as_of` |
 

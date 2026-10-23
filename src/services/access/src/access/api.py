@@ -30,7 +30,9 @@ async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
             str(settings.persistence_url), settings.persistence_timeout_seconds
         ) as persistence,
         ProcessingClient(
-            str(settings.processing_url), settings.processing_timeout_seconds
+            str(settings.processing_url),
+            settings.processing_timeout_seconds,
+            check_timeout_seconds=settings.quality_check_timeout_seconds,
         ) as quality,
     ):
         yield Services(
@@ -39,4 +41,5 @@ async def persistence_services(settings: Settings) -> AsyncIterator[Services]:
             quality,
             CachedCatalogue(persistence, settings.catalogue_ttl_seconds),
             measures=quality,
+            quality_checker=quality if settings.allow_quality_checks else None,
         )

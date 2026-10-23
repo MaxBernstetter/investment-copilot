@@ -16,6 +16,15 @@ class Settings(BaseSettings):
         gt=0,
         description="Seconds the curve catalogue is reused before persistence is read again",
     )
+    allow_quality_checks: bool = Field(
+        default=False,
+        description="Let consumers start a quality check (a write); a deployment opts in",
+    )
+    quality_check_timeout_seconds: float = Field(
+        default=120.0,
+        gt=0,
+        description="Seconds to wait for a quality check started on demand",
+    )
     cors_origins: str = Field(
         default="http://localhost:5174",
         description="Comma-separated origins allowed to call the API (the frontend)",

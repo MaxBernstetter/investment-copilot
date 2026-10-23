@@ -184,6 +184,8 @@ services:
       ACCESS_PERSISTENCE_URL: http://persistence:8001
       ACCESS_PROCESSING_URL: http://processing:8002
       ACCESS_CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5174}
+      # Off unless the dev Taskfile turns it on: the Quality view can then start a check (a write).
+      ACCESS_ALLOW_QUALITY_CHECKS: ${ACCESS_ALLOW_QUALITY_CHECKS:-false}
     ports:
       - 127.0.0.1:${ACCESS_PORT:-8000}:8000
     depends_on:

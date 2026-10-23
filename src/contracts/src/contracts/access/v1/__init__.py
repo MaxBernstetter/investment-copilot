@@ -35,7 +35,10 @@ from contracts.access.v1.measures import (
     MeasuresResponse,
 )
 from contracts.access.v1.quality import (
+    QUALITY_CHECKS_PATH,
     QUALITY_PATH,
+    QualityCheckRequest,
+    QualityCheckResponse,
     QualityDay,
     QualityDays,
     QualityDaysResponse,
@@ -67,6 +70,7 @@ __all__ = [
     "CURVE_CHANGES_PATH",
     "CURVE_OBSERVATIONS_PATH",
     "MEASURES_PATH",
+    "QUALITY_CHECKS_PATH",
     "QUALITY_PATH",
     "SERIES_OBSERVATIONS_PATH",
     "VALUE_VERSIONS_PATH",
@@ -90,6 +94,8 @@ __all__ = [
     "MeasuresResponse",
     "Origin",
     "Problem",
+    "QualityCheckRequest",
+    "QualityCheckResponse",
     "QualityDay",
     "QualityDays",
     "QualityDaysResponse",

@@ -24,6 +24,7 @@ from access.domain.measures import (
     MeasuresUnavailableError,
 )
 from access.domain.quality import QualityFlag, QualityStatus, Severity, ValueQuality
+from access.domain.quality_checks import QualityCheckResult
 from access.domain.quality_days import (
     QualityDay,
     QualityDays,
@@ -43,7 +44,9 @@ class ProcessingClient:
         timeout_seconds: float,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        check_timeout_seconds: float = 120.0,
     ) -> None:
+        self._check_timeout_seconds = check_timeout_seconds
         self._http = httpx.AsyncClient(
             base_url=base_url, timeout=timeout_seconds, transport=transport
         )
@@ -90,6 +93,26 @@ class ProcessingClient:
             )
             return None
         return _to_domain(v1.ValueQualityResponse.model_validate_json(response.content))
+
+    async def check(self, curve_id: str, valid_from: date, valid_to: date) -> QualityCheckResult:
+        path = v1.QUALITY_CHECKS_PATH.format(curve_id=quote(curve_id, safe=""))
+        body = v1.QualityCheckRequest(valid_from=valid_from, valid_to=valid_to)
+        try:
+            response = await self._http.post(
+                path,
+                content=body.model_dump_json(),
+                headers={"Content-Type": "application/json"},
+                timeout=self._check_timeout_seconds,
+            )
+        except httpx.HTTPError as error:
+            raise ProcessingUnavailableError from error
+        if response.status_code == httpx.codes.OK:
+            return _check_to_domain(_parse_check(response))
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise CurveNotFoundError(_problem_detail(response))
+        if response.status_code == 422:
+            raise InvalidCurveQueryError(_problem_detail(response))
+        raise ProcessingUnavailableError(f"processing answered {response.status_code}")
 
     async def measures(
         self,
@@ -149,6 +172,25 @@ def _parse_quality_days(response: httpx.Response) -> v1.QualityDaysResponse:
         return v1.QualityDaysResponse.model_validate_json(response.content)
     except ValidationError as error:
         raise ProcessingUnavailableError("processing sent an unexpected quality body") from error
+
+
+def _parse_check(response: httpx.Response) -> v1.QualityCheckResponse:
+    try:
+        return v1.QualityCheckResponse.model_validate_json(response.content)
+    except ValidationError as error:
+        raise ProcessingUnavailableError("processing sent an unexpected check body") from error
+
+
+def _check_to_domain(response: v1.QualityCheckResponse) -> QualityCheckResult:
+    return QualityCheckResult(
+        curve_id=response.curve_id,
+        run_id=response.run_id,
+        checked_as_of=response.checked_as_of,
+        days=response.days,
+        values=response.values,
+        warn_count=response.warn_count,
+        info_count=response.info_count,
+    )
 
 
 def _parse_measures(response: httpx.Response) -> v1.MeasuresResponse:

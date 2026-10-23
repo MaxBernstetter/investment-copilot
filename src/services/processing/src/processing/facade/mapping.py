@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from contracts.processing import v1
 
+from processing.application.check_quality import CheckSummary
 from processing.domain.measures import CurveMeasures, MeasureInput, MeasurePoint
 from processing.domain.quality import Finding
 from processing.domain.read import (
@@ -119,3 +120,15 @@ def _measure_input(item: MeasureInput) -> v1.MeasureInput:
 
 def _optional_float(value: Decimal | None) -> float | None:
     return float(value) if value is not None else None
+
+
+def to_quality_check_response(summary: CheckSummary) -> v1.QualityCheckResponse:
+    return v1.QualityCheckResponse(
+        curve_id=summary.curve_id,
+        run_id=summary.run_id,
+        checked_as_of=summary.checked_as_of,
+        days=summary.days,
+        values=summary.values,
+        warn_count=summary.warn_count,
+        info_count=summary.info_count,
+    )

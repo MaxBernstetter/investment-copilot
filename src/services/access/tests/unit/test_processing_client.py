@@ -344,3 +344,58 @@ async def test_measures_malformed_200_body_raises_measures_unavailable() -> None
     async with client_answering(httpx.MockTransport(malformed)) as client:
         with pytest.raises(MeasuresUnavailableError, match="unexpected measures body"):
             await client.measures("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 12), AS_OF)
+
+
+CHECK_PATH = "/v1/curves/ecb-aaa-spot/quality-checks"
+CHECK_BODY = {
+    "curve_id": "ecb-aaa-spot",
+    "run_id": "ui-check-ecb-aaa-spot-2026-03-12-2026-03-14-20260313T080000",
+    "checked_as_of": "2026-03-13T08:00:00Z",
+    "days": 3,
+    "values": 33,
+    "warn_count": 1,
+    "info_count": 2,
+}
+
+
+async def test_check_posts_the_range_and_maps_the_result() -> None:
+    seen: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=CHECK_BODY)
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        result = await client.check("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14))
+
+    assert seen[0].method == "POST"
+    assert seen[0].url.path == CHECK_PATH
+    assert seen[0].read() == b'{"valid_from":"2026-03-12","valid_to":"2026-03-14"}'
+    assert (result.days, result.values, result.warn_count, result.info_count) == (3, 33, 1, 2)
+    assert result.checked_as_of == datetime(2026, 3, 13, 8, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (404, CurveNotFoundError),
+        (422, InvalidCurveQueryError),
+        (500, ProcessingUnavailableError),
+    ],
+)
+async def test_check_maps_the_error_answers(status: int, error: type[Exception]) -> None:
+    def answer(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json={"detail": "no"})
+
+    async with client_answering(httpx.MockTransport(answer)) as client:
+        with pytest.raises(error):
+            await client.check("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14))
+
+
+async def test_check_failing_transport_is_unavailable() -> None:
+    def refuse(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    async with client_answering(httpx.MockTransport(refuse)) as client:
+        with pytest.raises(ProcessingUnavailableError):
+            await client.check("ecb-aaa-spot", date(2026, 3, 12), date(2026, 3, 14))

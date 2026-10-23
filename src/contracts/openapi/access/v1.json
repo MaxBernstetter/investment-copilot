@@ -716,6 +716,96 @@
         "title": "Problem",
         "type": "object"
       },
+      "QualityCheckRequest": {
+        "additionalProperties": false,
+        "description": "Body of the quality check request: the valid-date range to check.",
+        "properties": {
+          "valid_from": {
+            "description": "First valid date to check (inclusive)",
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "description": "Last valid date to check (inclusive); at most 366 days after valid_from",
+            "format": "date",
+            "title": "Valid To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "QualityCheckRequest",
+        "type": "object"
+      },
+      "QualityCheckResponse": {
+        "additionalProperties": false,
+        "description": "What one finished quality check covered and found.",
+        "properties": {
+          "checked_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Knowledge time (UTC) the check assessed; null when the curve has no values yet",
+            "title": "Checked As Of"
+          },
+          "curve_id": {
+            "examples": [
+              "ecb-aaa-spot"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Curve Id",
+            "type": "string"
+          },
+          "days": {
+            "description": "Business days assessed",
+            "minimum": 0.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "info_count": {
+            "minimum": 0.0,
+            "title": "Info Count",
+            "type": "integer"
+          },
+          "run_id": {
+            "description": "Identifier of the check run; unique per request",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "values": {
+            "description": "Published values assessed",
+            "minimum": 0.0,
+            "title": "Values",
+            "type": "integer"
+          },
+          "warn_count": {
+            "minimum": 0.0,
+            "title": "Warn Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "curve_id",
+          "run_id",
+          "checked_as_of",
+          "days",
+          "values",
+          "warn_count",
+          "info_count"
+        ],
+        "title": "QualityCheckResponse",
+        "type": "object"
+      },
       "QualityDay": {
         "additionalProperties": false,
         "description": "Quality of one valid date of a curve, with the rules that produced it.",
@@ -2153,6 +2243,88 @@
           }
         },
         "summary": "Quality Days"
+      }
+    },
+    "/v1/curves/{curve_id}/quality/checks": {
+      "post": {
+        "description": "Check the quality of a curve over a valid-date range now and wait for the result.\n\nA write, so a deployment must opt in; where it has not, the answer is 403. The check\nreads the published values and records its result in processing; ``GET .../quality``\nthen shows it.",
+        "operationId": "quality_check_v1_curves__curve_id__quality_checks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Curve Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualityCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Quality Check"
       }
     }
   }
