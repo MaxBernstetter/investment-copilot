@@ -191,7 +191,12 @@ def test_the_dag_bag_holds_exactly_one_daily_and_one_backfill_dag_per_source(
         *(f"daily_load_{source.source_id}" for source in SOURCES),
         *(f"backfill_{source.source_id}" for source in SOURCES),
     }
-    assert set(dag_bag.dags) == {"daily_load_ecb", "backfill_ecb"}
+    assert set(dag_bag.dags) == {
+        "daily_load_ecb",
+        "backfill_ecb",
+        "daily_load_ust",
+        "backfill_ust",
+    }
 
 
 @pytest.mark.parametrize("source", SOURCES, ids=lambda source: source.source_id)
