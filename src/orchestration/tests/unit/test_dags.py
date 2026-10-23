@@ -13,6 +13,7 @@ from airflow.sdk.bases.decorator import DecoratedMappedOperator
 from airflow.sdk.definitions._internal.expandinput import DictOfListsExpandInput
 from airflow.serialization.decoders import decode_timetable
 from airflow.serialization.encoders import encode_timetable
+from airflow.serialization.enums import Encoding
 from airflow.timetables.base import DataInterval, TimeRestriction
 
 from orchestration.ecb_daily_load import (
@@ -20,6 +21,8 @@ from orchestration.ecb_daily_load import (
     mark_unfinished_attempt_failed,
     report_final_failure,
 )
+from orchestration.load_dags import build_backfill_dag, build_daily_load_dag
+from orchestration.sources import ECB, SOURCES, LoadSource
 
 COMPONENT = Path(__file__).parents[2]
 BERLIN = pendulum.timezone("Europe/Berlin")
@@ -179,3 +182,71 @@ def test_the_backfill_checks_each_year_after_the_loads(backfill_ecb: DAG) -> Non
 
 def test_the_backfill_checks_each_curve_per_year(backfill_ecb: DAG) -> None:
     assert mapped_arguments(backfill_ecb, "check_year")["curve_id"] == list(CURVE_IDS)
+
+
+def test_the_dag_bag_holds_exactly_one_daily_and_one_backfill_dag_per_source(
+    dag_bag: DagBag,
+) -> None:
+    assert set(dag_bag.dags) == {
+        *(f"daily_load_{source.source_id}" for source in SOURCES),
+        *(f"backfill_{source.source_id}" for source in SOURCES),
+    }
+    assert set(dag_bag.dags) == {"daily_load_ecb", "backfill_ecb"}
+
+
+@pytest.mark.parametrize("source", SOURCES, ids=lambda source: source.source_id)
+def test_each_source_has_its_own_pool_of_size_one(
+    source: LoadSource, dag_bag: DagBag, pools: dict[str, dict[str, object]]
+) -> None:
+    daily = dag_bag.dags[f"daily_load_{source.source_id}"]
+    backfill = dag_bag.dags[f"backfill_{source.source_id}"]
+
+    assert pools[source.pool]["slots"] == 1
+    assert [task.task_id for task in daily.tasks if task.pool == source.pool] == [
+        f"load_{source.source_id}"
+    ]
+    assert [task.task_id for task in backfill.tasks if task.pool == source.pool] == ["load_year"]
+    assert {task.pool for task in (*daily.tasks, *backfill.tasks)} <= {
+        "default_pool",
+        source.pool,
+    }
+
+
+@pytest.mark.parametrize("source", SOURCES, ids=lambda source: source.source_id)
+def test_each_dag_follows_its_source_config(source: LoadSource, dag_bag: DagBag) -> None:
+    daily = dag_bag.dags[f"daily_load_{source.source_id}"]
+    backfill = dag_bag.dags[f"backfill_{source.source_id}"]
+    timetable = encode_timetable(daily.timetable)[Encoding.VAR]
+
+    assert timetable["expression"] == source.cron
+    assert timetable["timezone"] == source.timezone
+    assert daily.start_date == source.start_date
+    assert source.source_id in daily.tags
+    assert source.source_id in backfill.tags
+    assert mapped_arguments(daily, "check_quality") == {"curve_id": list(source.curve_ids)}
+    assert mapped_arguments(backfill, "check_year")["curve_id"] == list(source.curve_ids)
+
+
+def test_the_factory_makes_a_second_source_from_config_alone() -> None:
+    ust = LoadSource(
+        source_id="ust",
+        curve_ids=("ust-par",),
+        cron="0 8 * * 2-6",
+        timezone="Europe/Berlin",
+        start_date=datetime(2026, 10, 19, tzinfo=BERLIN),
+        is_publication_day=lambda day: day.weekday() < 5,
+        previous_publication_day=lambda day: day - timedelta(days=1),
+        closed_message="{day} is a closed day for ust",
+    )
+
+    daily = build_daily_load_dag(ust)
+    backfill = build_backfill_dag(ust)
+
+    assert daily.dag_id == "daily_load_ust"
+    assert backfill.dag_id == "backfill_ust"
+    assert daily.get_task("load_ust").pool == "ust"
+    assert backfill.get_task("load_year").pool == "ust"
+    assert encode_timetable(daily.timetable)[Encoding.VAR]["expression"] == "0 8 * * 2-6"
+    assert mapped_arguments(daily, "check_quality") == {"curve_id": ["ust-par"]}
+    assert mapped_arguments(backfill, "check_year")["curve_id"] == ["ust-par"]
+    assert ECB.pool == "ecb"

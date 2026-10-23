@@ -2,7 +2,7 @@ import json
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any
 from unittest.mock import patch
 
@@ -20,6 +20,7 @@ from orchestration.ecb_daily_load import (
     run_job,
     valid_date_for,
 )
+from orchestration.sources import ECB, LoadSource
 
 
 @pytest.fixture
@@ -53,7 +54,7 @@ def mock_container_run(exit_code: int, *, stdout: str = "", stderr: str = "") ->
     ],
 )
 def test_a_run_loads_the_previous_target_business_day(run_day: date, valid_date: date) -> None:
-    assert valid_date_for(run_day) == valid_date
+    assert valid_date_for(run_day, ECB) == valid_date
 
 
 @pytest.mark.parametrize(
@@ -62,12 +63,15 @@ def test_a_run_loads_the_previous_target_business_day(run_day: date, valid_date:
     ids=["good-friday", "easter-monday", "labour-day", "christmas"],
 )
 def test_a_run_on_a_target_holiday_is_skipped(run_day: date) -> None:
-    with pytest.raises(AirflowSkipException, match="TARGET holiday"):
-        valid_date_for(run_day)
+    with pytest.raises(
+        AirflowSkipException,
+        match=f"{run_day} is a TARGET holiday: the ECB publishes nothing",
+    ):
+        valid_date_for(run_day, ECB)
 
 
-def test_the_daily_command_names_the_valid_date_and_the_run_id() -> None:
-    assert daily_load_command(date(2026, 10, 16), "daily_load_ecb-2026-10-16") == [
+def test_the_daily_command_is_unchanged_for_ecb() -> None:
+    assert daily_load_command("ecb", date(2026, 10, 16), "daily_load_ecb-2026-10-16") == [
         "ingestion-load-ecb",
         "daily",
         "--valid-date",
@@ -75,6 +79,29 @@ def test_the_daily_command_names_the_valid_date_and_the_run_id() -> None:
         "--run-id",
         "daily_load_ecb-2026-10-16",
     ]
+
+
+def test_the_daily_command_names_the_source() -> None:
+    assert daily_load_command("ust", date(2026, 10, 16), "daily_load_ust-2026-10-16")[0] == (
+        "ingestion-load-ust"
+    )
+
+
+def test_a_closed_day_follows_the_source_calendar() -> None:
+    source = LoadSource(
+        source_id="ust",
+        curve_ids=("ust-par",),
+        cron="0 8 * * 2-6",
+        timezone="Europe/Berlin",
+        start_date=datetime(2026, 10, 19),
+        is_publication_day=lambda day: day.weekday() != 4,  # closed on Fridays
+        previous_publication_day=lambda day: day - timedelta(days=3),
+        closed_message="{day} is a closed day for ust",
+    )
+
+    with pytest.raises(AirflowSkipException, match="2026-10-16 is a closed day for ust"):
+        valid_date_for(date(2026, 10, 16), source)
+    assert valid_date_for(date(2026, 10, 19), source) == date(2026, 10, 16)
 
 
 def test_a_finished_job_passes_and_its_summary_reaches_the_task_log(
@@ -168,7 +195,9 @@ class FakeXComTaskInstance:
 
 
 def test_the_fail_unfinished_command_names_run_and_error() -> None:
-    assert fail_unfinished_command("daily_load_ecb-2026-10-16", "AirflowTaskTimeout", "killed") == [
+    assert fail_unfinished_command(
+        "ecb", "daily_load_ecb-2026-10-16", "AirflowTaskTimeout", "killed"
+    ) == [
         "ingestion-load-ecb",
         "fail-unfinished",
         "--run-id",
@@ -180,17 +209,34 @@ def test_the_fail_unfinished_command_names_run_and_error() -> None:
     ]
 
 
-def test_the_run_id_is_remembered_for_the_callback() -> None:
+def test_fail_unfinished_command_without_a_message_names_the_source() -> None:
+    command = fail_unfinished_command(
+        "ust", "daily_load_ust-2026-10-16", "AttemptNotFinished", None
+    )
+    assert command == [
+        "ingestion-load-ust",
+        "fail-unfinished",
+        "--run-id",
+        "daily_load_ust-2026-10-16",
+        "--error-type",
+        "AttemptNotFinished",
+    ]
+
+
+def test_the_run_id_and_source_id_are_remembered_for_the_callback() -> None:
     ti = FakeXComTaskInstance()
 
-    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+    remember_run_id(ti, "daily_load_ecb-2026-10-16", "ecb")
 
-    assert ti.xcom == {"ingestion_run_id": "daily_load_ecb-2026-10-16"}
+    assert ti.xcom == {
+        "ingestion_run_id": "daily_load_ecb-2026-10-16",
+        "ingestion_source_id": "ecb",
+    }
 
 
 def test_a_killed_attempt_is_marked_failed_through_the_job(job_env: None) -> None:
     ti = FakeXComTaskInstance()
-    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+    remember_run_id(ti, "daily_load_ecb-2026-10-16", "ecb")
 
     with mock_container_run(0) as mocked:
         mark_unfinished_attempt_failed(
@@ -211,6 +257,20 @@ def test_a_killed_attempt_is_marked_failed_through_the_job(job_env: None) -> Non
     )
 
 
+def test_no_source_id_in_xcom_skips_marking(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="orchestration.ecb_daily_load")
+    ti = FakeXComTaskInstance()
+    ti.xcom["ingestion_run_id"] = "daily_load_ecb-2026-10-16"
+
+    with mock_container_run(0) as mocked:
+        mark_unfinished_attempt_failed(
+            {"ti": ti, "exception": None}  # type: ignore[typeddict-item]
+        )
+
+    mocked.assert_not_called()
+    assert "fail_unfinished_skipped" in caplog.text
+
+
 def test_without_a_remembered_run_id_no_job_runs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="orchestration.ecb_daily_load")
 
@@ -225,7 +285,7 @@ def test_without_a_remembered_run_id_no_job_runs(caplog: pytest.LogCaptureFixtur
 
 def test_the_callback_does_not_raise_when_the_job_fails(caplog: pytest.LogCaptureFixture) -> None:
     ti = FakeXComTaskInstance()
-    remember_run_id(ti, "daily_load_ecb-2026-10-16")
+    remember_run_id(ti, "daily_load_ecb-2026-10-16", "ecb")
     caplog.set_level(logging.ERROR, logger="orchestration.ecb_daily_load")
 
     with mock_container_run(1, stderr='{"event": "load_failed"}'):

@@ -25,7 +25,7 @@ def test_rejects_start_after_end() -> None:
 
 
 def test_history_command_argv() -> None:
-    assert history_command(date(2004, 9, 6), date(2004, 12, 31), "backfill_ecb-x") == [
+    assert history_command("ecb", date(2004, 9, 6), date(2004, 12, 31), "backfill_ecb-x") == [
         "ingestion-load-ecb",
         "history",
         "--start",
@@ -35,3 +35,9 @@ def test_history_command_argv() -> None:
         "--run-id",
         "backfill_ecb-x",
     ]
+
+
+def test_history_command_names_the_source() -> None:
+    assert history_command("ust", date(2004, 9, 6), date(2004, 12, 31), "backfill_ust-x")[0] == (
+        "ingestion-load-ust"
+    )

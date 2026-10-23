@@ -1,9 +1,10 @@
-"""Steps of the daily ECB load DAG: which date to load, how to run the job, what to report.
+"""Shared steps of the source load DAGs: which date to load, how to run the job, what to report.
 
-The load itself is the ingestion job ``ingestion-load-ecb`` (see
-``docs/project/00-data-ingestion/03-ecb-load.md``). Its exit status decides the retry:
+The load itself is the ingestion job ``ingestion-load-<source>`` (ECB: ``ingestion-load-ecb``,
+see ``docs/project/00-data-ingestion/03-ecb-load.md``). Its exit status decides the retry:
 ``0`` finished, ``1`` the load failed (retried by Airflow), ``2`` usage or configuration
-error (a retry cannot help, so the task fails at once).
+error (a retry cannot help, so the task fails at once). The DAGs are built in
+``orchestration.load_dags`` from the sources in ``orchestration.sources``.
 """
 
 import json
@@ -16,20 +17,20 @@ from airflow.sdk import Context
 from airflow.sdk.exceptions import AirflowSkipException
 
 from orchestration.job_runner import JobFailedError, run_job_container
-from orchestration.target_calendar import is_target_business_day, previous_target_business_day
+from orchestration.sources import ECB, LoadSource
 
-JOB_COMMAND = "ingestion-load-ecb"
 RUN_ID_XCOM_KEY = "ingestion_run_id"
+SOURCE_ID_XCOM_KEY = "ingestion_source_id"
 # The curves the ECB load writes, both from one request (see 01-data-sources); each is checked
 # after each load.
-CURVE_IDS = ("ecb-aaa-spot", "ecb-all-spot")
+CURVE_IDS = ECB.curve_ids
 
 log = logging.getLogger(__name__)
 
 __all__ = [
     "CURVE_IDS",
-    "JOB_COMMAND",
     "RUN_ID_XCOM_KEY",
+    "SOURCE_ID_XCOM_KEY",
     "JobFailedError",
     "daily_load_command",
     "fail_unfinished_command",
@@ -41,28 +42,45 @@ __all__ = [
 ]
 
 
-def valid_date_for(run_day: date) -> date:
-    """The valid date a run on ``run_day`` loads: the previous TARGET business day.
+def valid_date_for(run_day: date, source: LoadSource) -> date:
+    """The valid date a run on ``run_day`` loads: the previous publication day of the source.
 
     The ECB publishes the curve of a valid date on the next TARGET business day. On a
     TARGET holiday it publishes nothing, so the run is skipped instead of failing.
     """
-    if not is_target_business_day(run_day):
-        raise AirflowSkipException(f"{run_day} is a TARGET holiday: the ECB publishes nothing")
-    return previous_target_business_day(run_day)
+    if not source.is_publication_day(run_day):
+        raise AirflowSkipException(source.closed_message.format(day=run_day))
+    return source.previous_publication_day(run_day)
 
 
-def daily_load_command(valid_date: date, run_id: str) -> list[str]:
-    return [JOB_COMMAND, "daily", "--valid-date", valid_date.isoformat(), "--run-id", run_id]
+def daily_load_command(source_id: str, valid_date: date, run_id: str) -> list[str]:
+    return [
+        f"ingestion-load-{source_id}",
+        "daily",
+        "--valid-date",
+        valid_date.isoformat(),
+        "--run-id",
+        run_id,
+    ]
 
 
-def remember_run_id(ti: Any, run_id: str) -> None:
-    """Keeps the ingestion run id in XCom, so the failure callback can name the run."""
+def remember_run_id(ti: Any, run_id: str, source_id: str) -> None:
+    """Keeps the ingestion run id and source id in XCom, so the failure callback can name it."""
     ti.xcom_push(key=RUN_ID_XCOM_KEY, value=run_id)
+    ti.xcom_push(key=SOURCE_ID_XCOM_KEY, value=source_id)
 
 
-def fail_unfinished_command(run_id: str, error_type: str, error_message: str | None) -> list[str]:
-    command = [JOB_COMMAND, "fail-unfinished", "--run-id", run_id, "--error-type", error_type]
+def fail_unfinished_command(
+    source_id: str, run_id: str, error_type: str, error_message: str | None
+) -> list[str]:
+    command = [
+        f"ingestion-load-{source_id}",
+        "fail-unfinished",
+        "--run-id",
+        run_id,
+        "--error-type",
+        error_type,
+    ]
     if error_message is not None:
         command += ["--error-message", error_message]
     return command
@@ -84,13 +102,16 @@ def mark_unfinished_attempt_failed(context: Context) -> None:
     try:
         ti = context["ti"]
         run_id = ti.xcom_pull(task_ids=ti.task_id, key=RUN_ID_XCOM_KEY, map_indexes=ti.map_index)
-        if not run_id:
+        source_id = ti.xcom_pull(
+            task_ids=ti.task_id, key=SOURCE_ID_XCOM_KEY, map_indexes=ti.map_index
+        )
+        if not run_id or not source_id:
             log.info("fail_unfinished_skipped: no ingestion run id for task %s", ti.task_id)
             return
         exc = context.get("exception")
         error_type = type(exc).__name__ if exc else "AttemptNotFinished"
         error_message = (str(exc)[:500] or None) if exc else None
-        run_job_container(fail_unfinished_command(run_id, error_type, error_message))
+        run_job_container(fail_unfinished_command(source_id, run_id, error_type, error_message))
     except Exception:
         log.exception("fail_unfinished_failed: could not mark the ingestion attempt failed")
 
