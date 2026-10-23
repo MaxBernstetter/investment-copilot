@@ -22,9 +22,10 @@ Trivial changes (typos, docs wording) skip steps 2 and 4.
 - The board <https://github.com/users/MaxBernstetter/projects/2> must reflect the current state of agentic development at all times.
 - Set an issue to `In progress` directly when work on it starts, before planning or coding, and update its status on every later change (`In review` once its merge request is open, back to `In progress` when it is reworked).
 
-## GitLab issues
-- When opening a merge request for a GitLab issue, prefix the MR title with the issue ID from the issue title, e.g. `[00.10] Load published curve for one country`.
-- After opening the merge request, do not wait for CodeRabbit or CI. The orchestrator assesses the CodeRabbit threads (use the `mr-threads` skill) and checks CI before merging.
+## GitHub issues and pull requests
+In this file and the docs, "merge request" (MR) means a GitHub pull request.
+- When opening a pull request for a GitHub issue, prefix the PR title with the issue ID from the issue title, e.g. `[00.10] Load published curve for one country`.
+- After opening the pull request, do not wait for CodeRabbit or CI. The orchestrator assesses the CodeRabbit threads (use the `mr-threads` skill) and checks CI before merging.
 
 ## Merge request size
 Every merge request must be reviewable by a human in one sitting.
