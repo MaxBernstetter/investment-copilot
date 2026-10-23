@@ -2,7 +2,7 @@
 name: validator
 description: Validates a finished work unit or merge request against its plan, the issue's acceptance criteria and the Definition of done. Read-only, may run tests and checks. Use after the worker and before opening or merging a pull request.
 model: claude-sonnet-5-5
-effort: medium
+effort: low
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 
