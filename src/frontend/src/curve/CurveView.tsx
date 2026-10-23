@@ -37,18 +37,11 @@ import {
 import type { CurveInfo } from './fetchCurves'
 import { fetchCurve, type CurveResult } from './fetchCurve'
 import { fetchMeasures, type MeasuresResult } from './fetchMeasures'
-import { measureHint, measureValue, type MeasurePoint } from './measuresData'
+import { MEASURE_HELP, MEASURE_LABEL, measureHint, measureValue, type MeasurePoint } from './measuresData'
 import { validDateHelp } from './sources'
 
 const MAX_OVERLAYS = 5
 const HELP_10Y = 'Spot rate for a 10-year maturity on this valid date, in percent.'
-const HELP_2Y_10Y =
-  '10Y yield minus 2Y yield, in basis points. Also called the slope. Below zero the curve is inverted.'
-const HELP_3M_10Y =
-  '10Y yield minus 3M yield, in basis points. Compares the long end with the money-market end of the curve.'
-const HELP_CURVATURE =
-  '2 × 5Y \u2212 2Y \u2212 10Y, in basis points. Positive means a humped belly: 5Y is above the average of 2Y and 10Y. Negative means a sagging belly.'
-
 type CurveViewProps = {
   curve: CurveInfo
   /** The knowledge time shared by all views, set in the header. */
@@ -201,8 +194,8 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
               hint={tenYearHint(points)}
             />
             <StatCard
-              label="2Y–10Y spread"
-              help={HELP_2Y_10Y}
+              label={MEASURE_LABEL.spread_2y_10y}
+              help={MEASURE_HELP.spread_2y_10y}
               loading={measuresLoading}
               value={measureValue(measurePoint, 'spread_2y_10y')}
               hint={measureHint(measurePoint, 'spread_2y_10y')}
@@ -215,15 +208,15 @@ export default function CurveView({ curve, asOf }: CurveViewProps) {
               }
             />
             <StatCard
-              label="3M–10Y spread"
-              help={HELP_3M_10Y}
+              label={MEASURE_LABEL.spread_3m_10y}
+              help={MEASURE_HELP.spread_3m_10y}
               loading={measuresLoading}
               value={measureValue(measurePoint, 'spread_3m_10y')}
               hint={measureHint(measurePoint, 'spread_3m_10y')}
             />
             <StatCard
-              label="2Y–5Y–10Y curvature"
-              help={HELP_CURVATURE}
+              label={MEASURE_LABEL.curvature_2y_5y_10y}
+              help={MEASURE_HELP.curvature_2y_5y_10y}
               loading={measuresLoading}
               value={measureValue(measurePoint, 'curvature_2y_5y_10y')}
               hint={measureHint(measurePoint, 'curvature_2y_5y_10y')}
