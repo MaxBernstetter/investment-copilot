@@ -28,6 +28,7 @@ import VersionHistory from '../versions/VersionHistory'
 import CurveChart from './CurveChart'
 import OverlayEntries from './OverlayEntries'
 import OverlayNotes from './OverlayNotes'
+import OverlayTable from './OverlayTable'
 import {
   distinctCurves,
   entryKey,
@@ -316,6 +317,7 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
                 {flagged.length > 0 && <Text size="sm" c="dimmed">Flagged: {flagged.join(', ')}</Text>}
               </Stack>
             )}
+            {entries.length > 0 && <OverlayTable curves={curves} />}
             {entries.map((entry) => {
               const loaded = overlayResults[entryKey(entry)]
               const name = `${labelOf(entry.curveId)} · ${entry.validDate}`
