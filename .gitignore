@@ -245,3 +245,6 @@ job-posting.md
 
 # go-task checksum state (written by incremental tasks)
 .task/
+
+# Playwright MCP session output
+.playwright-mcp/
