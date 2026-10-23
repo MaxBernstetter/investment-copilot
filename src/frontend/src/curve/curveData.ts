@@ -57,3 +57,10 @@ export function spread2s10s(points: CurvePoint[]): number | undefined {
   if (y2 === undefined || y10 === undefined) return undefined
   return (y10 - y2) * 100
 }
+
+/** Hint under the 10Y yield card: missing, or flagged info/warn. */
+export function tenYearHint(points: CurvePoint[]): string | undefined {
+  if (yield10y(points) === undefined) return 'Not available'
+  if (flaggedMaturities(points).includes('10Y')) return 'Value flagged'
+  return undefined
+}
