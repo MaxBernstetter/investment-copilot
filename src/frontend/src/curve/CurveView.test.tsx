@@ -623,6 +623,25 @@ describe('CurveView', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
+  it('shows an empty state for a date without data and keeps the requested date', async () => {
+    await renderLoaded()
+    mockedFetch.mockImplementation(async ({ validDate }) =>
+      validDate === '2026-09-01'
+        ? { kind: 'not-found', detail: 'none' }
+        : curveResult(validDate ?? '2026-10-16', [2.1, 2.4, 2.5, 2.6, null, null]),
+    )
+    pickDate('2026-09-01')
+
+    expect(await screen.findByText('No data for this date')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('No data for this date')
+    expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-09-01')
+    expect(screen.queryByRole('alert')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show latest date' }))
+    await waitFor(() => expect(screen.queryByText('No data for this date')).toBeNull())
+    expect(screen.getByLabelText(/Valid date/)).toHaveValue('2026-10-16')
+  })
+
   it('refetches overlays when asOf changes', async () => {
     const { rerender } = await renderLoaded()
     fireEvent.click(addButton())

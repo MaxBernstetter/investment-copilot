@@ -4,7 +4,9 @@ import {
   Alert,
   Badge,
   Button,
+  Box,
   Card,
+  EmptyState,
   Group,
   SimpleGrid,
   Skeleton,
@@ -394,9 +396,18 @@ export default function CurveView({ curve, catalogue, overlay, asOf }: CurveView
         </Alert>
       )}
       {result?.kind === 'not-found' && !asOf && (
-        <Alert variant="light" color="blue" role="status">
-          No data known for this date.
-        </Alert>
+        <Box role="status">
+          <EmptyState
+            title="No data for this date"
+            description={`YieldLens has no values for ${curve.label} on ${shownDate || 'this date'}.`}
+          >
+            <EmptyState.Actions>
+              <Button variant="light" size="xs" onClick={() => setValidDate(undefined)}>
+                Show latest date
+              </Button>
+            </EmptyState.Actions>
+          </EmptyState>
+        </Box>
       )}
       {result?.kind === 'not-found' && asOf && <Text>No data known as of {formatUtc(asOf)}</Text>}
       {(result?.kind === 'invalid' || result?.kind === 'error') && (
